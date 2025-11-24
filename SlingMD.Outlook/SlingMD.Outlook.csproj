@@ -34,7 +34,7 @@
     <PublishUrl>publish\</PublishUrl>
     <InstallUrl />
     <TargetCulture>en</TargetCulture>
-    <ApplicationVersion>1.0.0.118</ApplicationVersion>
+    <ApplicationVersion>1.0.0.119</ApplicationVersion>
     <AutoIncrementApplicationRevision>true</AutoIncrementApplicationRevision>
     <UpdateEnabled>true</UpdateEnabled>
     <UpdateInterval>7</UpdateInterval>
@@ -265,11 +265,15 @@
     <Compile Include="Forms\ContactConfirmationDialog.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Helpers\FileHelper.cs" />
+    <!-- FileHelper.cs deprecated - use FileService instead (duplicates functionality) -->
+    <!-- <Compile Include="Helpers\FileHelper.cs" /> -->
+    <Compile Include="Helpers\Logger.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Models\ObsidianSettings.cs" />
+    <Compile Include="Models\AttachmentInfo.cs" />
+    <Compile Include="Services\AttachmentService.cs" />
     <Compile Include="Services\ContactService.cs" />
     <Compile Include="Services\EmailProcessor.cs" />
     <Compile Include="Ribbon\SlingRibbon.cs" />

@@ -70,14 +70,143 @@ namespace SlingMD.Outlook.Forms
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(TaskOptionsForm));
             this.SuspendLayout();
-            // 
+
+            // Initialize all controls
+            this.lblDueDays = new Label();
+            this.numDueDays = new NumericUpDown();
+            this.dtpDueDate = new DateTimePicker();
+            this.lblDueDaysHelp = new Label();
+            this.lblReminderDays = new Label();
+            this.numReminderDays = new NumericUpDown();
+            this.dtpReminderDate = new DateTimePicker();
+            this.lblReminderDaysHelp = new Label();
+            this.lblReminderHour = new Label();
+            this.numReminderHour = new NumericUpDown();
+            this.lblReminderHourHelp = new Label();
+            this.chkUseRelativeReminder = new CheckBox();
+            this.btnOK = new Button();
+            this.btnCancel = new Button();
+
+            ((System.ComponentModel.ISupportInitialize)(this.numDueDays)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numReminderDays)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numReminderHour)).BeginInit();
+
+            // lblDueDays
+            this.lblDueDays.Location = new Point(labelX, startY);
+            this.lblDueDays.Size = new Size(150, 23);
+            this.lblDueDays.Text = "Due Date:";
+            this.lblDueDays.TextAlign = ContentAlignment.MiddleLeft;
+
+            // numDueDays
+            this.numDueDays.Location = new Point(controlX, startY);
+            this.numDueDays.Size = new Size(150, 23);
+            this.numDueDays.Maximum = 365;
+            this.numDueDays.Minimum = 0;
+
+            // dtpDueDate
+            this.dtpDueDate.Location = new Point(controlX, startY);
+            this.dtpDueDate.Size = new Size(150, 23);
+            this.dtpDueDate.Format = DateTimePickerFormat.Short;
+
+            // lblDueDaysHelp
+            this.lblDueDaysHelp.Location = new Point(helpTextX, startY);
+            this.lblDueDaysHelp.Size = new Size(180, 23);
+            this.lblDueDaysHelp.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblDueDaysHelp.ForeColor = Color.Gray;
+
+            // lblReminderDays
+            this.lblReminderDays.Location = new Point(labelX, startY + lineHeight);
+            this.lblReminderDays.Size = new Size(150, 23);
+            this.lblReminderDays.Text = "Reminder:";
+            this.lblReminderDays.TextAlign = ContentAlignment.MiddleLeft;
+
+            // numReminderDays
+            this.numReminderDays.Location = new Point(controlX, startY + lineHeight);
+            this.numReminderDays.Size = new Size(150, 23);
+            this.numReminderDays.Maximum = 365;
+            this.numReminderDays.Minimum = 0;
+
+            // dtpReminderDate
+            this.dtpReminderDate.Location = new Point(controlX, startY + lineHeight);
+            this.dtpReminderDate.Size = new Size(150, 23);
+            this.dtpReminderDate.Format = DateTimePickerFormat.Short;
+
+            // lblReminderDaysHelp
+            this.lblReminderDaysHelp.Location = new Point(helpTextX, startY + lineHeight);
+            this.lblReminderDaysHelp.Size = new Size(180, 23);
+            this.lblReminderDaysHelp.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblReminderDaysHelp.ForeColor = Color.Gray;
+
+            // lblReminderHour
+            this.lblReminderHour.Location = new Point(labelX, startY + lineHeight * 2);
+            this.lblReminderHour.Size = new Size(150, 23);
+            this.lblReminderHour.Text = "Reminder Time (Hour):";
+            this.lblReminderHour.TextAlign = ContentAlignment.MiddleLeft;
+
+            // numReminderHour
+            this.numReminderHour.Location = new Point(controlX, startY + lineHeight * 2);
+            this.numReminderHour.Size = new Size(150, 23);
+            this.numReminderHour.Maximum = 23;
+            this.numReminderHour.Minimum = 0;
+
+            // lblReminderHourHelp
+            this.lblReminderHourHelp.Location = new Point(helpTextX, startY + lineHeight * 2);
+            this.lblReminderHourHelp.Size = new Size(180, 23);
+            this.lblReminderHourHelp.Text = "(24-hour format)";
+            this.lblReminderHourHelp.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblReminderHourHelp.ForeColor = Color.Gray;
+
+            // chkUseRelativeReminder
+            this.chkUseRelativeReminder.Location = new Point(labelX, startY + lineHeight * 3);
+            this.chkUseRelativeReminder.Size = new Size(350, 23);
+            this.chkUseRelativeReminder.Text = "Use relative dates (days from now)";
+            this.chkUseRelativeReminder.CheckedChanged += ChkUseRelativeReminder_CheckedChanged;
+
+            // btnOK
+            this.btnOK.Location = new Point(formWidth - 200, formHeight - 50);
+            this.btnOK.Size = new Size(75, 23);
+            this.btnOK.Text = "OK";
+            this.btnOK.DialogResult = DialogResult.OK;
+            this.btnOK.Click += BtnOK_Click;
+
+            // btnCancel
+            this.btnCancel.Location = new Point(formWidth - 110, formHeight - 50);
+            this.btnCancel.Size = new Size(75, 23);
+            this.btnCancel.Text = "Cancel";
+            this.btnCancel.DialogResult = DialogResult.Cancel;
+
             // TaskOptionsForm
-            // 
-            this.ClientSize = new System.Drawing.Size(284, 261);
+            this.ClientSize = new Size(formWidth, formHeight);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "TaskOptionsForm";
-            this.ResumeLayout(false);
+            this.Text = "Task Options";
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.StartPosition = FormStartPosition.CenterParent;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+            this.AcceptButton = this.btnOK;
+            this.CancelButton = this.btnCancel;
 
+            // Add controls to form
+            this.Controls.Add(this.lblDueDays);
+            this.Controls.Add(this.numDueDays);
+            this.Controls.Add(this.dtpDueDate);
+            this.Controls.Add(this.lblDueDaysHelp);
+            this.Controls.Add(this.lblReminderDays);
+            this.Controls.Add(this.numReminderDays);
+            this.Controls.Add(this.dtpReminderDate);
+            this.Controls.Add(this.lblReminderDaysHelp);
+            this.Controls.Add(this.lblReminderHour);
+            this.Controls.Add(this.numReminderHour);
+            this.Controls.Add(this.lblReminderHourHelp);
+            this.Controls.Add(this.chkUseRelativeReminder);
+            this.Controls.Add(this.btnOK);
+            this.Controls.Add(this.btnCancel);
+
+            ((System.ComponentModel.ISupportInitialize)(this.numDueDays)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numReminderDays)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numReminderHour)).EndInit();
+            this.ResumeLayout(false);
         }
 
         private void ChkUseRelativeReminder_CheckedChanged(object sender, EventArgs e)

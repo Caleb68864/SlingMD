@@ -26,7 +26,7 @@ namespace SlingMD.Outlook.Services
         }
 
         /// <summary>
-        /// Writes the supplied string to <paramref name="filePath"/> using UTF-8 *without* emitting a BOM.  
+        /// Writes the supplied string to <paramref name="filePath"/> using UTF-8 *without* emitting a BOM.
         /// The directory hierarchy is created on-the-fly when it does not yet exist.
         /// </summary>
         /// <param name="filePath">Absolute path of the file that should be created or overwritten.</param>
@@ -42,6 +42,27 @@ namespace SlingMD.Outlook.Services
 
             // Write file with UTF-8 encoding without BOM
             using (var writer = new StreamWriter(filePath, false, new UTF8Encoding(false)))
+            {
+                writer.Write(content);
+            }
+        }
+
+        /// <summary>
+        /// Appends the supplied string to an existing file at <paramref name="filePath"/> using UTF-8 *without* emitting a BOM.
+        /// </summary>
+        /// <param name="filePath">Absolute path of the file to append to.</param>
+        /// <param name="content">String content to append.</param>
+        public virtual void AppendToFile(string filePath, string content)
+        {
+            if (!File.Exists(filePath))
+            {
+                // If file doesn't exist, create it instead
+                WriteUtf8File(filePath, content);
+                return;
+            }
+
+            // Append to file with UTF-8 encoding without BOM
+            using (var writer = new StreamWriter(filePath, true, new UTF8Encoding(false)))
             {
                 writer.Write(content);
             }

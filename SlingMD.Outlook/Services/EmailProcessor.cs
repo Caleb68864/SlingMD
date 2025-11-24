@@ -10,6 +10,7 @@ using SlingMD.Outlook.Models;
 using System.Linq;
 using System.Text.RegularExpressions;
 using SlingMD.Outlook.Helpers;
+using Logger = SlingMD.Outlook.Helpers.Logger;
 
 namespace SlingMD.Outlook.Services
 {
@@ -20,17 +21,39 @@ namespace SlingMD.Outlook.Services
     /// </summary>
     public class EmailProcessor
     {
+        // Static lock dictionary to prevent race conditions when multiple emails target the same thread folder
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.SemaphoreSlim> _threadFolderLocks
+            = new System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.SemaphoreSlim>(StringComparer.OrdinalIgnoreCase);
+
+        // Static cache to track processed email IDs and prevent O(n*m) file scanning on every email
+        // Key: email ID (internetMessageId or entryId), Value: true (exists)
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool> _processedEmailIds
+            = new System.Collections.Concurrent.ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        private static DateTime _cacheLastBuilt = DateTime.MinValue;
+        private static readonly object _cacheBuildLock = new object();
+
+        // Compiled regex patterns for performance (used in CleanSubject and title formatting)
+        private static readonly Regex WhitespaceRegex = new Regex(@"\s+", RegexOptions.Compiled);
+        private static readonly Regex TrailingDashSpaceRegex = new Regex(@"[-\s]+$", RegexOptions.Compiled);
+        private static readonly Regex ColonSpaceRegex = new Regex(@":\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex ReplyPrefixRegex1 = new Regex(@"(?:Re_\s*)+(?:RE_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex ReplyPrefixRegex2 = new Regex(@"(?:RE_\s*)+(?:Re_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex ReplyPrefixRegex3 = new Regex(@"(?:Re_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex ReplyPrefixRegex4 = new Regex(@"(?:RE_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex ForwardPrefixRegex1 = new Regex(@"(?:Fw_\s*)+(?:FW_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex ForwardPrefixRegex2 = new Regex(@"(?:FW_\s*)+(?:Fw_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex ForwardPrefixRegex3 = new Regex(@"(?:Fw_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex ForwardPrefixRegex4 = new Regex(@"(?:FW_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex ReplySpaceRegex = new Regex(@"Re_\s+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex ForwardSpaceRegex = new Regex(@"Fw_\s+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
         private readonly ObsidianSettings _settings;
         private readonly FileService _fileService;
         private readonly TemplateService _templateService;
         private readonly ThreadService _threadService;
         private readonly TaskService _taskService;
         private readonly ContactService _contactService;
-        private int? _taskDueDays;
-        private int? _taskReminderDays;
-        private int? _taskReminderHour;
-        private bool _createTasks = true;
-        private bool _useRelativeReminder;
+        private readonly AttachmentService _attachmentService;
 
         public EmailProcessor(ObsidianSettings settings)
         {
@@ -40,6 +63,7 @@ namespace SlingMD.Outlook.Services
             _threadService = new ThreadService(_fileService, _templateService, settings);
             _taskService = new TaskService(settings);
             _contactService = new ContactService(_fileService, _templateService);
+            _attachmentService = new AttachmentService(settings, _fileService);
         }
 
         /// <summary>
@@ -49,7 +73,8 @@ namespace SlingMD.Outlook.Services
         /// dialog) that would otherwise block the Outlook UI thread.
         /// </summary>
         /// <param name="mail">The email that should be exported.</param>
-        public async Task ProcessEmail(MailItem mail)
+        /// <param name="cancellationToken">Optional cancellation token to allow cancellation of long-running operations.</param>
+        public async Task ProcessEmail(MailItem mail, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             // Declare variables at method level so they're accessible throughout the method
             List<string> contactNames = new List<string>();
@@ -84,10 +109,40 @@ namespace SlingMD.Outlook.Services
             }
 
             // Collect all contact names - will be used later for contact creation
-            contactNames.Add(mail.SenderName);
-            foreach (Recipient recipient in mail.Recipients)
+            // Add null check for SenderName
+            if (!string.IsNullOrEmpty(mail.SenderName))
             {
-                contactNames.Add(recipient.Name);
+                contactNames.Add(mail.SenderName);
+            }
+
+            // Properly release COM objects to prevent memory leaks
+            Recipients recipients = null;
+            try
+            {
+                recipients = mail.Recipients;
+                foreach (Recipient recipient in recipients)
+                {
+                    try
+                    {
+                        contactNames.Add(recipient.Name);
+                    }
+                    finally
+                    {
+                        // Release each Recipient COM object
+                        if (recipient != null)
+                        {
+                            System.Runtime.InteropServices.Marshal.ReleaseComObject(recipient);
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                // Release the Recipients collection COM object
+                if (recipients != null)
+                {
+                    System.Runtime.InteropServices.Marshal.ReleaseComObject(recipients);
+                }
             }
 
             using (var status = new StatusService())
@@ -96,12 +151,15 @@ namespace SlingMD.Outlook.Services
                 {
                     status.UpdateProgress("Processing email...", 0);
 
-                    // Build note title using settings
-                    string noteTitle = mail.Subject;
-                    string senderClean = _contactService.GetShortName(mail.SenderName);
+                    // Check for cancellation
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    // Build note title using settings (with null safety)
+                    string noteTitle = mail.Subject ?? "No Subject";
+                    string senderClean = _contactService.GetShortName(mail.SenderName ?? "Unknown Sender");
                     string fileDateTime = mail.ReceivedTime.ToString("yyyy-MM-dd-HHmm");
                     string dateStr = mail.ReceivedTime.ToString("yyyy-MM-dd");
-                    string subjectClean = CleanSubject(mail.Subject);
+                    string subjectClean = CleanSubject(mail.Subject ?? "No Subject");
 
                     // Use settings for title format
                     string titleFormat = _settings.NoteTitleFormat ?? "{Subject} - {Date}";
@@ -113,10 +171,10 @@ namespace SlingMD.Outlook.Services
                         .Replace("{Subject}", subjectClean)
                         .Replace("{Sender}", senderClean)
                         .Replace("{Date}", includeDate ? dateStr : "");
-                    // Remove double spaces and trim
-                    formattedTitle = Regex.Replace(formattedTitle, @"\s+", " ").Trim();
-                    // Remove trailing dash if date is omitted
-                    formattedTitle = Regex.Replace(formattedTitle, @"[-\s]+$", "").Trim();
+                    // Remove double spaces and trim (using compiled regex)
+                    formattedTitle = WhitespaceRegex.Replace(formattedTitle, " ").Trim();
+                    // Remove trailing dash if date is omitted (using compiled regex)
+                    formattedTitle = TrailingDashSpaceRegex.Replace(formattedTitle, "").Trim();
                     // Trim to max length
                     if (formattedTitle.Length > maxLength)
                         formattedTitle = formattedTitle.Substring(0, maxLength - 3) + "...";
@@ -141,14 +199,38 @@ namespace SlingMD.Outlook.Services
                     // Extract real email IDs
                     var (realInternetMessageId, realEntryId) = ExtractEmailUniqueIds(mail);
 
+                    // Get Recipients collection once and release it properly to prevent COM leaks
+                    List<string> toLinked;
+                    List<string> toEmails;
+                    List<string> ccLinked;
+                    List<string> ccEmails;
+
+                    Recipients mailRecipients = null;
+                    try
+                    {
+                        mailRecipients = mail.Recipients;
+                        toLinked = _contactService.BuildLinkedNames(mailRecipients, OlMailRecipientType.olTo);
+                        toEmails = _contactService.BuildEmailList(mailRecipients, OlMailRecipientType.olTo);
+                        ccLinked = _contactService.BuildLinkedNames(mailRecipients, OlMailRecipientType.olCC);
+                        ccEmails = _contactService.BuildEmailList(mailRecipients, OlMailRecipientType.olCC);
+                    }
+                    finally
+                    {
+                        // Release the Recipients collection COM object
+                        if (mailRecipients != null)
+                        {
+                            System.Runtime.InteropServices.Marshal.ReleaseComObject(mailRecipients);
+                        }
+                    }
+
                     // Build metadata for frontmatter
                     var metadata = new Dictionary<string, object>
                     {
                         { "title", noteTitle },
-                        { "from", $"[[{mail.SenderName}]]" },
+                        { "from", $"[[{mail.SenderName ?? "Unknown Sender"}]]" },
                         { "fromEmail", _contactService.GetSenderEmail(mail) },
-                        { "to", _contactService.BuildLinkedNames(mail.Recipients, OlMailRecipientType.olTo) },
-                        { "toEmail", _contactService.BuildEmailList(mail.Recipients, OlMailRecipientType.olTo) },
+                        { "to", toLinked },
+                        { "toEmail", toEmails },
                         { "threadId", conversationId },
                         { "date", mail.ReceivedTime.ToString("yyyy-MM-dd HH:mm:ss") },
                         { "dailyNoteLink", $"[[{mail.ReceivedTime:yyyy-MM-dd}]]" },
@@ -158,8 +240,6 @@ namespace SlingMD.Outlook.Services
                     };
 
                     // Add CC if present
-                    var ccLinked = _contactService.BuildLinkedNames(mail.Recipients, OlMailRecipientType.olCC);
-                    var ccEmails = _contactService.BuildEmailList(mail.Recipients, OlMailRecipientType.olCC);
                     if (ccEmails.Count > 0)
                     {
                         metadata.Add("cc", ccLinked);
@@ -186,9 +266,12 @@ namespace SlingMD.Outlook.Services
                         content.Append("\n\n");
                     }
 
-                    content.Append(mail.Body);
+                    content.Append(mail.Body ?? string.Empty);
 
                     status.UpdateProgress("Writing note file", 75);
+
+                    // Check for cancellation before file operations
+                    cancellationToken.ThrowIfCancellationRequested();
 
                     // Check for duplicate email before writing the note
                     if (IsDuplicateEmail(_settings.GetInboxPath(), realInternetMessageId, realEntryId))
@@ -199,74 +282,163 @@ namespace SlingMD.Outlook.Services
 
                     if (shouldGroupThread)
                     {
-                        // Write the new note for the current email to the thread folder with -eid{id} suffix
-                        string emailId = !string.IsNullOrEmpty(realInternetMessageId) ? realInternetMessageId : realEntryId;
-                        string safeId = new string(emailId.Where(char.IsLetterOrDigit).ToArray());
-                        string baseName = $"{subjectClean}-{senderClean}";
-                        string tempFileName = $"{baseName}-eid{safeId}.md";
-                        string tempFilePath = Path.Combine(threadFolderPath, tempFileName);
-                        _fileService.EnsureDirectoryExists(threadFolderPath);
-                        _fileService.WriteUtf8File(tempFilePath, content.ToString());
-                        filePath = tempFilePath;
-                        fileName = tempFileName;
-                        fileNameNoExt = Path.GetFileNameWithoutExtension(tempFileName);
+                        // Get or create a semaphore for this thread folder to prevent race conditions
+                        var semaphore = _threadFolderLocks.GetOrAdd(threadFolderPath, _ => new System.Threading.SemaphoreSlim(1, 1));
 
-                        // Move all existing emails for this thread to the thread folder
-                        var mdFiles = Directory.GetFiles(_settings.GetInboxPath(), "*.md", SearchOption.TopDirectoryOnly);
-                        foreach (var file in mdFiles)
+                        // Acquire the lock for this thread folder
+                        await semaphore.WaitAsync();
+                        try
                         {
-                            // Read front matter to get threadId
-                            bool inFrontMatter = false;
-                            string foundThreadId = null;
-                            foreach (var line in File.ReadLines(file))
+                            // Write the new note for the current email to the thread folder with -eid{id} suffix
+                            string emailId = !string.IsNullOrEmpty(realInternetMessageId) ? realInternetMessageId : realEntryId;
+                            string safeId = new string(emailId.Where(char.IsLetterOrDigit).ToArray());
+                            string baseName = $"{subjectClean}-{senderClean}";
+                            string tempFileName = $"{baseName}-eid{safeId}.md";
+                            string tempFilePath = Path.Combine(threadFolderPath, tempFileName);
+                            _fileService.EnsureDirectoryExists(threadFolderPath);
+                            _fileService.WriteUtf8File(tempFilePath, content.ToString());
+
+                            // Add to cache to keep it synchronized
+                            AddEmailToCache(realInternetMessageId, realEntryId);
+
+                            filePath = tempFilePath;
+                            fileName = tempFileName;
+                            fileNameNoExt = Path.GetFileNameWithoutExtension(tempFileName);
+
+                            // Move all existing emails for this thread to the thread folder
+                            var mdFiles = Directory.GetFiles(_settings.GetInboxPath(), "*.md", SearchOption.TopDirectoryOnly);
+                            foreach (var file in mdFiles)
                             {
-                                if (line.Trim() == "---")
+                                // Read front matter to get threadId
+                                bool inFrontMatter = false;
+                                string foundThreadId = null;
+                                foreach (var line in File.ReadLines(file))
                                 {
-                                    if (!inFrontMatter)
+                                    if (line.Trim() == "---")
                                     {
-                                        inFrontMatter = true;
-                                        continue;
+                                        if (!inFrontMatter)
+                                        {
+                                            inFrontMatter = true;
+                                            continue;
+                                        }
+                                        else
+                                        {
+                                            // End of frontmatter
+                                            break;
+                                        }
                                     }
-                                    else
+                                    if (inFrontMatter && line.Trim().StartsWith("threadId:", StringComparison.OrdinalIgnoreCase))
                                     {
-                                        // End of frontmatter
+                                        foundThreadId = line.Trim().Substring("threadId:".Length).Trim().Trim('"');
                                         break;
                                     }
                                 }
-                                if (inFrontMatter && line.Trim().StartsWith("threadId:", StringComparison.OrdinalIgnoreCase))
+                                if (!string.IsNullOrWhiteSpace(foundThreadId) && foundThreadId == conversationId)
                                 {
-                                    foundThreadId = line.Trim().Substring("threadId:".Length).Trim().Trim('"');
-                                    break;
+                                    // Only move if not already in the thread folder
+                                    if (Path.GetDirectoryName(file) != threadFolderPath)
+                                    {
+                                        _threadService.MoveToThreadFolder(file, threadFolderPath);
+                                    }
                                 }
                             }
-                            if (!string.IsNullOrWhiteSpace(foundThreadId) && foundThreadId == conversationId)
-                            {
-                                // Only move if not already in the thread folder
-                                if (Path.GetDirectoryName(file) != threadFolderPath)
-                                {
-                                    _threadService.MoveToThreadFolder(file, threadFolderPath);
-                                }
-                            }
-                        }
-                        // Resuffix all notes in the thread folder (except thread summary)
-                        var updatedCurrentPath = _threadService.ResuffixThreadNotes(threadFolderPath, baseName, tempFilePath);
-                        // Wait briefly for file system operations
-                        await Task.Delay(200);
-                        if (!string.IsNullOrWhiteSpace(updatedCurrentPath))
-                        {
-                            filePath = updatedCurrentPath;
-                            fileName = Path.GetFileName(updatedCurrentPath);
-                            fileNameNoExt = Path.GetFileNameWithoutExtension(updatedCurrentPath);
-                            obsidianLinkPath = $"{threadNoteName}/{fileNameNoExt}";
-                        }
+                            // Resuffix all notes in the thread folder (except thread summary)
+                            var updatedCurrentPath = _threadService.ResuffixThreadNotes(threadFolderPath, baseName, tempFilePath);
 
-                        // Create or update the thread summary note
-                        await _threadService.UpdateThreadNote(threadFolderPath, threadNotePath, conversationId, threadNoteName, mail);
+                            // Verify the file exists with retry logic
+                            if (!string.IsNullOrWhiteSpace(updatedCurrentPath))
+                            {
+                                await WaitForFileAvailability(updatedCurrentPath);
+                                filePath = updatedCurrentPath;
+                                fileName = Path.GetFileName(updatedCurrentPath);
+                                fileNameNoExt = Path.GetFileNameWithoutExtension(updatedCurrentPath);
+                                obsidianLinkPath = $"{threadNoteName}/{fileNameNoExt}";
+                            }
+
+                            // Create or update the thread summary note
+                            await _threadService.UpdateThreadNote(threadFolderPath, threadNotePath, conversationId, threadNoteName, mail);
+
+                            // Process attachments if enabled (inside semaphore to prevent race condition with file resuffixing)
+                            if (_settings.SaveInlineImages || _settings.SaveAllAttachments)
+                            {
+                                try
+                                {
+                                    status.UpdateProgress("Processing attachments", 77);
+                                    var attachmentInfo = _attachmentService.ProcessAttachments(mail, filePath);
+
+                                    if (attachmentInfo.SavedAttachments.Count > 0)
+                                    {
+                                        // Build attachment section
+                                        var attachmentSection = new StringBuilder();
+                                        attachmentSection.AppendLine("\n\n## Attachments\n");
+
+                                        foreach (var attachment in attachmentInfo.SavedAttachments)
+                                        {
+                                            string wikilink = _attachmentService.GenerateWikilink(
+                                                attachment.Filename,
+                                                attachment.IsInline
+                                            );
+                                            attachmentSection.AppendLine(wikilink);
+                                        }
+
+                                        // Append to the existing note file
+                                        _fileService.AppendToFile(filePath, attachmentSection.ToString());
+                                    }
+                                }
+                                catch (System.Exception ex)
+                                {
+                                    Logger.Instance.Error($"Failed to process attachments for threaded email: {ex.Message}", ex);
+                                    // Continue processing - don't fail the entire email if attachments fail
+                                }
+                            }
+                        }
+                        finally
+                        {
+                            // Always release the semaphore
+                            semaphore.Release();
+                        }
                     }
                     else
                     {
                         // Write the note as usual to the inbox
                         _fileService.WriteUtf8File(filePath, content.ToString());
+
+                        // Add to cache to keep it synchronized
+                        AddEmailToCache(realInternetMessageId, realEntryId);
+
+                        // Process attachments if enabled
+                        if (_settings.SaveInlineImages || _settings.SaveAllAttachments)
+                        {
+                            try
+                            {
+                                status.UpdateProgress("Processing attachments", 77);
+                                var attachmentInfo = _attachmentService.ProcessAttachments(mail, filePath);
+
+                                if (attachmentInfo.SavedAttachments.Count > 0)
+                                {
+                                    // Build attachment section
+                                    var attachmentSection = new StringBuilder();
+                                    attachmentSection.AppendLine("\n\n## Attachments\n");
+
+                                    foreach (var attachment in attachmentInfo.SavedAttachments)
+                                    {
+                                        string wikilink = _attachmentService.GenerateWikilink(
+                                            attachment.Filename,
+                                            attachment.IsInline
+                                        );
+                                        attachmentSection.AppendLine(wikilink);
+                                    }
+
+                                    // Append to the existing note file
+                                    _fileService.AppendToFile(filePath, attachmentSection.ToString());
+                                }
+                            }
+                            catch (System.Exception ex)
+                            {
+                                Logger.Instance.Error($"Failed to process attachments: {ex.Message}", ex);
+                                // Continue processing - don't fail the entire email if attachments fail
+                            }
+                        }
                     }
 
                     // Create Outlook task if enabled
@@ -367,40 +539,115 @@ namespace SlingMD.Outlook.Services
                 cleaned = Regex.Replace(cleaned, pattern, "", RegexOptions.IgnoreCase);
             }
             
-            // Replace colons (with or without spaces) with underscores
-            cleaned = Regex.Replace(cleaned, @":\s*", "_", RegexOptions.IgnoreCase);
+            // Replace colons (with or without spaces) with underscores (using compiled regex)
+            cleaned = ColonSpaceRegex.Replace(cleaned, "_");
 
-            // Handle Re_ (Reply) prefixes
+            // Handle Re_ (Reply) prefixes (using compiled regex)
             // Remove redundant Re_ RE_ prefixes - keep only one "Re_"
-            cleaned = Regex.Replace(cleaned, @"(?:Re_\s*)+(?:RE_\s*)+", "Re_", RegexOptions.IgnoreCase);
-            cleaned = Regex.Replace(cleaned, @"(?:RE_\s*)+(?:Re_\s*)+", "Re_", RegexOptions.IgnoreCase);
-            cleaned = Regex.Replace(cleaned, @"(?:Re_\s*){2,}", "Re_", RegexOptions.IgnoreCase);
-            cleaned = Regex.Replace(cleaned, @"(?:RE_\s*){2,}", "Re_", RegexOptions.IgnoreCase);
-            
-            // Handle Fw_ (Forward) prefixes
+            cleaned = ReplyPrefixRegex1.Replace(cleaned, "Re_");
+            cleaned = ReplyPrefixRegex2.Replace(cleaned, "Re_");
+            cleaned = ReplyPrefixRegex3.Replace(cleaned, "Re_");
+            cleaned = ReplyPrefixRegex4.Replace(cleaned, "Re_");
+
+            // Handle Fw_ (Forward) prefixes (using compiled regex)
             // Remove redundant Fw_ FW_ prefixes - keep only one "Fw_"
-            cleaned = Regex.Replace(cleaned, @"(?:Fw_\s*)+(?:FW_\s*)+", "Fw_", RegexOptions.IgnoreCase);
-            cleaned = Regex.Replace(cleaned, @"(?:FW_\s*)+(?:Fw_\s*)+", "Fw_", RegexOptions.IgnoreCase);
-            cleaned = Regex.Replace(cleaned, @"(?:Fw_\s*){2,}", "Fw_", RegexOptions.IgnoreCase);
-            cleaned = Regex.Replace(cleaned, @"(?:FW_\s*){2,}", "Fw_", RegexOptions.IgnoreCase);
-            
-            // Ensure there are no spaces after prefixes
-            cleaned = Regex.Replace(cleaned, @"Re_\s+", "Re_", RegexOptions.IgnoreCase);
-            cleaned = Regex.Replace(cleaned, @"Fw_\s+", "Fw_", RegexOptions.IgnoreCase);
+            cleaned = ForwardPrefixRegex1.Replace(cleaned, "Fw_");
+            cleaned = ForwardPrefixRegex2.Replace(cleaned, "Fw_");
+            cleaned = ForwardPrefixRegex3.Replace(cleaned, "Fw_");
+            cleaned = ForwardPrefixRegex4.Replace(cleaned, "Fw_");
+
+            // Ensure there are no spaces after prefixes (using compiled regex)
+            cleaned = ReplySpaceRegex.Replace(cleaned, "Re_");
+            cleaned = ForwardSpaceRegex.Replace(cleaned, "Fw_");
 
             return _fileService.CleanFileName(cleaned.Trim());
         }
 
         private string GetFirstRecipient(MailItem mail)
         {
-            foreach (Recipient recipient in mail.Recipients)
+            Recipients recipients = null;
+            try
             {
-                if (recipient.Type == (int)OlMailRecipientType.olTo)
+                recipients = mail.Recipients;
+                foreach (Recipient recipient in recipients)
                 {
-                    return recipient.Name;
+                    try
+                    {
+                        if (recipient.Type == (int)OlMailRecipientType.olTo)
+                        {
+                            string recipientName = recipient.Name;
+                            return recipientName;
+                        }
+                    }
+                    finally
+                    {
+                        // Release each Recipient COM object
+                        if (recipient != null)
+                        {
+                            System.Runtime.InteropServices.Marshal.ReleaseComObject(recipient);
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                // Release the Recipients collection COM object
+                if (recipients != null)
+                {
+                    System.Runtime.InteropServices.Marshal.ReleaseComObject(recipients);
                 }
             }
             return "Unknown";
+        }
+
+        /// <summary>
+        /// Waits for a file to become available by checking its existence and attempting to open it.
+        /// Uses exponential backoff retry logic with a maximum of 5 attempts over approximately 1 second.
+        /// This replaces hard-coded delays and ensures file system operations have completed.
+        /// </summary>
+        /// <param name="filePath">The full path to the file to wait for.</param>
+        private async Task WaitForFileAvailability(string filePath)
+        {
+            const int maxAttempts = 5;
+            int attempt = 0;
+            int delayMs = 50; // Start with 50ms
+
+            while (attempt < maxAttempts)
+            {
+                try
+                {
+                    // Check if file exists and can be opened
+                    if (File.Exists(filePath))
+                    {
+                        // Try to open the file briefly to ensure it's not locked
+                        using (var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        {
+                            // File is accessible
+                            return;
+                        }
+                    }
+                }
+                catch (IOException)
+                {
+                    // File is locked or not yet available
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    // Permission issue, but file exists
+                    return;
+                }
+
+                // Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms
+                attempt++;
+                if (attempt < maxAttempts)
+                {
+                    await Task.Delay(delayMs);
+                    delayMs *= 2;
+                }
+            }
+
+            // If we get here, file still isn't available but we've tried our best
+            // Continue anyway - the worst case is the same as before
         }
 
         /// <summary>
@@ -416,11 +663,21 @@ namespace SlingMD.Outlook.Services
                 // Try to get InternetMessageID via PropertyAccessor (works for most accounts)
                 internetMessageId = mail.PropertyAccessor.GetProperty("http://schemas.microsoft.com/mapi/proptag/0x1035001E") as string;
             }
-            catch { /* ignore if not available */ }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Debug($"PropertyAccessor method failed for InternetMessageID: {ex.Message}");
+            }
             // Fallback to property if available
             if (string.IsNullOrEmpty(internetMessageId))
             {
-                try { internetMessageId = mail.GetType().GetProperty("InternetMessageID")?.GetValue(mail) as string; } catch { }
+                try
+                {
+                    internetMessageId = mail.GetType().GetProperty("InternetMessageID")?.GetValue(mail) as string;
+                }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Debug($"Reflection method failed for InternetMessageID: {ex.Message}");
+                }
             }
             return (internetMessageId, entryId);
         }
@@ -534,51 +791,113 @@ namespace SlingMD.Outlook.Services
         }
 
         /// <summary>
-        /// Checks if an email with the given InternetMessageID or EntryID already exists in the inbox folder or any subfolder.
-        /// Only reads the frontmatter block (from first '---' to the next '---').
-        /// Returns true if a duplicate is found.
+        /// Builds or rebuilds the email ID cache by scanning all markdown files in the inbox.
+        /// Cache is rebuilt if it's older than 5 minutes or empty.
+        /// This dramatically improves performance by avoiding O(n*m) file scanning on every email.
         /// </summary>
-        private bool IsDuplicateEmail(string inboxPath, string internetMessageId, string entryId)
+        private void EnsureEmailCacheIsBuilt(string inboxPath)
         {
-            var mdFiles = Directory.GetFiles(inboxPath, "*.md", SearchOption.AllDirectories);
-            foreach (var file in mdFiles)
+            // Only rebuild cache if it's older than 5 minutes (to allow for external changes)
+            // or if it's never been built
+            if ((DateTime.Now - _cacheLastBuilt).TotalMinutes < 5 && _processedEmailIds.Count > 0)
             {
-                bool inFrontMatter = false;
-                foreach (var line in File.ReadLines(file))
+                return;
+            }
+
+            lock (_cacheBuildLock)
+            {
+                // Double-check after acquiring lock
+                if ((DateTime.Now - _cacheLastBuilt).TotalMinutes < 5 && _processedEmailIds.Count > 0)
                 {
-                    if (line.Trim() == "---")
+                    return;
+                }
+
+                _processedEmailIds.Clear();
+
+                var mdFiles = Directory.GetFiles(inboxPath, "*.md", SearchOption.AllDirectories);
+                foreach (var file in mdFiles)
+                {
+                    bool inFrontMatter = false;
+                    foreach (var line in File.ReadLines(file))
                     {
-                        if (!inFrontMatter)
+                        if (line.Trim() == "---")
                         {
-                            inFrontMatter = true;
-                            continue;
+                            if (!inFrontMatter)
+                            {
+                                inFrontMatter = true;
+                                continue;
+                            }
+                            else
+                            {
+                                // End of frontmatter
+                                break;
+                            }
                         }
-                        else
+                        if (inFrontMatter)
                         {
-                            // End of frontmatter
-                            break;
-                        }
-                    }
-                    if (inFrontMatter)
-                    {
-                        // Match key: value (with or without quotes, with or without whitespace)
-                        var trimmed = line.Trim();
-                        if (trimmed.StartsWith("internetMessageId:", StringComparison.OrdinalIgnoreCase))
-                        {
-                            var value = trimmed.Substring("internetMessageId:".Length).Trim().Trim('"');
-                            if (!string.IsNullOrWhiteSpace(internetMessageId) && value == internetMessageId)
-                                return true;
-                        }
-                        if (trimmed.StartsWith("entryId:", StringComparison.OrdinalIgnoreCase))
-                        {
-                            var value = trimmed.Substring("entryId:".Length).Trim().Trim('"');
-                            if (!string.IsNullOrWhiteSpace(entryId) && value == entryId)
-                                return true;
+                            var trimmed = line.Trim();
+                            if (trimmed.StartsWith("internetMessageId:", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var value = trimmed.Substring("internetMessageId:".Length).Trim().Trim('"');
+                                if (!string.IsNullOrWhiteSpace(value))
+                                {
+                                    _processedEmailIds.TryAdd(value, true);
+                                }
+                            }
+                            else if (trimmed.StartsWith("entryId:", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var value = trimmed.Substring("entryId:".Length).Trim().Trim('"');
+                                if (!string.IsNullOrWhiteSpace(value))
+                                {
+                                    _processedEmailIds.TryAdd(value, true);
+                                }
+                            }
                         }
                     }
                 }
+
+                _cacheLastBuilt = DateTime.Now;
             }
+        }
+
+        /// <summary>
+        /// Checks if an email with the given InternetMessageID or EntryID already exists.
+        /// Uses an in-memory cache for O(1) lookups instead of scanning all files.
+        /// Cache is automatically rebuilt every 5 minutes to stay synchronized with external changes.
+        /// </summary>
+        private bool IsDuplicateEmail(string inboxPath, string internetMessageId, string entryId)
+        {
+            // Ensure cache is built and up-to-date
+            EnsureEmailCacheIsBuilt(inboxPath);
+
+            // Fast O(1) lookup in cache
+            if (!string.IsNullOrWhiteSpace(internetMessageId) && _processedEmailIds.ContainsKey(internetMessageId))
+            {
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(entryId) && _processedEmailIds.ContainsKey(entryId))
+            {
+                return true;
+            }
+
             return false;
+        }
+
+        /// <summary>
+        /// Adds email IDs to the cache after successfully saving an email note.
+        /// This keeps the cache synchronized without requiring a full rebuild.
+        /// </summary>
+        private void AddEmailToCache(string internetMessageId, string entryId)
+        {
+            if (!string.IsNullOrWhiteSpace(internetMessageId))
+            {
+                _processedEmailIds.TryAdd(internetMessageId, true);
+            }
+            if (!string.IsNullOrWhiteSpace(entryId))
+            {
+                _processedEmailIds.TryAdd(entryId, true);
+            }
         }
     }
 }

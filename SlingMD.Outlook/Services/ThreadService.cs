@@ -30,12 +30,13 @@ namespace SlingMD.Outlook.Services
         }
 
         /// <summary>
-        /// Derives a stable 16-character hash that uniquely identifies an Outlook conversation.  
-        /// The method tries several strategies (ConversationTopic, PR_CONVERSATION_INDEX, normalised subject) 
-        /// and falls back to a random GUID segment if everything else fails.
+        /// Derives a stable 20-character hash that uniquely identifies an Outlook conversation.
+        /// The method tries several strategies (ConversationTopic, PR_CONVERSATION_INDEX, normalised subject)
+        /// and falls back to a random GUID segment if everything else fails. Using 20 characters instead of 16
+        /// significantly reduces the probability of hash collisions while remaining compact.
         /// </summary>
         /// <param name="mail">The <see cref="MailItem"/> for which to obtain the conversation id.</param>
-        /// <returns>A 16-character hexadecimal string suitable for use as an identifier inside vault front-matter.</returns>
+        /// <returns>A 20-character hexadecimal string suitable for use as an identifier inside vault front-matter.</returns>
         public string GetConversationId(MailItem mail)
         {
             try
@@ -50,18 +51,19 @@ namespace SlingMD.Outlook.Services
                     normalizedSubject = Regex.Replace(normalizedSubject, @"^Re:\s+", "", RegexOptions.IgnoreCase);
                     return BitConverter.ToString(MD5.Create()
                         .ComputeHash(Encoding.UTF8.GetBytes(normalizedSubject)))
-                        .Replace("-", "").Substring(0, 16);
+                        .Replace("-", "").Substring(0, 20);
                 }
 
                 // Try to get the conversation index using PR_CONVERSATION_INDEX property
                 const string PR_CONVERSATION_INDEX = "http://schemas.microsoft.com/mapi/proptag/0x0071001F";
                 byte[] conversationIndex = (byte[])mail.PropertyAccessor.GetProperty(PR_CONVERSATION_INDEX);
-                
+
                 if (conversationIndex != null && conversationIndex.Length >= 22)
                 {
                     // The first 22 bytes of the conversation index identify the thread
+                    // Use 20 characters for better uniqueness
                     return BitConverter.ToString(conversationIndex.Take(22).ToArray())
-                        .Replace("-", "").Substring(0, 16);
+                        .Replace("-", "").Substring(0, 20);
                 }
 
                 // If both methods fail, use the normalized subject as last resort
@@ -70,11 +72,11 @@ namespace SlingMD.Outlook.Services
                 subject = Regex.Replace(subject, @"^Re:\s+", "", RegexOptions.IgnoreCase);
                 return BitConverter.ToString(MD5.Create()
                     .ComputeHash(Encoding.UTF8.GetBytes(subject)))
-                    .Replace("-", "").Substring(0, 16);
+                    .Replace("-", "").Substring(0, 20);
             }
             catch
             {
-                return Guid.NewGuid().ToString("N").Substring(0, 16);
+                return Guid.NewGuid().ToString("N").Substring(0, 20);
             }
         }
 
@@ -133,9 +135,9 @@ namespace SlingMD.Outlook.Services
         /// <param name="conversationId">Identifier created by <see cref="GetConversationId"/>.</param>
         /// <param name="threadNoteName">Base name (without <c>0-</c> prefix) for the summary file.</param>
         /// <param name="mail">The current email being processed – used only for the title.</param>
-        public async Task UpdateThreadNote(string threadFolderPath, string threadNotePath, string conversationId, string threadNoteName, MailItem mail)
+        public Task UpdateThreadNote(string threadFolderPath, string threadNotePath, string conversationId, string threadNoteName, MailItem mail)
         {
-            var templateContent = _templateService.LoadTemplate("ThreadNoteTemplate.md") ?? 
+            var templateContent = _templateService.LoadTemplate("ThreadNoteTemplate.md") ??
                                 _templateService.GetDefaultThreadNoteTemplate();
 
             // Clean the title using the same method as thread name
@@ -150,13 +152,17 @@ namespace SlingMD.Outlook.Services
 
             string content = _templateService.ProcessTemplate(templateContent, replacements);
             _fileService.WriteUtf8File(threadNotePath, content);
+
+            return Task.CompletedTask;
         }
 
         /// <summary>
-        /// Moves an email note that was originally written to the inbox into the designated thread folder.  
-        /// Any existing file with the same name will be overwritten.  
-        /// The method also appends a deterministic suffix based on the <c>internetMessageId</c> or <c>entryId</c> 
+        /// Moves an email note that was originally written to the inbox into the designated thread folder.
+        /// Any existing file with the same name will be overwritten.
+        /// The method also appends a deterministic suffix based on the <c>internetMessageId</c> or <c>entryId</c>
         /// found in the note front-matter to avoid collisions between messages that share the same timestamp.
+        /// Includes path length validation to prevent exceeding Windows' 260-character path limit by truncating
+        /// the email ID suffix and/or base filename as necessary.
         /// </summary>
         /// <param name="emailPath">Absolute path of the markdown file to move.</param>
         /// <param name="threadFolderPath">Destination folder for the thread.</param>
@@ -191,9 +197,52 @@ namespace SlingMD.Outlook.Services
                 string safeId = new string(emailId.Where(char.IsLetterOrDigit).ToArray());
                 string nameNoExt = Path.GetFileNameWithoutExtension(fileName);
                 string ext = Path.GetExtension(fileName);
+
+                // Windows path limit is 260 characters. Reserve 20 chars for safety margin.
+                // Calculate how much space we have for the filename
+                int maxPathLength = 240;
+                int folderPathLength = threadFolderPath.Length + 1; // +1 for directory separator
+                int availableForFilename = maxPathLength - folderPathLength - ext.Length;
+
+                // Truncate safeId if necessary
+                string fullFilename = $"{nameNoExt}-eid{safeId}";
+                if (fullFilename.Length > availableForFilename)
+                {
+                    // Truncate the email ID, keeping at least the first 8 characters for uniqueness
+                    int maxIdLength = availableForFilename - nameNoExt.Length - 4; // -4 for "-eid"
+                    if (maxIdLength < 8)
+                    {
+                        // If even 8 chars won't fit, truncate the base name too
+                        int maxBaseLength = availableForFilename - 12; // -12 for "-eid" + 8 char ID
+                        if (maxBaseLength > 0)
+                        {
+                            nameNoExt = nameNoExt.Substring(0, Math.Min(nameNoExt.Length, maxBaseLength));
+                        }
+                        maxIdLength = 8;
+                    }
+                    safeId = safeId.Substring(0, Math.Min(safeId.Length, maxIdLength));
+                }
+
                 newFileName = $"{nameNoExt}-eid{safeId}{ext}";
             }
+
             string threadPath = Path.Combine(threadFolderPath, newFileName);
+
+            // Final validation: ensure path doesn't exceed limit
+            if (threadPath.Length > 240)
+            {
+                // Emergency truncation - this should rarely happen
+                string nameNoExt = Path.GetFileNameWithoutExtension(newFileName);
+                string ext = Path.GetExtension(newFileName);
+                int maxFilenameLength = 240 - threadFolderPath.Length - ext.Length - 1;
+                if (maxFilenameLength > 10)
+                {
+                    nameNoExt = nameNoExt.Substring(0, maxFilenameLength);
+                    newFileName = $"{nameNoExt}{ext}";
+                    threadPath = Path.Combine(threadFolderPath, newFileName);
+                }
+            }
+
             _fileService.EnsureDirectoryExists(threadFolderPath);
             if (File.Exists(threadPath))
             {
@@ -311,20 +360,21 @@ namespace SlingMD.Outlook.Services
         }
 
         /// <summary>
-        /// Renames every email note in a thread folder so that they receive a chronological <c>yyyy-MM-dd_</c> 
-        /// prefix.  This guarantees a predictable sort order inside Obsidian.  
-        /// Any temporary <c>-eid*</c> suffixes or outdated numeric suffixes are stripped before the new name 
-        /// is applied.
+        /// Renames every email note in a thread folder so that they receive a chronological <c>yyyy-MM-dd_HHmmss</c>
+        /// prefix.  This guarantees a predictable sort order inside Obsidian and prevents filename collisions.
+        /// Any temporary <c>-eid*</c> suffixes or outdated numeric suffixes are stripped before each file's
+        /// actual base name is preserved. If multiple emails have identical timestamps, a counter suffix (_001, _002, etc.) is added.
         /// </summary>
         /// <param name="threadFolderPath">Full path to the thread folder.</param>
-        /// <param name="baseName">Base part of the filename (subject-sender) used for matching.</param>
+        /// <param name="baseName">Deprecated parameter (no longer used - kept for backward compatibility).</param>
         /// <param name="currentEmailPath">If supplied, returns the new path for the file that corresponds to the current email.</param>
         /// <returns>The new path for <c>currentEmailPath</c> if it was provided; otherwise <c>null</c>.</returns>
         public string ResuffixThreadNotes(string threadFolderPath, string baseName, string currentEmailPath = null)
         {
             if (!Directory.Exists(threadFolderPath)) return null;
-            // Allow for any prefix (e.g., date) in front of the base name
-            var files = Directory.GetFiles(threadFolderPath, $"*{baseName}*.md", SearchOption.TopDirectoryOnly)
+
+            // Get all markdown files in the thread folder except the thread summary (starts with "0-")
+            var files = Directory.GetFiles(threadFolderPath, "*.md", SearchOption.TopDirectoryOnly)
                 .Where(f => !Path.GetFileName(f).StartsWith("0-"))
                 .ToList();
             var fileDates = new List<(string file, DateTime date)>();
@@ -358,22 +408,50 @@ namespace SlingMD.Outlook.Services
             fileDates = fileDates.OrderBy(fd => fd.date).ToList();
 
             string newCurrentPath = null;
+            int counter = 0;
+            string lastGeneratedName = null;
+
             foreach (var fd in fileDates)
             {
-                // Build new filename with date prefix (yyyy-MM-dd_) followed by base name
+                // Build new filename with date prefix (yyyy-MM-dd_HHmmss) followed by actual base name from file
                 string nameNoExt = Path.GetFileNameWithoutExtension(fd.file);
                 string ext = Path.GetExtension(fd.file);
+
                 // Remove any email id suffix ( -eid{ID} ) or old numeric suffix ( -001 )
                 nameNoExt = Regex.Replace(nameNoExt, "-eid[0-9A-Za-z]+$", "");
                 nameNoExt = Regex.Replace(nameNoExt, "-\\d{3}$", "");
 
-                string datePrefix = fd.date.ToString("yyyy-MM-dd_HHmm");
-                string newName = $"{datePrefix}_{baseName}{ext}";
+                // Remove any existing date prefix formats (yyyy-MM-dd_HHmmss, yyyy-MM-dd-HHmm, yyyy-MM-dd_HHmm)
+                nameNoExt = Regex.Replace(nameNoExt, "^\\d{4}-\\d{2}-\\d{2}[_-]\\d{4,6}_?", "");
+
+                // Include seconds in date prefix to reduce collision probability
+                string datePrefix = fd.date.ToString("yyyy-MM-dd_HHmmss");
+                string newName = $"{datePrefix}_{nameNoExt}{ext}";
                 string newPath = Path.Combine(threadFolderPath, newName);
+
+                // If we have a collision with the last generated name, add a counter suffix
+                if (newName == lastGeneratedName)
+                {
+                    counter++;
+                    newName = $"{datePrefix}_{nameNoExt}_{counter:D3}{ext}";
+                    newPath = Path.Combine(threadFolderPath, newName);
+                }
+                else
+                {
+                    counter = 0;
+                    lastGeneratedName = newName;
+                }
 
                 if (!fd.file.Equals(newPath, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (File.Exists(newPath)) File.Delete(newPath);
+                    // Ensure no conflict before moving
+                    if (File.Exists(newPath))
+                    {
+                        // If target exists and it's not the same file, add counter
+                        counter++;
+                        newName = $"{datePrefix}_{nameNoExt}_{counter:D3}{ext}";
+                        newPath = Path.Combine(threadFolderPath, newName);
+                    }
                     File.Move(fd.file, newPath);
                 }
 

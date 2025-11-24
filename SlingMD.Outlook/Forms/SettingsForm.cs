@@ -32,21 +32,10 @@ namespace SlingMD.Outlook.Forms
         private Button btnBrowse;
         private Button btnSave;
         private Button btnCancel;
-        private Label lblVaultName;
-        private Label lblVaultPath;
-        private Label lblInboxFolder;
-        private Label lblContactsFolder;
-        private Label lblDelay;
-        private Label lblFollowUpTasks;
-        private Label lblDefaultDueDays;
-        private Label lblDefaultReminderDays;
-        private Label lblDefaultReminderHour;
-        private Label lblDueDaysHelp;
         private ListBox lstPatterns;
         private Button btnAdd;
         private Button btnEdit;
         private Button btnRemove;
-        private Label lblPatterns;
         private GroupBox grpDevelopment;
         private CheckBox chkShowDevelopmentSettings;
         private CheckBox chkShowThreadDebug;
@@ -66,6 +55,15 @@ namespace SlingMD.Outlook.Forms
         // Refactored layout containers
         private TableLayoutPanel mainLayout;
         private CheckBox chkMoveDateToFrontInThread;
+        // Attachment controls
+        private GroupBox grpAttachments;
+        private TextBox txtAttachmentsFolder;
+        private ComboBox cmbAttachmentStorageMode;
+        private CheckBox chkSaveInlineImages;
+        private CheckBox chkSaveAllAttachments;
+        private CheckBox chkUseObsidianWikilinks;
+        private Label lblAttachmentsFolder;
+        private Label lblAttachmentStorageMode;
 
         public SettingsForm(ObsidianSettings settings)
         {
@@ -226,6 +224,70 @@ namespace SlingMD.Outlook.Forms
             this.grpNoteCustomization.Controls.Add(noteTagLayout);
             this.mainLayout.Controls.Add(this.grpNoteCustomization);
 
+            // Group: Attachment Settings
+            this.grpAttachments = new GroupBox();
+            this.grpAttachments.Text = "Attachment Settings";
+            this.grpAttachments.Dock = DockStyle.Top;
+            this.grpAttachments.AutoSize = true;
+            var attachmentLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoSize = true };
+            attachmentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35F));
+            attachmentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65F));
+
+            this.lblAttachmentStorageMode = new Label { Text = "Storage Location:", Anchor = AnchorStyles.Left };
+            this.cmbAttachmentStorageMode = new ComboBox {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Anchor = AnchorStyles.Left | AnchorStyles.Right,
+                Width = 320
+            };
+            this.cmbAttachmentStorageMode.Items.Add("Same folder as note");
+            this.cmbAttachmentStorageMode.Items.Add("Subfolder per note");
+            this.cmbAttachmentStorageMode.Items.Add("Centralized folder");
+            attachmentLayout.Controls.Add(this.lblAttachmentStorageMode, 0, 0);
+            attachmentLayout.Controls.Add(this.cmbAttachmentStorageMode, 1, 0);
+
+            this.lblAttachmentsFolder = new Label {
+                Text = "Centralized Folder Name:",
+                Anchor = AnchorStyles.Left
+            };
+            this.txtAttachmentsFolder = new TextBox {
+                Anchor = AnchorStyles.Left | AnchorStyles.Right,
+                Width = 320
+            };
+            attachmentLayout.Controls.Add(this.lblAttachmentsFolder, 0, 1);
+            attachmentLayout.Controls.Add(this.txtAttachmentsFolder, 1, 1);
+
+            var checkboxLayout = new FlowLayoutPanel {
+                FlowDirection = FlowDirection.LeftToRight,
+                AutoSize = true,
+                Anchor = AnchorStyles.Left
+            };
+            this.chkSaveInlineImages = new CheckBox {
+                Text = "Save inline images",
+                AutoSize = true
+            };
+            this.chkSaveAllAttachments = new CheckBox {
+                Text = "Save all attachments",
+                AutoSize = true,
+                Margin = new Padding(20, 0, 0, 0)
+            };
+            this.chkUseObsidianWikilinks = new CheckBox {
+                Text = "Use Obsidian wikilinks",
+                AutoSize = true,
+                Margin = new Padding(20, 0, 0, 0)
+            };
+            checkboxLayout.Controls.Add(this.chkSaveInlineImages);
+            checkboxLayout.Controls.Add(this.chkSaveAllAttachments);
+            checkboxLayout.Controls.Add(this.chkUseObsidianWikilinks);
+            attachmentLayout.Controls.Add(checkboxLayout, 1, 2);
+
+            // Add event handler to enable/disable centralized folder textbox
+            this.cmbAttachmentStorageMode.SelectedIndexChanged += (s, e) => {
+                this.txtAttachmentsFolder.Enabled = this.cmbAttachmentStorageMode.SelectedIndex == 2;
+            };
+
+            this.grpAttachments.Controls.Add(attachmentLayout);
+            this.mainLayout.Controls.Add(this.grpAttachments);
+
             // Group: Development (always at bottom, always visible)
             this.grpDevelopment = new GroupBox();
             this.grpDevelopment.Text = "Development Settings";
@@ -300,6 +362,14 @@ namespace SlingMD.Outlook.Forms
             chkNoteTitleIncludeDate.Checked = _settings.NoteTitleIncludeDate;
             chkMoveDateToFrontInThread.Checked = _settings.MoveDateToFrontInThread;
             chkMoveDateToFrontInThread.Enabled = chkNoteTitleIncludeDate.Checked;
+
+            // Load attachment settings
+            txtAttachmentsFolder.Text = _settings.AttachmentsFolder ?? "Attachments";
+            cmbAttachmentStorageMode.SelectedIndex = (int)_settings.AttachmentStorageMode;
+            txtAttachmentsFolder.Enabled = _settings.AttachmentStorageMode == AttachmentStorageMode.Centralized;
+            chkSaveInlineImages.Checked = _settings.SaveInlineImages;
+            chkSaveAllAttachments.Checked = _settings.SaveAllAttachments;
+            chkUseObsidianWikilinks.Checked = _settings.UseObsidianWikilinks;
         }
 
         private void btnBrowse_Click(object sender, EventArgs e)
@@ -352,6 +422,13 @@ namespace SlingMD.Outlook.Forms
             _settings.NoteTitleFormat = txtNoteTitleFormat.Text.Trim();
             _settings.NoteTitleMaxLength = (int)numNoteTitleMaxLength.Value;
             _settings.NoteTitleIncludeDate = chkNoteTitleIncludeDate.Checked;
+
+            // Save attachment settings
+            _settings.AttachmentsFolder = txtAttachmentsFolder.Text.Trim();
+            _settings.AttachmentStorageMode = (AttachmentStorageMode)cmbAttachmentStorageMode.SelectedIndex;
+            _settings.SaveInlineImages = chkSaveInlineImages.Checked;
+            _settings.SaveAllAttachments = chkSaveAllAttachments.Checked;
+            _settings.UseObsidianWikilinks = chkUseObsidianWikilinks.Checked;
 
             _settings.Save();
         }

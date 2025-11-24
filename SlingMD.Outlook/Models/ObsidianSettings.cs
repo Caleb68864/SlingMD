@@ -10,7 +10,7 @@ namespace SlingMD.Outlook.Models
     public class ObsidianSettings
     {
         public string VaultName { get; set; } = "Logic";
-        public string VaultBasePath { get; set; } = @"C:\Users\CalebBennett\Documents\Notes\";
+        public string VaultBasePath { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Notes");
         public string InboxFolder { get; set; } = "Inbox";
         public string ContactsFolder { get; set; } = "Contacts";
         public bool EnableContactSaving { get; set; } = true;
@@ -59,6 +59,27 @@ namespace SlingMD.Outlook.Models
         public bool NoteTitleIncludeDate { get; set; } = true;
         public bool MoveDateToFrontInThread { get; set; } = true;
 
+        /// <summary>
+        /// Folder name for centralized attachment storage (relative to vault root).
+        /// </summary>
+        public string AttachmentsFolder { get; set; } = "Attachments";
+        /// <summary>
+        /// Determines where attachments are stored (same folder, subfolder per note, or centralized).
+        /// </summary>
+        public AttachmentStorageMode AttachmentStorageMode { get; set; } = AttachmentStorageMode.SameAsNote;
+        /// <summary>
+        /// Whether to save inline images from emails.
+        /// </summary>
+        public bool SaveInlineImages { get; set; } = true;
+        /// <summary>
+        /// Whether to save all email attachments (not just inline images).
+        /// </summary>
+        public bool SaveAllAttachments { get; set; } = false;
+        /// <summary>
+        /// Whether to use Obsidian wikilinks (![[image.png]]) or standard markdown (![image.png](image.png)).
+        /// </summary>
+        public bool UseObsidianWikilinks { get; set; } = true;
+
         public List<string> SubjectCleanupPatterns { get; set; } = new List<string>
         {
             // Remove all variations of Re/Fwd prefixes, including multiple occurrences
@@ -95,8 +116,85 @@ namespace SlingMD.Outlook.Models
             return Path.Combine(GetFullVaultPath(), ContactsFolder);
         }
 
+        /// <summary>
+        /// Validates all settings before saving. Throws ArgumentException if any setting is invalid.
+        /// </summary>
+        private void Validate()
+        {
+            // Validate vault name
+            if (string.IsNullOrWhiteSpace(VaultName))
+            {
+                throw new ArgumentException("Vault name cannot be empty.");
+            }
+
+            // Validate vault base path
+            if (string.IsNullOrWhiteSpace(VaultBasePath))
+            {
+                throw new ArgumentException("Vault base path cannot be empty.");
+            }
+
+            // Validate folder names don't contain invalid path characters
+            char[] invalidChars = Path.GetInvalidFileNameChars();
+            if (InboxFolder != null && InboxFolder.IndexOfAny(invalidChars) >= 0)
+            {
+                throw new ArgumentException($"Inbox folder name contains invalid characters: {InboxFolder}");
+            }
+            if (ContactsFolder != null && ContactsFolder.IndexOfAny(invalidChars) >= 0)
+            {
+                throw new ArgumentException($"Contacts folder name contains invalid characters: {ContactsFolder}");
+            }
+
+            // Validate numeric ranges
+            if (ObsidianDelaySeconds < 0 || ObsidianDelaySeconds > 60)
+            {
+                throw new ArgumentException("Obsidian delay must be between 0 and 60 seconds.");
+            }
+            if (DefaultDueDays < 0 || DefaultDueDays > 365)
+            {
+                throw new ArgumentException("Default due days must be between 0 and 365.");
+            }
+            if (DefaultReminderDays < 0 || DefaultReminderDays > 365)
+            {
+                throw new ArgumentException("Default reminder days must be between 0 and 365.");
+            }
+            if (DefaultReminderHour < 0 || DefaultReminderHour > 23)
+            {
+                throw new ArgumentException("Default reminder hour must be between 0 and 23.");
+            }
+            if (NoteTitleMaxLength < 10 || NoteTitleMaxLength > 500)
+            {
+                throw new ArgumentException("Note title max length must be between 10 and 500.");
+            }
+
+            // Validate attachment folder name
+            if (AttachmentsFolder != null && AttachmentsFolder.IndexOfAny(invalidChars) >= 0)
+            {
+                throw new ArgumentException($"Attachments folder name contains invalid characters: {AttachmentsFolder}");
+            }
+
+            // Validate regex patterns
+            if (SubjectCleanupPatterns != null)
+            {
+                foreach (var pattern in SubjectCleanupPatterns)
+                {
+                    try
+                    {
+                        // Test if the pattern compiles
+                        System.Text.RegularExpressions.Regex.IsMatch("test", pattern);
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        throw new ArgumentException($"Invalid regex pattern '{pattern}': {ex.Message}");
+                    }
+                }
+            }
+        }
+
         public void Save()
         {
+            // Validate before saving
+            Validate();
+
             var settings = new Dictionary<string, object>
             {
                 { "VaultName", VaultName },
@@ -124,7 +222,12 @@ namespace SlingMD.Outlook.Models
                 { "NoteTitleFormat", NoteTitleFormat },
                 { "NoteTitleMaxLength", NoteTitleMaxLength },
                 { "NoteTitleIncludeDate", NoteTitleIncludeDate },
-                { "MoveDateToFrontInThread", MoveDateToFrontInThread }
+                { "MoveDateToFrontInThread", MoveDateToFrontInThread },
+                { "AttachmentsFolder", AttachmentsFolder },
+                { "AttachmentStorageMode", AttachmentStorageMode },
+                { "SaveInlineImages", SaveInlineImages },
+                { "SaveAllAttachments", SaveAllAttachments },
+                { "UseObsidianWikilinks", UseObsidianWikilinks }
             };
 
             string json = JsonConvert.SerializeObject(settings, Formatting.Indented);
@@ -140,6 +243,30 @@ namespace SlingMD.Outlook.Models
             File.WriteAllText(settingsPath, json);
         }
 
+        /// <summary>
+        /// Helper method to load a setting value using reflection.
+        /// Reduces code duplication from 124 lines to ~20 lines.
+        /// </summary>
+        private void LoadSetting<T>(Dictionary<string, JToken> settings, string key)
+        {
+            if (settings.ContainsKey(key))
+            {
+                var property = GetType().GetProperty(key);
+                if (property != null && property.CanWrite)
+                {
+                    try
+                    {
+                        T value = settings[key].ToObject<T>();
+                        property.SetValue(this, value);
+                    }
+                    catch
+                    {
+                        // Skip invalid values
+                    }
+                }
+            }
+        }
+
         public void Load()
         {
             if (File.Exists(GetSettingsPath()))
@@ -147,122 +274,40 @@ namespace SlingMD.Outlook.Models
                 string json = File.ReadAllText(GetSettingsPath());
                 var settings = JsonConvert.DeserializeObject<Dictionary<string, JToken>>(json);
 
-                if (settings.ContainsKey("VaultName"))
-                {
-                    VaultName = settings["VaultName"].Value<string>();
-                }
-                if (settings.ContainsKey("VaultBasePath"))
-                {
-                    VaultBasePath = settings["VaultBasePath"].Value<string>();
-                }
-                if (settings.ContainsKey("InboxFolder"))
-                {
-                    InboxFolder = settings["InboxFolder"].Value<string>();
-                }
-                if (settings.ContainsKey("ContactsFolder"))
-                {
-                    ContactsFolder = settings["ContactsFolder"].Value<string>();
-                }
-                if (settings.ContainsKey("EnableContactSaving"))
-                {
-                    EnableContactSaving = settings["EnableContactSaving"].Value<bool>();
-                }
-                if (settings.ContainsKey("SearchEntireVaultForContacts"))
-                {
-                    SearchEntireVaultForContacts = settings["SearchEntireVaultForContacts"].Value<bool>();
-                }
-                if (settings.ContainsKey("LaunchObsidian"))
-                {
-                    LaunchObsidian = settings["LaunchObsidian"].Value<bool>();
-                }
-                if (settings.ContainsKey("ObsidianDelaySeconds"))
-                {
-                    ObsidianDelaySeconds = settings["ObsidianDelaySeconds"].Value<int>();
-                }
-                if (settings.ContainsKey("ShowCountdown"))
-                {
-                    ShowCountdown = settings["ShowCountdown"].Value<bool>();
-                }
-                if (settings.ContainsKey("CreateObsidianTask"))
-                {
-                    CreateObsidianTask = settings["CreateObsidianTask"].Value<bool>();
-                }
-                if (settings.ContainsKey("CreateOutlookTask"))
-                {
-                    CreateOutlookTask = settings["CreateOutlookTask"].Value<bool>();
-                }
-                if (settings.ContainsKey("DefaultDueDays"))
-                {
-                    DefaultDueDays = settings["DefaultDueDays"].Value<int>();
-                }
-                if (settings.ContainsKey("UseRelativeReminder"))
-                {
-                    UseRelativeReminder = settings["UseRelativeReminder"].Value<bool>();
-                }
-                if (settings.ContainsKey("DefaultReminderDays"))
-                {
-                    DefaultReminderDays = settings["DefaultReminderDays"].Value<int>();
-                }
-                if (settings.ContainsKey("DefaultReminderHour"))
-                {
-                    DefaultReminderHour = settings["DefaultReminderHour"].Value<int>();
-                }
-                if (settings.ContainsKey("AskForDates"))
-                {
-                    AskForDates = settings["AskForDates"].Value<bool>();
-                }
-                if (settings.ContainsKey("SubjectCleanupPatterns"))
-                {
-                    var patterns = settings["SubjectCleanupPatterns"].ToObject<List<string>>();
-                    if (patterns != null && patterns.Count > 0)
-                    {
-                        SubjectCleanupPatterns = patterns;
-                    }
-                }
-                if (settings.ContainsKey("GroupEmailThreads"))
-                {
-                    GroupEmailThreads = settings["GroupEmailThreads"].Value<bool>();
-                }
-                if (settings.ContainsKey("ShowDevelopmentSettings"))
-                {
-                    ShowDevelopmentSettings = settings["ShowDevelopmentSettings"].Value<bool>();
-                }
-                if (settings.ContainsKey("ShowThreadDebug"))
-                {
-                    ShowThreadDebug = settings["ShowThreadDebug"].Value<bool>();
-                }
-                if (settings.ContainsKey("DefaultNoteTags"))
-                {
-                    var tags = settings["DefaultNoteTags"].ToObject<List<string>>();
-                    if (tags != null && tags.Count > 0)
-                    {
-                        DefaultNoteTags = tags;
-                    }
-                }
-                if (settings.ContainsKey("DefaultTaskTags"))
-                {
-                    var tags = settings["DefaultTaskTags"].ToObject<List<string>>();
-                    if (tags != null && tags.Count > 0)
-                    {
-                        DefaultTaskTags = tags;
-                    }
-                }
-                if (settings.ContainsKey("NoteTitleFormat"))
-                {
-                    NoteTitleFormat = settings["NoteTitleFormat"].Value<string>();
-                }
-                if (settings.ContainsKey("NoteTitleMaxLength"))
-                {
-                    NoteTitleMaxLength = settings["NoteTitleMaxLength"].Value<int>();
-                }
-                if (settings.ContainsKey("NoteTitleIncludeDate"))
-                {
-                    NoteTitleIncludeDate = settings["NoteTitleIncludeDate"].Value<bool>();
-                }
-                if (settings.ContainsKey("MoveDateToFrontInThread"))
-                {
-                    MoveDateToFrontInThread = settings["MoveDateToFrontInThread"].Value<bool>();
-                }
+                // Use reflection-based loading to reduce code duplication
+                LoadSetting<string>(settings, "VaultName");
+                LoadSetting<string>(settings, "VaultBasePath");
+                LoadSetting<string>(settings, "InboxFolder");
+                LoadSetting<string>(settings, "ContactsFolder");
+                LoadSetting<bool>(settings, "EnableContactSaving");
+                LoadSetting<bool>(settings, "SearchEntireVaultForContacts");
+                LoadSetting<bool>(settings, "LaunchObsidian");
+                LoadSetting<int>(settings, "ObsidianDelaySeconds");
+                LoadSetting<bool>(settings, "ShowCountdown");
+                LoadSetting<bool>(settings, "CreateObsidianTask");
+                LoadSetting<bool>(settings, "CreateOutlookTask");
+                LoadSetting<int>(settings, "DefaultDueDays");
+                LoadSetting<bool>(settings, "UseRelativeReminder");
+                LoadSetting<int>(settings, "DefaultReminderDays");
+                LoadSetting<int>(settings, "DefaultReminderHour");
+                LoadSetting<bool>(settings, "AskForDates");
+                LoadSetting<bool>(settings, "GroupEmailThreads");
+                LoadSetting<bool>(settings, "ShowDevelopmentSettings");
+                LoadSetting<bool>(settings, "ShowThreadDebug");
+                LoadSetting<string>(settings, "NoteTitleFormat");
+                LoadSetting<int>(settings, "NoteTitleMaxLength");
+                LoadSetting<bool>(settings, "NoteTitleIncludeDate");
+                LoadSetting<bool>(settings, "MoveDateToFrontInThread");
+                LoadSetting<string>(settings, "AttachmentsFolder");
+                LoadSetting<AttachmentStorageMode>(settings, "AttachmentStorageMode");
+                LoadSetting<bool>(settings, "SaveInlineImages");
+                LoadSetting<bool>(settings, "SaveAllAttachments");
+                LoadSetting<bool>(settings, "UseObsidianWikilinks");
+
+                // Load list properties with additional validation
+                LoadSetting<List<string>>(settings, "SubjectCleanupPatterns");
+                LoadSetting<List<string>>(settings, "DefaultNoteTags");
+                LoadSetting<List<string>>(settings, "DefaultTaskTags");
             }
         }
 

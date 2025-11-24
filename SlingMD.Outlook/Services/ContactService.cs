@@ -88,9 +88,20 @@ namespace SlingMD.Outlook.Services
             var names = new List<string>();
             foreach (Recipient recipient in recipients)
             {
-                if (recipient.Type == (int)type)
+                try
                 {
-                    names.Add($"[[{recipient.Name}]]");
+                    if (recipient.Type == (int)type)
+                    {
+                        names.Add($"[[{recipient.Name}]]");
+                    }
+                }
+                finally
+                {
+                    // Release each Recipient COM object to prevent memory leaks
+                    if (recipient != null)
+                    {
+                        System.Runtime.InteropServices.Marshal.ReleaseComObject(recipient);
+                    }
                 }
             }
             return names;
@@ -104,24 +115,35 @@ namespace SlingMD.Outlook.Services
             var emails = new List<string>();
             foreach (Recipient recipient in recipients)
             {
-                if (recipient.Type == (int)type)
+                try
                 {
-                    try
+                    if (recipient.Type == (int)type)
                     {
-                        const string PR_SMTP_ADDRESS = "http://schemas.microsoft.com/mapi/proptag/0x39FE001E";
-                        string email = recipient.PropertyAccessor.GetProperty(PR_SMTP_ADDRESS);
-                        if (!string.IsNullOrEmpty(email))
+                        try
                         {
-                            emails.Add(email);
+                            const string PR_SMTP_ADDRESS = "http://schemas.microsoft.com/mapi/proptag/0x39FE001E";
+                            string email = recipient.PropertyAccessor.GetProperty(PR_SMTP_ADDRESS);
+                            if (!string.IsNullOrEmpty(email))
+                            {
+                                emails.Add(email);
+                            }
+                        }
+                        catch
+                        {
+                            // Fallback to Address property
+                            if (!string.IsNullOrEmpty(recipient.Address))
+                            {
+                                emails.Add(recipient.Address);
+                            }
                         }
                     }
-                    catch
+                }
+                finally
+                {
+                    // Release each Recipient COM object to prevent memory leaks
+                    if (recipient != null)
                     {
-                        // Fallback to Address property
-                        if (!string.IsNullOrEmpty(recipient.Address))
-                        {
-                            emails.Add(recipient.Address);
-                        }
+                        System.Runtime.InteropServices.Marshal.ReleaseComObject(recipient);
                     }
                 }
             }
@@ -154,34 +176,54 @@ namespace SlingMD.Outlook.Services
                 if (_settings.SearchEntireVaultForContacts)
                 {
                     string vaultPath = _settings.GetFullVaultPath();
-                    
+
                     // Search for any markdown file with the contact's name in the title
                     // or with a [[ContactName]] link pattern
-                    
+
                     // Option 1: File name matches the contact name
                     string[] matchingFiles = Directory.GetFiles(vaultPath, $"{cleanName}.md", SearchOption.AllDirectories);
                     if (matchingFiles.Length > 0)
                     {
                         return true;
                     }
-                    
+
                     // Option 2: Search for markdown files with the contact name in wikilinks
                     // This is more expensive but necessary for a complete search
                     string[] allMarkdownFiles = Directory.GetFiles(vaultPath, "*.md", SearchOption.AllDirectories);
-                    
+
+                    // Performance safeguard: Skip vault-wide search if there are too many files
+                    // This prevents multi-second delays on large vaults (10,000+ notes)
+                    const int MAX_FILES_TO_SEARCH = 5000;
+                    if (allMarkdownFiles.Length > MAX_FILES_TO_SEARCH)
+                    {
+                        // Fall back to contacts folder only when vault is too large
+                        return false;
+                    }
+
                     // Prepare search patterns for the contact (exact match with brackets)
                     string searchPattern = $"[[{contactName}]]";
-                    
+
                     foreach (string mdFile in allMarkdownFiles)
                     {
                         try
                         {
-                            string content = File.ReadAllText(mdFile);
-                            
-                            // If content contains a wikilink to this contact
-                            if (content.Contains(searchPattern))
+                            // Performance optimization: Only read first 100 lines instead of entire file
+                            // Contact mentions are typically in frontmatter or early in the note
+                            int linesRead = 0;
+                            const int MAX_LINES_TO_READ = 100;
+
+                            foreach (string line in File.ReadLines(mdFile))
                             {
-                                return true;
+                                if (line.Contains(searchPattern))
+                                {
+                                    return true;
+                                }
+
+                                linesRead++;
+                                if (linesRead >= MAX_LINES_TO_READ)
+                                {
+                                    break;
+                                }
                             }
                         }
                         catch
@@ -242,21 +284,42 @@ namespace SlingMD.Outlook.Services
             content.AppendLine("```dataviewjs");
             content.AppendLine("// Find all emails where this person is mentioned");
             content.AppendLine("const contact = dv.current().file.name;");
-            content.AppendLine("const emails = dv.pages('#email')");
+
+            // Get the actual email tag from settings (use first tag from DefaultNoteTags, fallback to empty string to search all pages)
+            string emailTag = (_settings.DefaultNoteTags != null && _settings.DefaultNoteTags.Count > 0)
+                ? $"'#{_settings.DefaultNoteTags[0]}'"
+                : "\"\"";
+
+            content.AppendLine($"const emails = dv.pages({emailTag})");
             content.AppendLine("    .where(p => {");
+            content.AppendLine("        // Check if contact is in from field (string)");
             content.AppendLine("        const from = String(p.from || '').includes(`[[${contact}]]`);");
-            content.AppendLine("        const to = String(p.to || '').includes(`[[${contact}]]`);");
-            content.AppendLine("        const cc = String(p.cc || '').includes(`[[${contact}]]`);");
+            content.AppendLine("        ");
+            content.AppendLine("        // Check if contact is in to field (array or string)");
+            content.AppendLine("        const to = Array.isArray(p.to) ");
+            content.AppendLine("            ? p.to.some(t => String(t || '').includes(`[[${contact}]]`))");
+            content.AppendLine("            : String(p.to || '').includes(`[[${contact}]]`);");
+            content.AppendLine("        ");
+            content.AppendLine("        // Check if contact is in cc field (array or string)");
+            content.AppendLine("        const cc = Array.isArray(p.cc)");
+            content.AppendLine("            ? p.cc.some(c => String(c || '').includes(`[[${contact}]]`))");
+            content.AppendLine("            : String(p.cc || '').includes(`[[${contact}]]`);");
+            content.AppendLine("        ");
             content.AppendLine("        return from || to || cc;");
             content.AppendLine("    })");
             content.AppendLine("    .sort(p => p.date, 'desc');");
             content.AppendLine();
             content.AppendLine("dv.table([\"Date\", \"Subject\", \"Type\"],");
-            content.AppendLine("    emails.map(p => [");
-            content.AppendLine("        p.date,");
-            content.AppendLine("        p.file.link,");
-            content.AppendLine("        p.from.includes(`[[${contact}]]`) ? \"From\" : p.to.includes(`[[${contact}]]`) ? \"To\" : \"CC\"");
-            content.AppendLine("    ])");
+            content.AppendLine("    emails.map(p => {");
+            content.AppendLine("        // Determine message type");
+            content.AppendLine("        const isFrom = String(p.from || '').includes(`[[${contact}]]`);");
+            content.AppendLine("        const isTo = Array.isArray(p.to)");
+            content.AppendLine("            ? p.to.some(t => String(t || '').includes(`[[${contact}]]`))");
+            content.AppendLine("            : String(p.to || '').includes(`[[${contact}]]`);");
+            content.AppendLine("        const type = isFrom ? \"From\" : isTo ? \"To\" : \"CC\";");
+            content.AppendLine("        ");
+            content.AppendLine("        return [p.date, p.file.link, type];");
+            content.AppendLine("    })");
             content.AppendLine(");");
             content.AppendLine("```");
             content.AppendLine();
