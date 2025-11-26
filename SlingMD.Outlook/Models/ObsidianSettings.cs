@@ -38,7 +38,17 @@ namespace SlingMD.Outlook.Models
         public bool ShowDevelopmentSettings { get; set; } = false;
         public bool ShowThreadDebug { get; set; } = false;
         /// <summary>
+        /// Whether to include the dailyNoteLink field in frontmatter.
+        /// </summary>
+        public bool IncludeDailyNoteLink { get; set; } = true;
+        /// <summary>
+        /// Format for the daily note link in frontmatter. Use {date:format} for date placeholders.
+        /// Default: [[yyyy-MM-dd]] which produces links like [[2024-01-15]]
+        /// </summary>
+        public string DailyNoteLinkFormat { get; set; } = "[[yyyy-MM-dd]]";
+        /// <summary>
         /// Default tags to apply to the note's frontmatter.
+        /// Leave empty to not include any tags.
         /// </summary>
         public List<string> DefaultNoteTags { get; set; } = new List<string> { "FollowUp" };
         /// <summary>
@@ -217,6 +227,8 @@ namespace SlingMD.Outlook.Models
                 { "GroupEmailThreads", GroupEmailThreads },
                 { "ShowDevelopmentSettings", ShowDevelopmentSettings },
                 { "ShowThreadDebug", ShowThreadDebug },
+                { "IncludeDailyNoteLink", IncludeDailyNoteLink },
+                { "DailyNoteLinkFormat", DailyNoteLinkFormat },
                 { "DefaultNoteTags", DefaultNoteTags },
                 { "DefaultTaskTags", DefaultTaskTags },
                 { "NoteTitleFormat", NoteTitleFormat },
@@ -294,6 +306,8 @@ namespace SlingMD.Outlook.Models
                 LoadSetting<bool>(settings, "GroupEmailThreads");
                 LoadSetting<bool>(settings, "ShowDevelopmentSettings");
                 LoadSetting<bool>(settings, "ShowThreadDebug");
+                LoadSetting<bool>(settings, "IncludeDailyNoteLink");
+                LoadSetting<string>(settings, "DailyNoteLinkFormat");
                 LoadSetting<string>(settings, "NoteTitleFormat");
                 LoadSetting<int>(settings, "NoteTitleMaxLength");
                 LoadSetting<bool>(settings, "NoteTitleIncludeDate");

@@ -233,11 +233,26 @@ namespace SlingMD.Outlook.Services
                         { "toEmail", toEmails },
                         { "threadId", conversationId },
                         { "date", mail.ReceivedTime.ToString("yyyy-MM-dd HH:mm:ss") },
-                        { "dailyNoteLink", $"[[{mail.ReceivedTime:yyyy-MM-dd}]]" },
                         { "internetMessageId", realInternetMessageId },
-                        { "entryId", realEntryId },
-                        { "tags", (_settings.DefaultNoteTags != null && _settings.DefaultNoteTags.Count > 0) ? new List<string>(_settings.DefaultNoteTags) : new List<string> { "FollowUp" } }
+                        { "entryId", realEntryId }
                     };
+
+                    // Add dailyNoteLink only if enabled in settings
+                    if (_settings.IncludeDailyNoteLink)
+                    {
+                        string dailyLinkFormat = _settings.DailyNoteLinkFormat ?? "[[yyyy-MM-dd]]";
+                        // Replace date format placeholders - the format string itself contains the date format
+                        // e.g., "[[yyyy-MM-dd]]" becomes "[[2024-01-15]]"
+                        string dailyNoteLink = mail.ReceivedTime.ToString(dailyLinkFormat.Replace("[[", "").Replace("]]", ""));
+                        dailyNoteLink = "[[" + dailyNoteLink + "]]";
+                        metadata.Add("dailyNoteLink", dailyNoteLink);
+                    }
+
+                    // Add tags only if user has specified them (respect empty list choice)
+                    if (_settings.DefaultNoteTags != null && _settings.DefaultNoteTags.Count > 0)
+                    {
+                        metadata.Add("tags", new List<string>(_settings.DefaultNoteTags));
+                    }
 
                     // Add CC if present
                     if (ccEmails.Count > 0)
@@ -256,12 +271,10 @@ namespace SlingMD.Outlook.Services
                     var content = new System.Text.StringBuilder();
                     content.Append(_templateService.BuildFrontMatter(metadata));
 
-                    // Add Obsidian task if enabled, using DefaultTaskTags
+                    // Add Obsidian task if enabled, using DefaultTaskTags (respects empty list)
                     if (_settings.CreateObsidianTask && _taskService.ShouldCreateTasks)
                     {
-                        var taskTags = (_settings.DefaultTaskTags != null && _settings.DefaultTaskTags.Count > 0)
-                            ? _settings.DefaultTaskTags
-                            : new List<string> { "FollowUp" };
+                        var taskTags = _settings.DefaultTaskTags ?? new List<string>();
                         content.Append(_taskService.GenerateObsidianTask(fileNameNoExt, taskTags));
                         content.Append("\n\n");
                     }

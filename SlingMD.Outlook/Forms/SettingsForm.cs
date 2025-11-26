@@ -50,6 +50,9 @@ namespace SlingMD.Outlook.Forms
         private Label lblNoteTitleFormat;
         private Label lblNoteTitleMaxLength;
         private Label lblNoteTitleIncludeDate;
+        private CheckBox chkIncludeDailyNoteLink;
+        private TextBox txtDailyNoteLinkFormat;
+        private Label lblDailyNoteLinkFormat;
         private GroupBox grpNoteCustomization;
         private ToolTip toolTip;
         // Refactored layout containers
@@ -210,6 +213,19 @@ namespace SlingMD.Outlook.Forms
             this.chkMoveDateToFrontInThread = new CheckBox { Text = "Move date to front of filename when grouping threads", Anchor = AnchorStyles.Left, AutoSize = true };
             dateOptionsLayout.Controls.Add(this.chkMoveDateToFrontInThread);
             noteTagLayout.Controls.Add(dateOptionsLayout, 1, 4);
+            // Daily note link settings
+            var dailyLinkLayout = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, AutoSize = true, Anchor = AnchorStyles.Left };
+            this.chkIncludeDailyNoteLink = new CheckBox { Text = "Include Daily Note Link", Anchor = AnchorStyles.Left, AutoSize = true };
+            dailyLinkLayout.Controls.Add(this.chkIncludeDailyNoteLink);
+            noteTagLayout.Controls.Add(dailyLinkLayout, 1, 5);
+            this.lblDailyNoteLinkFormat = new Label { Text = "Daily Note Link Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            this.txtDailyNoteLinkFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Width = 320, Dock = DockStyle.Fill };
+            noteTagLayout.Controls.Add(this.lblDailyNoteLinkFormat, 0, 6);
+            noteTagLayout.Controls.Add(this.txtDailyNoteLinkFormat, 1, 6);
+            // Add event handler for enabling/disabling daily note link format textbox
+            this.chkIncludeDailyNoteLink.CheckedChanged += (s, e) => {
+                this.txtDailyNoteLinkFormat.Enabled = this.chkIncludeDailyNoteLink.Checked;
+            };
 
             // Add event handler for enabling/disabling move date checkbox
             this.chkNoteTitleIncludeDate.CheckedChanged += (s, e) => {
@@ -362,6 +378,9 @@ namespace SlingMD.Outlook.Forms
             chkNoteTitleIncludeDate.Checked = _settings.NoteTitleIncludeDate;
             chkMoveDateToFrontInThread.Checked = _settings.MoveDateToFrontInThread;
             chkMoveDateToFrontInThread.Enabled = chkNoteTitleIncludeDate.Checked;
+            chkIncludeDailyNoteLink.Checked = _settings.IncludeDailyNoteLink;
+            txtDailyNoteLinkFormat.Text = _settings.DailyNoteLinkFormat ?? "[[yyyy-MM-dd]]";
+            txtDailyNoteLinkFormat.Enabled = chkIncludeDailyNoteLink.Checked;
 
             // Load attachment settings
             txtAttachmentsFolder.Text = _settings.AttachmentsFolder ?? "Attachments";
@@ -422,6 +441,8 @@ namespace SlingMD.Outlook.Forms
             _settings.NoteTitleFormat = txtNoteTitleFormat.Text.Trim();
             _settings.NoteTitleMaxLength = (int)numNoteTitleMaxLength.Value;
             _settings.NoteTitleIncludeDate = chkNoteTitleIncludeDate.Checked;
+            _settings.IncludeDailyNoteLink = chkIncludeDailyNoteLink.Checked;
+            _settings.DailyNoteLinkFormat = txtDailyNoteLinkFormat.Text.Trim();
 
             // Save attachment settings
             _settings.AttachmentsFolder = txtAttachmentsFolder.Text.Trim();
