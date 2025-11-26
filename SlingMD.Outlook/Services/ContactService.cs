@@ -283,7 +283,27 @@ namespace SlingMD.Outlook.Services
             content.AppendLine();
             content.AppendLine("```dataviewjs");
             content.AppendLine("// Find all emails where this person is mentioned");
-            content.AppendLine("const contact = dv.current().file.name;");
+            content.AppendLine("// Use title from frontmatter (original name) rather than file.name (cleaned name)");
+            content.AppendLine("const contact = dv.current().title || dv.current().file.name;");
+            content.AppendLine();
+            content.AppendLine("// Helper to check if a field contains this contact");
+            content.AppendLine("// Handles both Dataview Link objects and plain strings");
+            content.AppendLine("function containsContact(field, contactName) {");
+            content.AppendLine("    if (!field) return false;");
+            content.AppendLine("    // Handle Dataview Link objects (have .path property)");
+            content.AppendLine("    if (field.path) return field.path === contactName;");
+            content.AppendLine("    // Handle string format - check for [[Name]] or exact match");
+            content.AppendLine("    const str = String(field);");
+            content.AppendLine("    return str.includes(`[[${contactName}]]`) || str === contactName;");
+            content.AppendLine("}");
+            content.AppendLine();
+            content.AppendLine("// Helper to check arrays (to/cc fields can be arrays)");
+            content.AppendLine("function checkArray(arr, contactName) {");
+            content.AppendLine("    if (!arr) return false;");
+            content.AppendLine("    if (!Array.isArray(arr)) return containsContact(arr, contactName);");
+            content.AppendLine("    return arr.some(item => containsContact(item, contactName));");
+            content.AppendLine("}");
+            content.AppendLine();
 
             // Get the actual email tag from settings (use first tag from DefaultNoteTags, fallback to empty string to search all pages)
             string emailTag = (_settings.DefaultNoteTags != null && _settings.DefaultNoteTags.Count > 0)
@@ -292,32 +312,18 @@ namespace SlingMD.Outlook.Services
 
             content.AppendLine($"const emails = dv.pages({emailTag})");
             content.AppendLine("    .where(p => {");
-            content.AppendLine("        // Check if contact is in from field (string)");
-            content.AppendLine("        const from = String(p.from || '').includes(`[[${contact}]]`);");
-            content.AppendLine("        ");
-            content.AppendLine("        // Check if contact is in to field (array or string)");
-            content.AppendLine("        const to = Array.isArray(p.to) ");
-            content.AppendLine("            ? p.to.some(t => String(t || '').includes(`[[${contact}]]`))");
-            content.AppendLine("            : String(p.to || '').includes(`[[${contact}]]`);");
-            content.AppendLine("        ");
-            content.AppendLine("        // Check if contact is in cc field (array or string)");
-            content.AppendLine("        const cc = Array.isArray(p.cc)");
-            content.AppendLine("            ? p.cc.some(c => String(c || '').includes(`[[${contact}]]`))");
-            content.AppendLine("            : String(p.cc || '').includes(`[[${contact}]]`);");
-            content.AppendLine("        ");
-            content.AppendLine("        return from || to || cc;");
+            content.AppendLine("        return containsContact(p.from, contact) ||");
+            content.AppendLine("               checkArray(p.to, contact) ||");
+            content.AppendLine("               checkArray(p.cc, contact);");
             content.AppendLine("    })");
             content.AppendLine("    .sort(p => p.date, 'desc');");
             content.AppendLine();
             content.AppendLine("dv.table([\"Date\", \"Subject\", \"Type\"],");
             content.AppendLine("    emails.map(p => {");
             content.AppendLine("        // Determine message type");
-            content.AppendLine("        const isFrom = String(p.from || '').includes(`[[${contact}]]`);");
-            content.AppendLine("        const isTo = Array.isArray(p.to)");
-            content.AppendLine("            ? p.to.some(t => String(t || '').includes(`[[${contact}]]`))");
-            content.AppendLine("            : String(p.to || '').includes(`[[${contact}]]`);");
+            content.AppendLine("        const isFrom = containsContact(p.from, contact);");
+            content.AppendLine("        const isTo = checkArray(p.to, contact);");
             content.AppendLine("        const type = isFrom ? \"From\" : isTo ? \"To\" : \"CC\";");
-            content.AppendLine("        ");
             content.AppendLine("        return [p.date, p.file.link, type];");
             content.AppendLine("    })");
             content.AppendLine(");");
