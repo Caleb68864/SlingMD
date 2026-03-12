@@ -10,7 +10,8 @@
       "Bash(powershell.exe -ExecutionPolicy Bypass -File \"C:\\Users\\CalebBennett\\Documents\\GitHub\\SlingMD\\build-and-publish-fixed.ps1\")",
       "Bash(powershell.exe -Command \"& \"\"$env:ProgramFiles(x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe\"\" -latest -products * -requires Microsoft.Component.MSBuild -property installationPath\")",
       "Bash(powershell.exe -Command \"Test-Path ''C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe''\")",
-      "Bash(powershell.exe:*)"
+      "Bash(powershell.exe:*)",
+      "Bash(cmd.exe:*)"
     ]
   },
   "enableAllProjectMcpServers": false

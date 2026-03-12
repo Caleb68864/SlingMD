@@ -1,10 +1,8 @@
 using System;
-using System.IO;
-using Xunit;
-using SlingMD.Outlook.Models;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
+using System.IO;
+using SlingMD.Outlook.Models;
+using Xunit;
 
 namespace SlingMD.Tests.Models
 {
@@ -18,7 +16,7 @@ namespace SlingMD.Tests.Models
             // Setup test directory for settings
             _testSettingsDir = Path.Combine(Path.GetTempPath(), "SlingMDTests", "Settings");
             _testSettingsPath = Path.Combine(_testSettingsDir, "ObsidianSettings.json");
-            
+
             // Clean up any previous test data
             if (Directory.Exists(_testSettingsDir))
             {
@@ -60,21 +58,21 @@ namespace SlingMD.Tests.Models
 
             // Act - Save and load
             settings.Save();
-            
+
             var loadedSettings = new ObsidianSettingsTestable
             {
                 TestSettingsPath = _testSettingsPath
             };
-            
+
             // Default value is false, so if it loads correctly it should be true
             Assert.False(loadedSettings.SearchEntireVaultForContacts, "Should start as false before loading");
-            
+
             loadedSettings.Load();
 
             // Assert - Check that the setting was correctly loaded
             Assert.True(loadedSettings.SearchEntireVaultForContacts, "SearchEntireVaultForContacts should be true after loading");
         }
-        
+
         [Fact]
         public void SaveAndLoad_PersistsAllSettings()
         {
@@ -94,22 +92,32 @@ namespace SlingMD.Tests.Models
                 CreateObsidianTask = false,
                 CreateOutlookTask = true,
                 DefaultDueDays = 3,
+                UseRelativeReminder = true,
                 DefaultReminderDays = 2,
                 DefaultReminderHour = 10,
                 AskForDates = true,
                 GroupEmailThreads = false,
                 ShowDevelopmentSettings = true,
-                ShowThreadDebug = true
+                ShowThreadDebug = true,
+                IncludeDailyNoteLink = false,
+                DailyNoteLinkFormat = "[[MM-dd-yyyy]]",
+                DefaultNoteTags = new List<string> { "Client", "FollowUp" },
+                DefaultTaskTags = new List<string> { "Action", "Urgent" },
+                NoteTitleFormat = "{Sender} - {Subject}",
+                NoteTitleMaxLength = 75,
+                NoteTitleIncludeDate = false,
+                MoveDateToFrontInThread = false,
+                AttachmentsFolder = "EmailFiles",
+                AttachmentStorageMode = AttachmentStorageMode.Centralized,
+                SaveInlineImages = false,
+                SaveAllAttachments = true,
+                UseObsidianWikilinks = false,
+                SubjectCleanupPatterns = new List<string> { "test-pattern-1", "test-pattern-2" }
             };
-
-            // Add some test patterns
-            settings.SubjectCleanupPatterns.Clear();
-            settings.SubjectCleanupPatterns.Add("test-pattern-1");
-            settings.SubjectCleanupPatterns.Add("test-pattern-2");
 
             // Act
             settings.Save();
-            
+
             var loadedSettings = new ObsidianSettingsTestable
             {
                 TestSettingsPath = _testSettingsPath
@@ -129,17 +137,27 @@ namespace SlingMD.Tests.Models
             Assert.Equal(settings.CreateObsidianTask, loadedSettings.CreateObsidianTask);
             Assert.Equal(settings.CreateOutlookTask, loadedSettings.CreateOutlookTask);
             Assert.Equal(settings.DefaultDueDays, loadedSettings.DefaultDueDays);
+            Assert.Equal(settings.UseRelativeReminder, loadedSettings.UseRelativeReminder);
             Assert.Equal(settings.DefaultReminderDays, loadedSettings.DefaultReminderDays);
             Assert.Equal(settings.DefaultReminderHour, loadedSettings.DefaultReminderHour);
             Assert.Equal(settings.AskForDates, loadedSettings.AskForDates);
             Assert.Equal(settings.GroupEmailThreads, loadedSettings.GroupEmailThreads);
             Assert.Equal(settings.ShowDevelopmentSettings, loadedSettings.ShowDevelopmentSettings);
             Assert.Equal(settings.ShowThreadDebug, loadedSettings.ShowThreadDebug);
-            
-            // Check patterns
-            Assert.Equal(2, loadedSettings.SubjectCleanupPatterns.Count);
-            Assert.Contains("test-pattern-1", loadedSettings.SubjectCleanupPatterns);
-            Assert.Contains("test-pattern-2", loadedSettings.SubjectCleanupPatterns);
+            Assert.Equal(settings.IncludeDailyNoteLink, loadedSettings.IncludeDailyNoteLink);
+            Assert.Equal(settings.DailyNoteLinkFormat, loadedSettings.DailyNoteLinkFormat);
+            Assert.Equal(settings.NoteTitleFormat, loadedSettings.NoteTitleFormat);
+            Assert.Equal(settings.NoteTitleMaxLength, loadedSettings.NoteTitleMaxLength);
+            Assert.Equal(settings.NoteTitleIncludeDate, loadedSettings.NoteTitleIncludeDate);
+            Assert.Equal(settings.MoveDateToFrontInThread, loadedSettings.MoveDateToFrontInThread);
+            Assert.Equal(settings.AttachmentsFolder, loadedSettings.AttachmentsFolder);
+            Assert.Equal(settings.AttachmentStorageMode, loadedSettings.AttachmentStorageMode);
+            Assert.Equal(settings.SaveInlineImages, loadedSettings.SaveInlineImages);
+            Assert.Equal(settings.SaveAllAttachments, loadedSettings.SaveAllAttachments);
+            Assert.Equal(settings.UseObsidianWikilinks, loadedSettings.UseObsidianWikilinks);
+            Assert.Equal(settings.SubjectCleanupPatterns, loadedSettings.SubjectCleanupPatterns);
+            Assert.Equal(settings.DefaultNoteTags, loadedSettings.DefaultNoteTags);
+            Assert.Equal(settings.DefaultTaskTags, loadedSettings.DefaultTaskTags);
         }
 
         [Fact]

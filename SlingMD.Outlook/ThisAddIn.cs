@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.IO;
 using System.Windows.Forms;
 using Microsoft.Office.Interop.Outlook;
 using Office = Microsoft.Office.Core;
@@ -23,8 +24,15 @@ namespace SlingMD.Outlook
 
         private void ThisAddIn_Startup(object sender, System.EventArgs e)
         {
-            _settings = LoadSettings();
+            bool isFirstLaunchAfterInstall;
+
+            _settings = LoadSettings(out isFirstLaunchAfterInstall);
             _emailProcessor = new EmailProcessor(_settings);
+
+            if (isFirstLaunchAfterInstall && !_settings.HasShownSupportPrompt)
+            {
+                ShowFirstRunSupportPrompt();
+            }
         }
 
         private void ThisAddIn_Shutdown(object sender, System.EventArgs e)
@@ -36,11 +44,47 @@ namespace SlingMD.Outlook
             }
         }
 
-        private ObsidianSettings LoadSettings()
+        private ObsidianSettings LoadSettings(out bool isFirstLaunchAfterInstall)
         {
-            var settings = new ObsidianSettings();
-            settings.Load(); // Load settings from file
+            ObsidianSettings settings = new ObsidianSettings();
+            isFirstLaunchAfterInstall = !settings.HasSavedSettings();
+            settings.Load();
             return settings;
+        }
+
+        private void ShowFirstRunSupportPrompt()
+        {
+            SupportService.ShowBuyMeACoffeePrompt();
+            _settings.HasShownSupportPrompt = true;
+
+            try
+            {
+                _settings.Save();
+            }
+            catch (ArgumentException ex)
+            {
+                ShowFirstRunStateSaveWarning(ex.Message);
+            }
+            catch (IOException ex)
+            {
+                ShowFirstRunStateSaveWarning(ex.Message);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                ShowFirstRunStateSaveWarning(ex.Message);
+            }
+        }
+
+        private void ShowFirstRunStateSaveWarning(string errorMessage)
+        {
+            MessageBox.Show(
+                "SlingMD showed the support prompt but could not save the first-run state."
+                    + Environment.NewLine
+                    + Environment.NewLine
+                    + errorMessage,
+                "SlingMD",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
         }
 
         public async void ProcessSelectedEmail()
@@ -48,14 +92,14 @@ namespace SlingMD.Outlook
             try
             {
                 // Get selected email
-                var explorer = Application.ActiveExplorer();
+                Explorer explorer = Application.ActiveExplorer();
                 if (explorer.Selection.Count == 0)
                 {
                     MessageBox.Show("Please select an email first.", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
-                var mail = explorer.Selection[1] as MailItem;
+                MailItem mail = explorer.Selection[1] as MailItem;
                 if (mail == null)
                 {
                     MessageBox.Show("Selected item is not an email.", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -75,7 +119,7 @@ namespace SlingMD.Outlook
         {
             try
             {
-                using (var form = new SettingsForm(_settings))
+                using (SettingsForm form = new SettingsForm(_settings))
                 {
                     if (form.ShowDialog() == DialogResult.OK)
                     {

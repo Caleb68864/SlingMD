@@ -1,9 +1,7 @@
 using System;
-using System.Configuration;
 using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace SlingMD.Outlook.Models
 {
@@ -20,105 +18,170 @@ namespace SlingMD.Outlook.Models
         public bool ShowCountdown { get; set; } = true;
         public bool CreateObsidianTask { get; set; } = true;
         public bool CreateOutlookTask { get; set; } = false;
-        public int DefaultDueDays { get; set; } = 1;  // Due tomorrow
+        public int DefaultDueDays { get; set; } = 1;
+
         /// <summary>
         /// If true, DefaultReminderDays represents days before the due date.
         /// If false, DefaultReminderDays represents days from now (absolute).
         /// </summary>
         public bool UseRelativeReminder { get; set; } = false;
+
         /// <summary>
         /// Gets or sets the number of days for the reminder.
-        /// If UseRelativeReminder is true: represents days before the due date
-        /// If UseRelativeReminder is false: represents days from now (absolute)
+        /// If UseRelativeReminder is true: represents days before the due date.
+        /// If UseRelativeReminder is false: represents days from now (absolute).
         /// </summary>
-        public int DefaultReminderDays { get; set; } = 0;  // Remind today
-        public int DefaultReminderHour { get; set; } = 9;  // at 9am
+        public int DefaultReminderDays { get; set; } = 0;
+
+        public int DefaultReminderHour { get; set; } = 9;
         public bool AskForDates { get; set; } = false;
         public bool GroupEmailThreads { get; set; } = true;
         public bool ShowDevelopmentSettings { get; set; } = false;
         public bool ShowThreadDebug { get; set; } = false;
+
         /// <summary>
         /// Whether to include the dailyNoteLink field in frontmatter.
         /// </summary>
         public bool IncludeDailyNoteLink { get; set; } = true;
+
         /// <summary>
-        /// Format for the daily note link in frontmatter. Use {date:format} for date placeholders.
-        /// Default: [[yyyy-MM-dd]] which produces links like [[2024-01-15]]
+        /// Format for the daily note link in frontmatter.
+        /// Default: [[yyyy-MM-dd]] which produces links like [[2024-01-15]].
         /// </summary>
         public string DailyNoteLinkFormat { get; set; } = "[[yyyy-MM-dd]]";
+
+        /// <summary>
+        /// Folder used when searching for user-provided templates.
+        /// Relative paths are resolved from the Obsidian vault root.
+        /// </summary>
+        public string TemplatesFolder { get; set; } = "Templates";
+
+        /// <summary>
+        /// Template filename used for exported email notes.
+        /// </summary>
+        public string EmailTemplateFile { get; set; } = "EmailTemplate.md";
+
+        /// <summary>
+        /// Template filename used for contact notes.
+        /// </summary>
+        public string ContactTemplateFile { get; set; } = "ContactTemplate.md";
+
+        /// <summary>
+        /// Template filename used for inline Obsidian task lines.
+        /// </summary>
+        public string TaskTemplateFile { get; set; } = "TaskTemplate.md";
+
+        /// <summary>
+        /// Template filename used for thread summary notes.
+        /// </summary>
+        public string ThreadTemplateFile { get; set; } = "ThreadNoteTemplate.md";
+
+        /// <summary>
+        /// Optional filename format for email notes. Leave blank to preserve the legacy naming behavior.
+        /// Supported tokens include {Subject}, {Sender}, {Date}, and {Timestamp}.
+        /// </summary>
+        public string EmailFilenameFormat { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Filename format for contact notes.
+        /// Supported tokens include {ContactName} and {ContactShortName}.
+        /// </summary>
+        public string ContactFilenameFormat { get; set; } = "{ContactName}";
+
         /// <summary>
         /// Default tags to apply to the note's frontmatter.
         /// Leave empty to not include any tags.
         /// </summary>
-        public List<string> DefaultNoteTags { get; set; } = new List<string> { "FollowUp" };
+        public List<string> DefaultNoteTags { get; set; } = CreateDefaultNoteTags();
+
         /// <summary>
         /// Default tags to apply to the Obsidian task (in the note body).
         /// </summary>
-        public List<string> DefaultTaskTags { get; set; } = new List<string> { "FollowUp" };
+        public List<string> DefaultTaskTags { get; set; } = CreateDefaultTaskTags();
+
         /// <summary>
         /// Format for the note title. Use placeholders: {Subject}, {Sender}, {Date}.
         /// </summary>
         public string NoteTitleFormat { get; set; } = "{Subject} - {Date}";
+
         /// <summary>
         /// Maximum length for the note title. Titles longer than this will be trimmed with ellipsis.
         /// </summary>
         public int NoteTitleMaxLength { get; set; } = 50;
+
         /// <summary>
         /// Whether to include the date in the note title.
         /// </summary>
         public bool NoteTitleIncludeDate { get; set; } = true;
+
         public bool MoveDateToFrontInThread { get; set; } = true;
 
         /// <summary>
         /// Folder name for centralized attachment storage (relative to vault root).
         /// </summary>
         public string AttachmentsFolder { get; set; } = "Attachments";
+
         /// <summary>
         /// Determines where attachments are stored (same folder, subfolder per note, or centralized).
         /// </summary>
         public AttachmentStorageMode AttachmentStorageMode { get; set; } = AttachmentStorageMode.SameAsNote;
+
         /// <summary>
         /// Whether to save inline images from emails.
         /// </summary>
         public bool SaveInlineImages { get; set; } = true;
+
         /// <summary>
         /// Whether to save all email attachments (not just inline images).
         /// </summary>
         public bool SaveAllAttachments { get; set; } = false;
+
         /// <summary>
         /// Whether to use Obsidian wikilinks (![[image.png]]) or standard markdown (![image.png](image.png)).
         /// </summary>
         public bool UseObsidianWikilinks { get; set; } = true;
 
-        public List<string> SubjectCleanupPatterns { get; set; } = new List<string>
+        public List<string> SubjectCleanupPatterns { get; set; } = CreateDefaultSubjectCleanupPatterns();
+
+        private static List<string> CreateDefaultNoteTags()
         {
-            // Remove all variations of Re/Fwd prefixes, including multiple occurrences
-            @"^(?:(?:Re|Fwd|FW|RE|FWD)[:\s_-])*",  // Matches one or more prefixes at start
-            @"(?:(?:Re|Fwd|FW|RE|FWD)[:\s_-])+",   // Matches prefixes anywhere in string
-            // Common email tags
-            @"\[EXTERNAL\]\s*",             // External email tags
-            @"\[Internal\]\s*",             // Internal email tags
-            @"\[Confidential\]\s*",         // Confidential tags
-            @"\[Secure\]\s*",               // Secure email tags
-            @"\[Sensitive\]\s*",            // Sensitive email tags
-            @"\[Private\]\s*",              // Private email tags
-            @"\[PHI\]\s*",                  // PHI email tags
-            @"\[Encrypted\]\s*",            // Encrypted email tags
-            @"\[SPAM\]\s*",                 // Spam tags
-            // Cleanup
-            @"^\s+|\s+$",                   // Leading/trailing whitespace
-            @"[-_\s]{2,}",                  // Multiple separators into single hyphen
-            @"^-+|-+$"                      // Leading/trailing hyphens
-        };
+            return new List<string> { "FollowUp" };
+        }
+
+        private static List<string> CreateDefaultTaskTags()
+        {
+            return new List<string> { "FollowUp" };
+        }
+
+        private static List<string> CreateDefaultSubjectCleanupPatterns()
+        {
+            return new List<string>
+            {
+                @"^(?:(?:Re|Fwd|FW|RE|FWD)[:\s_-])*",
+                @"(?:(?:Re|Fwd|FW|RE|FWD)[:\s_-])+",
+                @"\[EXTERNAL\]\s*",
+                @"\[Internal\]\s*",
+                @"\[Confidential\]\s*",
+                @"\[Secure\]\s*",
+                @"\[Sensitive\]\s*",
+                @"\[Private\]\s*",
+                @"\[PHI\]\s*",
+                @"\[Encrypted\]\s*",
+                @"\[SPAM\]\s*",
+                @"^\s+|\s+$",
+                @"[-_\s]{2,}",
+                @"^-+|-+$"
+            };
+        }
 
         public string GetFullVaultPath()
         {
-            return System.IO.Path.Combine(VaultBasePath, VaultName);
+            return Path.Combine(VaultBasePath, VaultName);
         }
 
         public string GetInboxPath()
         {
-            return System.IO.Path.Combine(GetFullVaultPath(), InboxFolder);
+            return Path.Combine(GetFullVaultPath(), InboxFolder);
         }
 
         public string GetContactsPath()
@@ -126,70 +189,72 @@ namespace SlingMD.Outlook.Models
             return Path.Combine(GetFullVaultPath(), ContactsFolder);
         }
 
+        public string GetTemplatesPath()
+        {
+            if (Path.IsPathRooted(TemplatesFolder))
+            {
+                return TemplatesFolder;
+            }
+
+            return Path.Combine(GetFullVaultPath(), TemplatesFolder);
+        }
+
         /// <summary>
         /// Validates all settings before saving. Throws ArgumentException if any setting is invalid.
         /// </summary>
         private void Validate()
         {
-            // Validate vault name
             if (string.IsNullOrWhiteSpace(VaultName))
             {
                 throw new ArgumentException("Vault name cannot be empty.");
             }
 
-            // Validate vault base path
             if (string.IsNullOrWhiteSpace(VaultBasePath))
             {
                 throw new ArgumentException("Vault base path cannot be empty.");
             }
 
-            // Validate folder names don't contain invalid path characters
-            char[] invalidChars = Path.GetInvalidFileNameChars();
-            if (InboxFolder != null && InboxFolder.IndexOfAny(invalidChars) >= 0)
-            {
-                throw new ArgumentException($"Inbox folder name contains invalid characters: {InboxFolder}");
-            }
-            if (ContactsFolder != null && ContactsFolder.IndexOfAny(invalidChars) >= 0)
-            {
-                throw new ArgumentException($"Contacts folder name contains invalid characters: {ContactsFolder}");
-            }
+            char[] invalidFileNameChars = Path.GetInvalidFileNameChars();
+            ValidateFolderName(InboxFolder, "Inbox folder", invalidFileNameChars);
+            ValidateFolderName(ContactsFolder, "Contacts folder", invalidFileNameChars);
+            ValidateOptionalRelativePathSegment(TemplatesFolder, "Templates folder", invalidFileNameChars);
+            ValidateTemplateFileName(EmailTemplateFile, "Email template file", invalidFileNameChars);
+            ValidateTemplateFileName(ContactTemplateFile, "Contact template file", invalidFileNameChars);
+            ValidateTemplateFileName(TaskTemplateFile, "Task template file", invalidFileNameChars);
+            ValidateTemplateFileName(ThreadTemplateFile, "Thread template file", invalidFileNameChars);
+            ValidateFolderName(AttachmentsFolder, "Attachments folder", invalidFileNameChars);
 
-            // Validate numeric ranges
             if (ObsidianDelaySeconds < 0 || ObsidianDelaySeconds > 60)
             {
                 throw new ArgumentException("Obsidian delay must be between 0 and 60 seconds.");
             }
+
             if (DefaultDueDays < 0 || DefaultDueDays > 365)
             {
                 throw new ArgumentException("Default due days must be between 0 and 365.");
             }
+
             if (DefaultReminderDays < 0 || DefaultReminderDays > 365)
             {
                 throw new ArgumentException("Default reminder days must be between 0 and 365.");
             }
+
             if (DefaultReminderHour < 0 || DefaultReminderHour > 23)
             {
                 throw new ArgumentException("Default reminder hour must be between 0 and 23.");
             }
+
             if (NoteTitleMaxLength < 10 || NoteTitleMaxLength > 500)
             {
                 throw new ArgumentException("Note title max length must be between 10 and 500.");
             }
 
-            // Validate attachment folder name
-            if (AttachmentsFolder != null && AttachmentsFolder.IndexOfAny(invalidChars) >= 0)
-            {
-                throw new ArgumentException($"Attachments folder name contains invalid characters: {AttachmentsFolder}");
-            }
-
-            // Validate regex patterns
             if (SubjectCleanupPatterns != null)
             {
-                foreach (var pattern in SubjectCleanupPatterns)
+                foreach (string pattern in SubjectCleanupPatterns)
                 {
                     try
                     {
-                        // Test if the pattern compiles
                         System.Text.RegularExpressions.Regex.IsMatch("test", pattern);
                     }
                     catch (ArgumentException ex)
@@ -202,126 +267,114 @@ namespace SlingMD.Outlook.Models
 
         public void Save()
         {
-            // Validate before saving
             Validate();
 
-            var settings = new Dictionary<string, object>
-            {
-                { "VaultName", VaultName },
-                { "VaultBasePath", VaultBasePath },
-                { "InboxFolder", InboxFolder },
-                { "ContactsFolder", ContactsFolder },
-                { "EnableContactSaving", EnableContactSaving },
-                { "SearchEntireVaultForContacts", SearchEntireVaultForContacts },
-                { "LaunchObsidian", LaunchObsidian },
-                { "ObsidianDelaySeconds", ObsidianDelaySeconds },
-                { "ShowCountdown", ShowCountdown },
-                { "CreateObsidianTask", CreateObsidianTask },
-                { "CreateOutlookTask", CreateOutlookTask },
-                { "DefaultDueDays", DefaultDueDays },
-                { "UseRelativeReminder", UseRelativeReminder },
-                { "DefaultReminderDays", DefaultReminderDays },
-                { "DefaultReminderHour", DefaultReminderHour },
-                { "AskForDates", AskForDates },
-                { "SubjectCleanupPatterns", SubjectCleanupPatterns },
-                { "GroupEmailThreads", GroupEmailThreads },
-                { "ShowDevelopmentSettings", ShowDevelopmentSettings },
-                { "ShowThreadDebug", ShowThreadDebug },
-                { "IncludeDailyNoteLink", IncludeDailyNoteLink },
-                { "DailyNoteLinkFormat", DailyNoteLinkFormat },
-                { "DefaultNoteTags", DefaultNoteTags },
-                { "DefaultTaskTags", DefaultTaskTags },
-                { "NoteTitleFormat", NoteTitleFormat },
-                { "NoteTitleMaxLength", NoteTitleMaxLength },
-                { "NoteTitleIncludeDate", NoteTitleIncludeDate },
-                { "MoveDateToFrontInThread", MoveDateToFrontInThread },
-                { "AttachmentsFolder", AttachmentsFolder },
-                { "AttachmentStorageMode", AttachmentStorageMode },
-                { "SaveInlineImages", SaveInlineImages },
-                { "SaveAllAttachments", SaveAllAttachments },
-                { "UseObsidianWikilinks", UseObsidianWikilinks }
-            };
-
-            string json = JsonConvert.SerializeObject(settings, Formatting.Indented);
-            
-            // Ensure settings directory exists before saving
+            string json = JsonConvert.SerializeObject(this, Formatting.Indented);
             string settingsPath = GetSettingsPath();
             string settingsDir = Path.GetDirectoryName(settingsPath);
             if (!Directory.Exists(settingsDir))
             {
                 Directory.CreateDirectory(settingsDir);
             }
-            
-            File.WriteAllText(settingsPath, json);
-        }
 
-        /// <summary>
-        /// Helper method to load a setting value using reflection.
-        /// Reduces code duplication from 124 lines to ~20 lines.
-        /// </summary>
-        private void LoadSetting<T>(Dictionary<string, JToken> settings, string key)
-        {
-            if (settings.ContainsKey(key))
-            {
-                var property = GetType().GetProperty(key);
-                if (property != null && property.CanWrite)
-                {
-                    try
-                    {
-                        T value = settings[key].ToObject<T>();
-                        property.SetValue(this, value);
-                    }
-                    catch
-                    {
-                        // Skip invalid values
-                    }
-                }
-            }
+            File.WriteAllText(settingsPath, json);
         }
 
         public void Load()
         {
-            if (File.Exists(GetSettingsPath()))
+            string settingsPath = GetSettingsPath();
+            if (!File.Exists(settingsPath))
             {
-                string json = File.ReadAllText(GetSettingsPath());
-                var settings = JsonConvert.DeserializeObject<Dictionary<string, JToken>>(json);
+                NormalizeLoadedSettings();
+                return;
+            }
 
-                // Use reflection-based loading to reduce code duplication
-                LoadSetting<string>(settings, "VaultName");
-                LoadSetting<string>(settings, "VaultBasePath");
-                LoadSetting<string>(settings, "InboxFolder");
-                LoadSetting<string>(settings, "ContactsFolder");
-                LoadSetting<bool>(settings, "EnableContactSaving");
-                LoadSetting<bool>(settings, "SearchEntireVaultForContacts");
-                LoadSetting<bool>(settings, "LaunchObsidian");
-                LoadSetting<int>(settings, "ObsidianDelaySeconds");
-                LoadSetting<bool>(settings, "ShowCountdown");
-                LoadSetting<bool>(settings, "CreateObsidianTask");
-                LoadSetting<bool>(settings, "CreateOutlookTask");
-                LoadSetting<int>(settings, "DefaultDueDays");
-                LoadSetting<bool>(settings, "UseRelativeReminder");
-                LoadSetting<int>(settings, "DefaultReminderDays");
-                LoadSetting<int>(settings, "DefaultReminderHour");
-                LoadSetting<bool>(settings, "AskForDates");
-                LoadSetting<bool>(settings, "GroupEmailThreads");
-                LoadSetting<bool>(settings, "ShowDevelopmentSettings");
-                LoadSetting<bool>(settings, "ShowThreadDebug");
-                LoadSetting<bool>(settings, "IncludeDailyNoteLink");
-                LoadSetting<string>(settings, "DailyNoteLinkFormat");
-                LoadSetting<string>(settings, "NoteTitleFormat");
-                LoadSetting<int>(settings, "NoteTitleMaxLength");
-                LoadSetting<bool>(settings, "NoteTitleIncludeDate");
-                LoadSetting<bool>(settings, "MoveDateToFrontInThread");
-                LoadSetting<string>(settings, "AttachmentsFolder");
-                LoadSetting<AttachmentStorageMode>(settings, "AttachmentStorageMode");
-                LoadSetting<bool>(settings, "SaveInlineImages");
-                LoadSetting<bool>(settings, "SaveAllAttachments");
-                LoadSetting<bool>(settings, "UseObsidianWikilinks");
+            try
+            {
+                string json = File.ReadAllText(settingsPath);
+                JsonConvert.PopulateObject(json, this, CreateJsonSerializerSettings());
+            }
+            catch (JsonException)
+            {
+                // Keep defaults if the saved file is malformed.
+            }
 
-                // Load list properties with additional validation
-                LoadSetting<List<string>>(settings, "SubjectCleanupPatterns");
-                LoadSetting<List<string>>(settings, "DefaultNoteTags");
-                LoadSetting<List<string>>(settings, "DefaultTaskTags");
+            NormalizeLoadedSettings();
+        }
+
+        private static JsonSerializerSettings CreateJsonSerializerSettings()
+        {
+            return new JsonSerializerSettings
+            {
+                MissingMemberHandling = MissingMemberHandling.Ignore,
+                ObjectCreationHandling = ObjectCreationHandling.Replace,
+                Error = (sender, args) =>
+                {
+                    args.ErrorContext.Handled = true;
+                }
+            };
+        }
+
+        private void NormalizeLoadedSettings()
+        {
+            string defaultVaultBasePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Notes");
+
+            VaultName = string.IsNullOrWhiteSpace(VaultName) ? "Logic" : VaultName;
+            VaultBasePath = string.IsNullOrWhiteSpace(VaultBasePath) ? defaultVaultBasePath : VaultBasePath;
+            InboxFolder = string.IsNullOrWhiteSpace(InboxFolder) ? "Inbox" : InboxFolder;
+            ContactsFolder = string.IsNullOrWhiteSpace(ContactsFolder) ? "Contacts" : ContactsFolder;
+            TemplatesFolder = string.IsNullOrWhiteSpace(TemplatesFolder) ? "Templates" : TemplatesFolder;
+            EmailTemplateFile = string.IsNullOrWhiteSpace(EmailTemplateFile) ? "EmailTemplate.md" : EmailTemplateFile;
+            ContactTemplateFile = string.IsNullOrWhiteSpace(ContactTemplateFile) ? "ContactTemplate.md" : ContactTemplateFile;
+            TaskTemplateFile = string.IsNullOrWhiteSpace(TaskTemplateFile) ? "TaskTemplate.md" : TaskTemplateFile;
+            ThreadTemplateFile = string.IsNullOrWhiteSpace(ThreadTemplateFile) ? "ThreadNoteTemplate.md" : ThreadTemplateFile;
+            ContactFilenameFormat = string.IsNullOrWhiteSpace(ContactFilenameFormat) ? "{ContactName}" : ContactFilenameFormat;
+            SubjectCleanupPatterns = SubjectCleanupPatterns ?? CreateDefaultSubjectCleanupPatterns();
+            DefaultNoteTags = DefaultNoteTags ?? CreateDefaultNoteTags();
+            DefaultTaskTags = DefaultTaskTags ?? CreateDefaultTaskTags();
+            NoteTitleFormat = string.IsNullOrWhiteSpace(NoteTitleFormat) ? "{Subject} - {Date}" : NoteTitleFormat;
+            DailyNoteLinkFormat = string.IsNullOrWhiteSpace(DailyNoteLinkFormat) ? "[[yyyy-MM-dd]]" : DailyNoteLinkFormat;
+            AttachmentsFolder = string.IsNullOrWhiteSpace(AttachmentsFolder) ? "Attachments" : AttachmentsFolder;
+            EmailFilenameFormat = EmailFilenameFormat ?? string.Empty;
+
+            if (!Enum.IsDefined(typeof(AttachmentStorageMode), AttachmentStorageMode))
+            {
+                AttachmentStorageMode = AttachmentStorageMode.SameAsNote;
+            }
+        }
+
+        private static void ValidateFolderName(string value, string label, char[] invalidChars)
+        {
+            if (!string.IsNullOrWhiteSpace(value) && value.IndexOfAny(invalidChars) >= 0)
+            {
+                throw new ArgumentException($"{label} contains invalid characters: {value}");
+            }
+        }
+
+        private static void ValidateOptionalRelativePathSegment(string value, string label, char[] invalidChars)
+        {
+            if (string.IsNullOrWhiteSpace(value) || Path.IsPathRooted(value))
+            {
+                return;
+            }
+
+            if (value.IndexOfAny(invalidChars) >= 0)
+            {
+                throw new ArgumentException($"{label} contains invalid characters: {value}");
+            }
+        }
+
+        private static void ValidateTemplateFileName(string value, string label, char[] invalidChars)
+        {
+            if (string.IsNullOrWhiteSpace(value) || Path.IsPathRooted(value))
+            {
+                return;
+            }
+
+            string fileName = Path.GetFileName(value);
+            if (string.IsNullOrWhiteSpace(fileName) || fileName.IndexOfAny(invalidChars) >= 0)
+            {
+                throw new ArgumentException($"{label} contains invalid characters: {value}");
             }
         }
 
@@ -330,4 +383,5 @@ namespace SlingMD.Outlook.Models
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SlingMD.Outlook", "ObsidianSettings.json");
         }
     }
-} 
+}
+
