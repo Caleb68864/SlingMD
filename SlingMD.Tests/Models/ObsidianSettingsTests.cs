@@ -123,7 +123,14 @@ namespace SlingMD.Tests.Models
                 GroupEmailThreads = false,
                 ShowDevelopmentSettings = true,
                 ShowThreadDebug = true,
-                HasShownSupportPrompt = true
+                HasShownSupportPrompt = true,
+                TemplatesFolder = "Config\\Templates",
+                EmailTemplateFile = "Email.md",
+                ContactTemplateFile = "Contact.md",
+                TaskTemplateFile = "Task.md",
+                ThreadTemplateFile = "Thread.md",
+                EmailFilenameFormat = "{Subject}-{Timestamp}",
+                ContactFilenameFormat = "{ContactShortName}"
             };
 
             settings.SubjectCleanupPatterns.Clear();
@@ -157,6 +164,13 @@ namespace SlingMD.Tests.Models
             Assert.Equal(settings.ShowDevelopmentSettings, loadedSettings.ShowDevelopmentSettings);
             Assert.Equal(settings.ShowThreadDebug, loadedSettings.ShowThreadDebug);
             Assert.Equal(settings.HasShownSupportPrompt, loadedSettings.HasShownSupportPrompt);
+            Assert.Equal(settings.TemplatesFolder, loadedSettings.TemplatesFolder);
+            Assert.Equal(settings.EmailTemplateFile, loadedSettings.EmailTemplateFile);
+            Assert.Equal(settings.ContactTemplateFile, loadedSettings.ContactTemplateFile);
+            Assert.Equal(settings.TaskTemplateFile, loadedSettings.TaskTemplateFile);
+            Assert.Equal(settings.ThreadTemplateFile, loadedSettings.ThreadTemplateFile);
+            Assert.Equal(settings.EmailFilenameFormat, loadedSettings.EmailFilenameFormat);
+            Assert.Equal(settings.ContactFilenameFormat, loadedSettings.ContactFilenameFormat);
 
             Assert.Equal(2, loadedSettings.SubjectCleanupPatterns.Count);
             Assert.Contains("test-pattern-1", loadedSettings.SubjectCleanupPatterns);
@@ -187,6 +201,32 @@ namespace SlingMD.Tests.Models
             Assert.False(settings.HasShownSupportPrompt);
         }
 
+        [Fact]
+        public void Load_LegacySettingsWithoutTemplateFields_UsesTemplateDefaults()
+        {
+            string legacyJson = @"{
+  ""VaultName"": ""LegacyVault"",
+  ""VaultBasePath"": ""C:\\Legacy\\Vault"",
+  ""InboxFolder"": ""Inbox"",
+  ""ContactsFolder"": ""Contacts""
+}"@;
+            File.WriteAllText(_testSettingsPath, legacyJson);
+
+            ObsidianSettingsTestable settings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath
+            };
+
+            settings.Load();
+
+            Assert.Equal("Templates", settings.TemplatesFolder);
+            Assert.Equal("EmailTemplate.md", settings.EmailTemplateFile);
+            Assert.Equal("ContactTemplate.md", settings.ContactTemplateFile);
+            Assert.Equal("TaskTemplate.md", settings.TaskTemplateFile);
+            Assert.Equal("ThreadNoteTemplate.md", settings.ThreadTemplateFile);
+            Assert.Equal(string.Empty, settings.EmailFilenameFormat);
+            Assert.Equal("{ContactName}", settings.ContactFilenameFormat);
+        }
         [Fact]
         public void GetFullVaultPath_CombinesBasePathAndVaultName()
         {
