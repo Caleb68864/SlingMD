@@ -328,6 +328,9 @@
       <SubType>Code</SubType>
     </Compile>
     <None Include="SlingMD.Outlook_TemporaryKey.pfx" />
+    <None Include="Templates\EmailTemplate.md" />
+    <None Include="Templates\ContactTemplate.md" />
+    <None Include="Templates\TaskTemplate.md" />
     <None Include="Templates\ThreadNoteTemplate.md" />
     <None Include="ThisAddIn.Designer.xml">
       <DependentUpon>ThisAddIn.cs</DependentUpon>
@@ -372,3 +375,5 @@
     </VisualStudio>
   </ProjectExtensions>
 </Project>
+
+

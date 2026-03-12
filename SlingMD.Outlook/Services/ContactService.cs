@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using Microsoft.Office.Interop.Outlook;
 using SlingMD.Outlook.Models;
 
@@ -12,6 +13,10 @@ namespace SlingMD.Outlook.Services
     /// </summary>
     public class ContactService
     {
+        private const string CommunicationHistoryHeading = "## Communication History";
+        private const string LegacyEmailHistoryHeading = "## Email History";
+        private const string NotesHeading = "## Notes";
+
         private readonly FileService _fileService;
         private readonly TemplateService _templateService;
         private readonly ObsidianSettings _settings;
@@ -220,8 +225,9 @@ namespace SlingMD.Outlook.Services
         }
 
         /// <summary>
-        /// Creates a stub markdown note for <paramref name="contactName"/> inside the configured contacts
-        /// folder and populates it with a Dataview script that lists every email mentioning the contact.
+        /// Creates or refreshes a contact note in the configured contacts folder.
+        /// Existing notes keep user-authored content under <c>## Notes</c> while the managed
+        /// communication history block is refreshed.
         /// </summary>
         public void CreateContactNote(string contactName)
         {
@@ -230,11 +236,10 @@ namespace SlingMD.Outlook.Services
                 return;
             }
 
-            string contactsFolder = _settings.GetContactsPath();
-            string fileNameNoExtension = BuildContactFileName(contactName);
-            string filePath = Path.Combine(contactsFolder, fileNameNoExtension + ".md");
-            _fileService.EnsureDirectoryExists(contactsFolder);
+            string filePath = GetManagedContactNotePath(contactName);
+            _fileService.EnsureDirectoryExists(_settings.GetContactsPath());
 
+            string fileNameNoExtension = Path.GetFileNameWithoutExtension(filePath);
             Dictionary<string, object> metadata = new Dictionary<string, object>
             {
                 { "title", contactName },
@@ -253,8 +258,43 @@ namespace SlingMD.Outlook.Services
                 FileNameWithoutExtension = fileNameNoExtension
             };
 
-            string content = _templateService.RenderContactContent(context);
-            _fileService.WriteUtf8File(filePath, content);
+            string renderedContent = _templateService.RenderContactContent(context);
+            if (!File.Exists(filePath))
+            {
+                _fileService.WriteUtf8File(filePath, renderedContent);
+                return;
+            }
+
+            string existingContent = File.ReadAllText(filePath);
+            string managedSection = ExtractManagedCommunicationHistorySection(renderedContent);
+            string updatedContent = MergeManagedSections(existingContent, managedSection);
+            _fileService.WriteUtf8File(filePath, updatedContent);
+        }
+
+        public string GetManagedContactNotePath(string contactName)
+        {
+            string cleanName = _fileService.CleanFileName(contactName);
+            string configuredFileName = BuildContactFileName(contactName);
+            string contactsFolder = _settings.GetContactsPath();
+            string configuredPath = Path.Combine(contactsFolder, configuredFileName + ".md");
+            string legacyPath = Path.Combine(contactsFolder, cleanName + ".md");
+
+            if (File.Exists(configuredPath))
+            {
+                return configuredPath;
+            }
+
+            if (File.Exists(legacyPath))
+            {
+                return legacyPath;
+            }
+
+            return configuredPath;
+        }
+
+        public bool ManagedContactNoteExists(string contactName)
+        {
+            return File.Exists(GetManagedContactNotePath(contactName));
         }
 
         private string BuildContactFileName(string contactName)
@@ -268,6 +308,89 @@ namespace SlingMD.Outlook.Services
             };
 
             return _templateService.RenderFilename(_settings.ContactFilenameFormat, replacements, cleanName);
+        }
+
+        private static int FindSectionStart(string content, string heading, int startIndex = 0)
+        {
+            if (string.IsNullOrEmpty(content) || startIndex >= content.Length)
+            {
+                return -1;
+            }
+
+            Match match = Regex.Match(content.Substring(startIndex), $"^{Regex.Escape(heading)}\\s*$", RegexOptions.Multiline);
+            return match.Success ? startIndex + match.Index : -1;
+        }
+
+        private static string ExtractManagedCommunicationHistorySection(string content)
+        {
+            int historyStart = FindSectionStart(content, CommunicationHistoryHeading);
+            if (historyStart < 0)
+            {
+                historyStart = FindSectionStart(content, LegacyEmailHistoryHeading);
+            }
+
+            if (historyStart < 0)
+            {
+                return string.Empty;
+            }
+
+            int notesStart = FindSectionStart(content, NotesHeading, historyStart);
+            if (notesStart < 0)
+            {
+                return content.Substring(historyStart).TrimEnd();
+            }
+
+            return content.Substring(historyStart, notesStart - historyStart).TrimEnd();
+        }
+
+        private static string MergeManagedSections(string existingContent, string managedSection)
+        {
+            if (string.IsNullOrWhiteSpace(managedSection))
+            {
+                return existingContent;
+            }
+
+            int historyStart = FindSectionStart(existingContent, CommunicationHistoryHeading);
+            if (historyStart < 0)
+            {
+                historyStart = FindSectionStart(existingContent, LegacyEmailHistoryHeading);
+            }
+
+            if (historyStart >= 0)
+            {
+                int notesStart = FindSectionStart(existingContent, NotesHeading, historyStart);
+                string prefix = existingContent.Substring(0, historyStart).TrimEnd();
+                string notesSection = notesStart >= 0 ? existingContent.Substring(notesStart).TrimStart() : BuildEmptyNotesSection();
+                return JoinSections(prefix, managedSection, notesSection);
+            }
+
+            int standaloneNotesStart = FindSectionStart(existingContent, NotesHeading);
+            if (standaloneNotesStart >= 0)
+            {
+                string prefix = existingContent.Substring(0, standaloneNotesStart).TrimEnd();
+                string notesSection = existingContent.Substring(standaloneNotesStart).TrimStart();
+                return JoinSections(prefix, managedSection, notesSection);
+            }
+
+            return JoinSections(existingContent.TrimEnd(), managedSection, BuildEmptyNotesSection());
+        }
+
+        private static string JoinSections(string prefix, string managedSection, string notesSection)
+        {
+            List<string> sections = new List<string>();
+            if (!string.IsNullOrWhiteSpace(prefix))
+            {
+                sections.Add(prefix.TrimEnd());
+            }
+
+            sections.Add(managedSection.TrimEnd());
+            sections.Add((string.IsNullOrWhiteSpace(notesSection) ? BuildEmptyNotesSection() : notesSection.TrimStart()).TrimEnd());
+            return string.Join(Environment.NewLine + Environment.NewLine, sections) + Environment.NewLine;
+        }
+
+        private static string BuildEmptyNotesSection()
+        {
+            return NotesHeading + Environment.NewLine + Environment.NewLine;
         }
     }
 }

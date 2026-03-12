@@ -38,6 +38,7 @@ namespace SlingMD.Outlook.Models
         public bool GroupEmailThreads { get; set; } = true;
         public bool ShowDevelopmentSettings { get; set; } = false;
         public bool ShowThreadDebug { get; set; } = false;
+        public bool HasShownSupportPrompt { get; set; } = false;
 
         /// <summary>
         /// Whether to include the dailyNoteLink field in frontmatter.
@@ -187,6 +188,11 @@ namespace SlingMD.Outlook.Models
         public string GetContactsPath()
         {
             return Path.Combine(GetFullVaultPath(), ContactsFolder);
+        }
+
+        public bool HasSavedSettings()
+        {
+            return File.Exists(GetSettingsPath());
         }
 
         public string GetTemplatesPath()
@@ -384,4 +390,5 @@ namespace SlingMD.Outlook.Models
         }
     }
 }
+
 

@@ -289,48 +289,74 @@ namespace SlingMD.Outlook.Services
 ## Communication History
 
 ```dataviewjs
-// Find all emails where this contact appears in from, to, or cc fields
-// Use title from frontmatter (original name) rather than file.name (cleaned name)
-const contact = dv.current().title || dv.current().file.name;
+const current = dv.current();
+const contactSources = [current.title, current.file?.name, current.file?.path];
 
-// Helper to check if a field contains this contact
-// Handles both Dataview Link objects and plain strings
-function containsContact(field, contactName) {
-    if (!field) return false;
-    // Handle Dataview Link objects (have .path property)
-    if (field.path) return field.path === contactName;
-    // Handle string format - check for [[Name]] or exact match
-    const str = String(field);
-    return str.includes(`[[${contactName}]]`) || str === contactName;
+function normalizeSingle(value) {
+    if (value == null) return [];
+
+    if (typeof value === ""object"") {
+        const candidates = [];
+        if (value.path) candidates.push(value.path);
+        if (value.display) candidates.push(value.display);
+        if (value.file?.path) candidates.push(value.file.path);
+        return candidates.flatMap(normalizeSingle);
+    }
+
+    const text = String(value).trim();
+    if (!text) return [];
+
+    const unwrapped = text
+        .replace(/^\[\[/, """")
+        .replace(/\]\]$/, """")
+        .split(""|"")[0]
+        .trim();
+
+    if (!unwrapped) return [];
+
+    const withoutExtension = unwrapped.replace(/\.md$/i, """");
+    const pathParts = withoutExtension.split(""/"");
+    const fileName = pathParts[pathParts.length - 1];
+
+    return [...new Set([unwrapped, withoutExtension, fileName]
+        .map(item => item.trim().toLowerCase())
+        .filter(Boolean))];
 }
 
-// Helper to check arrays (to/cc fields can be arrays)
-function checkArray(arr, contactName) {
-    if (!arr) return false;
-    if (!Array.isArray(arr)) return containsContact(arr, contactName);
-    return arr.some(item => containsContact(item, contactName));
+function normalizeValue(value) {
+    if (value == null) return [];
+    if (Array.isArray(value)) return value.flatMap(normalizeSingle);
+    return normalizeSingle(value);
 }
 
-// Query all pages, then filter to only emails (pages with fromEmail field)
-// and where this contact is mentioned in from, to, or cc
+const contactKeys = new Set(normalizeValue(contactSources));
+
+function containsContact(field) {
+    return normalizeValue(field).some(value => contactKeys.has(value));
+}
+
+function isEmailPage(page) {
+    const types = normalizeValue(page.type);
+    return types.includes('email') || !!page.fromEmail || !!page.internetMessageId || !!page.entryId;
+}
+
 const emails = dv.pages()
-    .where(p => {
-        // Only include pages that are emails (have fromEmail field)
-        if (!p.fromEmail) return false;
-        // Check if this contact is mentioned in from, to, or cc
-        return containsContact(p.from, contact) ||
-               checkArray(p.to, contact) ||
-               checkArray(p.cc, contact);
-    })
-    .sort(p => p.date, 'desc');
+    .where(page => isEmailPage(page) && (
+        containsContact(page.from) ||
+        containsContact(page.to) ||
+        containsContact(page.cc)
+    ))
+    .sort(page => page.date, 'desc');
 
 dv.table([""Date"", ""Subject"", ""Type""],
-    emails.map(p => {
-        // Determine message type
-        const isFrom = containsContact(p.from, contact);
-        const isTo = checkArray(p.to, contact);
-        const type = isFrom ? ""From"" : isTo ? ""To"" : ""CC"";
-        return [p.date, p.file.link, type];
+    emails.map(page => {
+        const role = containsContact(page.from)
+            ? ""From""
+            : containsContact(page.to)
+                ? ""To""
+                : ""CC"";
+
+        return [page.date, page.file.link, role];
     })
 );
 ```
@@ -549,3 +575,5 @@ for (const email of emails) {
         }
     }
 }
+
+

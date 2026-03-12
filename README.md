@@ -25,12 +25,12 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your email com
 - Relative vs. absolute reminder modes with optional per-task prompt
 - Development/debug mode to surface internal thread-matching diagnostics
 - Duplicate-email protection and safe file-naming, including chronological prefixes for threads
-- User-overrideable markdown templates for both email and thread notes
+- First-class markdown templates for email notes, contact notes, inline task lines, and thread notes
 
 ## Installation
 
 1. Go to the [Releases](./Releases) folder in this repository
-2. Download the latest version (currently `SlingMD.Outlook_1_0_0_44.zip`)
+2. Download the newest versioned ZIP from the [Releases](./Releases) folder (for example, `SlingMD.Outlook_1_0_0_121.zip` at the time of writing)
 3. **Important Security Step - Unblock the ZIP File**:
    - Right-click the downloaded ZIP file
    - Click "Properties"
@@ -96,6 +96,8 @@ Before using SlingMD, you'll need to configure your Obsidian vault settings:
    - **Note Title Format / Max Length / Include Date**: Fine-tune how note titles are constructed
    - **Move Date To Front In Thread**: When grouping emails, place the date at the beginning of the filename
    - **Default Note Tags / Task Tags**: Tags automatically assigned to new notes or tasks
+   - **Templates Folder / Template Files**: Point SlingMD at Dataview-friendly templates for email notes, contact notes, inline task lines, and thread summaries
+   - **Email / Contact Filename Format**: Optional filename formats using tokens like `{Subject}`, `{Sender}`, `{Timestamp}`, `{ContactName}`, and `{ContactShortName}`
    - **Show Development Settings**: Reveals additional debug options in the settings dialog
    - **Show Thread Debug**: Pops up a diagnostic window listing every file that matches a conversationId
 
@@ -206,4 +208,5 @@ The author is not responsible for any data loss, corruption, or other issues tha
 
 ☕ Like what I'm building? Help fuel my next project (or my next coffee)!  
 Support me on [Buy Me a Coffee](https://buymeacoffee.com/plainsprepper) 💻🧵🔥
+
 

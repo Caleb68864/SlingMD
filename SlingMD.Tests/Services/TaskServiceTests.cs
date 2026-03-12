@@ -1,38 +1,52 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Xunit;
-using SlingMD.Outlook.Services;
 using SlingMD.Outlook.Models;
+using SlingMD.Outlook.Services;
 
 namespace SlingMD.Tests.Services
 {
-    public class TaskServiceTests
+    public class TaskServiceTests : IDisposable
     {
+        private readonly string _testDir;
+
+        public TaskServiceTests()
+        {
+            _testDir = Path.Combine(Path.GetTempPath(), "SlingMDTests", "TaskService");
+            if (Directory.Exists(_testDir))
+            {
+                Directory.Delete(_testDir, true);
+            }
+
+            Directory.CreateDirectory(_testDir);
+        }
+
         [Fact]
         public void GenerateObsidianTask_UsesTagsAndDates_SingleLine()
         {
-            var settings = new ObsidianSettings();
-            var service = new TaskService(settings);
-            service.InitializeTaskSettings(1, 1, 9, false); // due in 1 day, remind in 1 day
+            ObsidianSettings settings = new ObsidianSettings();
+            TaskService service = new TaskService(settings);
+            service.InitializeTaskSettings(1, 1, 9, false);
 
-            var tags = new List<string> { "FollowUp", "ActionItem" };
+            List<string> tags = new List<string> { "FollowUp", "ActionItem" };
             string result = service.GenerateObsidianTask("TestNote", tags);
 
             Assert.StartsWith("- [ ] [[TestNote]] #FollowUp #ActionItem", result);
             Assert.Contains("➕", result);
             Assert.Contains("🛫", result);
             Assert.Contains("📅", result);
-            Assert.DoesNotContain("\n", result.TrimEnd()); // Should be single line
+            Assert.DoesNotContain("\n", result.TrimEnd());
         }
 
         [Fact]
         public void GenerateObsidianTask_FormatsTagsWithHash()
         {
-            var settings = new ObsidianSettings();
-            var service = new TaskService(settings);
+            ObsidianSettings settings = new ObsidianSettings();
+            TaskService service = new TaskService(settings);
             service.InitializeTaskSettings();
 
-            var tags = new List<string> { "foo", "#bar", "baz" };
+            List<string> tags = new List<string> { "foo", "#bar", "baz" };
             string result = service.GenerateObsidianTask("Note", tags);
 
             Assert.Contains("#foo", result);
@@ -43,8 +57,8 @@ namespace SlingMD.Tests.Services
         [Fact]
         public void GenerateObsidianTask_FallsBackToDefaultTag()
         {
-            var settings = new ObsidianSettings();
-            var service = new TaskService(settings);
+            ObsidianSettings settings = new ObsidianSettings();
+            TaskService service = new TaskService(settings);
             service.InitializeTaskSettings();
 
             string result = service.GenerateObsidianTask("Note", null);
@@ -54,8 +68,8 @@ namespace SlingMD.Tests.Services
         [Fact]
         public void GenerateObsidianTask_EmptyTagList_FallsBackToDefault()
         {
-            var settings = new ObsidianSettings();
-            var service = new TaskService(settings);
+            ObsidianSettings settings = new ObsidianSettings();
+            TaskService service = new TaskService(settings);
             service.InitializeTaskSettings();
 
             string result = service.GenerateObsidianTask("Note", new List<string>());
@@ -65,8 +79,8 @@ namespace SlingMD.Tests.Services
         [Fact]
         public void GenerateObsidianTask_DisabledTaskCreation_ReturnsEmpty()
         {
-            var settings = new ObsidianSettings();
-            var service = new TaskService(settings);
+            ObsidianSettings settings = new ObsidianSettings();
+            TaskService service = new TaskService(settings);
             service.DisableTaskCreation();
 
             string result = service.GenerateObsidianTask("Note", new List<string> { "foo" });
@@ -76,12 +90,42 @@ namespace SlingMD.Tests.Services
         [Fact]
         public void GenerateObsidianTask_Dates_AreCorrectlyFormatted()
         {
-            var settings = new ObsidianSettings();
-            var service = new TaskService(settings);
-            service.InitializeTaskSettings(2, 1, 9, false); // due in 2 days, remind in 1 day
+            ObsidianSettings settings = new ObsidianSettings();
+            TaskService service = new TaskService(settings);
+            service.InitializeTaskSettings(2, 1, 9, false);
 
             string result = service.GenerateObsidianTask("Note", new List<string> { "foo" });
-            Assert.Matches(@"\d{4}-\d{2}-\d{2}", result); // Should contain dates in yyyy-MM-dd
+            Assert.Matches(@"\d{4}-\d{2}-\d{2}", result);
+        }
+
+        [Fact]
+        public void GenerateObsidianTask_UsesCustomTemplateWhenPresent()
+        {
+            string templatesPath = Path.Combine(_testDir, "Templates");
+            Directory.CreateDirectory(templatesPath);
+            File.WriteAllText(Path.Combine(templatesPath, "TaskTemplate.md"), "TODO {{noteName}} {{tags}} {{dueDate}}");
+
+            ObsidianSettings settings = new ObsidianSettings
+            {
+                VaultBasePath = _testDir,
+                VaultName = "Vault",
+                TemplatesFolder = templatesPath
+            };
+
+            TaskService service = new TaskService(settings);
+            service.InitializeTaskSettings(1, 0, 9, false);
+
+            string result = service.GenerateObsidianTask("FollowUpNote", new List<string> { "custom" });
+
+            Assert.StartsWith("TODO FollowUpNote #custom", result);
+        }
+
+        public void Dispose()
+        {
+            if (Directory.Exists(_testDir))
+            {
+                Directory.Delete(_testDir, true);
+            }
         }
     }
-} 
+}

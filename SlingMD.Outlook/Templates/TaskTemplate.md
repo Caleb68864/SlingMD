@@ -1,0 +1,1 @@
+- [ ] {{noteLink}} {{tags}} ➕ {{createdDate}} 🛫 {{reminderDate}} 📅 {{dueDate}}

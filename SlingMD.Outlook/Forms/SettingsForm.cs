@@ -2,8 +2,8 @@ using System;
 using System.Windows.Forms;
 using System.Drawing;
 using SlingMD.Outlook.Models;
+using SlingMD.Outlook.Services;
 using System.Collections.Generic;
-using System.Reflection;
 using System.Linq;
 
 namespace SlingMD.Outlook.Forms
@@ -50,12 +50,12 @@ namespace SlingMD.Outlook.Forms
         private Label lblNoteTitleFormat;
         private Label lblNoteTitleMaxLength;
         private Label lblNoteTitleIncludeDate;
-        private CheckBox chkIncludeDailyNoteLink;
-        private TextBox txtDailyNoteLinkFormat;
+        private CheckBox chkIncludeDailyNoteLink;`r`n        private TextBox txtDailyNoteLinkFormat;`r`n        private TextBox txtTemplatesFolder;`r`n        private TextBox txtEmailTemplateFile;`r`n        private TextBox txtContactTemplateFile;`r`n        private TextBox txtTaskTemplateFile;`r`n        private TextBox txtThreadTemplateFile;`r`n        private TextBox txtEmailFilenameFormat;`r`n        private TextBox txtContactFilenameFormat;
         private Label lblDailyNoteLinkFormat;
         private GroupBox grpNoteCustomization;
         private ToolTip toolTip;
         // Refactored layout containers
+        private TableLayoutPanel rootLayout;
         private TableLayoutPanel mainLayout;
         private CheckBox chkMoveDateToFrontInThread;
         // Attachment controls
@@ -67,6 +67,8 @@ namespace SlingMD.Outlook.Forms
         private CheckBox chkUseObsidianWikilinks;
         private Label lblAttachmentsFolder;
         private Label lblAttachmentStorageMode;
+        private Label lblSupportMessage;
+        private LinkLabel lnkBuyMeACoffee;
 
         public SettingsForm(ObsidianSettings settings)
         {
@@ -78,7 +80,12 @@ namespace SlingMD.Outlook.Forms
         private void InitializeComponent()
         {
             this.toolTip = new ToolTip();
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(SettingsForm));
+            this.rootLayout = new TableLayoutPanel();
+            this.rootLayout.Dock = DockStyle.Fill;
+            this.rootLayout.ColumnCount = 1;
+            this.rootLayout.RowCount = 2;
+            this.rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            this.rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             // Main layout panel
             this.mainLayout = new TableLayoutPanel();
@@ -87,6 +94,7 @@ namespace SlingMD.Outlook.Forms
             this.mainLayout.ColumnCount = 1;
             this.mainLayout.RowCount = 0;
             this.mainLayout.GrowStyle = TableLayoutPanelGrowStyle.AddRows;
+            this.mainLayout.Padding = new Padding(12);
 
             // Group: Vault/Paths
             var grpVault = new GroupBox();
@@ -103,6 +111,7 @@ namespace SlingMD.Outlook.Forms
             this.txtVaultPath = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Width = 350 };
             vaultLayout.Controls.Add(this.txtVaultPath, 1, 1);
             this.btnBrowse = new Button { Text = "Browse...", Anchor = AnchorStyles.Left };
+            this.btnBrowse.Click += btnBrowse_Click;
             vaultLayout.Controls.Add(this.btnBrowse, 1, 2);
             vaultLayout.Controls.Add(new Label { Text = "Inbox Folder:", Anchor = AnchorStyles.Left }, 0, 3);
             this.txtInboxFolder = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Width = 350 };
@@ -122,6 +131,7 @@ namespace SlingMD.Outlook.Forms
             generalLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
             generalLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
             this.chkEnableContactSaving = new CheckBox { Text = "Enable Contact Saving", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
+            this.chkEnableContactSaving.CheckedChanged += chkEnableContactSaving_CheckedChanged;
             generalLayout.Controls.Add(this.chkEnableContactSaving, 0, 0);
             this.chkSearchEntireVaultForContacts = new CheckBox { Text = "Search entire vault for contacts", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
             generalLayout.Controls.Add(this.chkSearchEntireVaultForContacts, 1, 0);
@@ -171,8 +181,11 @@ namespace SlingMD.Outlook.Forms
             patternsLayout.Controls.Add(this.lstPatterns, 0, 0);
             var btnPanel = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true };
             this.btnAdd = new Button { Text = "Add" };
+            this.btnAdd.Click += BtnAdd_Click;
             this.btnEdit = new Button { Text = "Edit" };
+            this.btnEdit.Click += BtnEdit_Click;
             this.btnRemove = new Button { Text = "Remove" };
+            this.btnRemove.Click += BtnRemove_Click;
             btnPanel.Controls.Add(this.btnAdd);
             btnPanel.Controls.Add(this.btnEdit);
             btnPanel.Controls.Add(this.btnRemove);
@@ -222,6 +235,27 @@ namespace SlingMD.Outlook.Forms
             this.txtDailyNoteLinkFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Width = 320, Dock = DockStyle.Fill };
             noteTagLayout.Controls.Add(this.lblDailyNoteLinkFormat, 0, 6);
             noteTagLayout.Controls.Add(this.txtDailyNoteLinkFormat, 1, 6);
+            noteTagLayout.Controls.Add(new Label { Text = "Templates Folder (vault-relative or absolute):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, 7);
+            this.txtTemplatesFolder = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Width = 320, Dock = DockStyle.Fill };
+            noteTagLayout.Controls.Add(this.txtTemplatesFolder, 1, 7);
+            noteTagLayout.Controls.Add(new Label { Text = "Email Template File:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, 8);
+            this.txtEmailTemplateFile = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Width = 320, Dock = DockStyle.Fill };
+            noteTagLayout.Controls.Add(this.txtEmailTemplateFile, 1, 8);
+            noteTagLayout.Controls.Add(new Label { Text = "Contact Template File:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, 9);
+            this.txtContactTemplateFile = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Width = 320, Dock = DockStyle.Fill };
+            noteTagLayout.Controls.Add(this.txtContactTemplateFile, 1, 9);
+            noteTagLayout.Controls.Add(new Label { Text = "Task Template File (inline task line):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, 10);
+            this.txtTaskTemplateFile = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Width = 320, Dock = DockStyle.Fill };
+            noteTagLayout.Controls.Add(this.txtTaskTemplateFile, 1, 10);
+            noteTagLayout.Controls.Add(new Label { Text = "Thread Template File:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, 11);
+            this.txtThreadTemplateFile = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Width = 320, Dock = DockStyle.Fill };
+            noteTagLayout.Controls.Add(this.txtThreadTemplateFile, 1, 11);
+            noteTagLayout.Controls.Add(new Label { Text = "Email Filename Format (blank = legacy; tokens {Subject}, {Sender}, {Date}, {Timestamp}):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, 12);
+            this.txtEmailFilenameFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Width = 320, Dock = DockStyle.Fill };
+            noteTagLayout.Controls.Add(this.txtEmailFilenameFormat, 1, 12);
+            noteTagLayout.Controls.Add(new Label { Text = "Contact Filename Format (tokens {ContactName}, {ContactShortName}):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, 13);
+            this.txtContactFilenameFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Width = 320, Dock = DockStyle.Fill };
+            noteTagLayout.Controls.Add(this.txtContactFilenameFormat, 1, 13);
             // Add event handler for enabling/disabling daily note link format textbox
             this.chkIncludeDailyNoteLink.CheckedChanged += (s, e) => {
                 this.txtDailyNoteLinkFormat.Enabled = this.chkIncludeDailyNoteLink.Checked;
@@ -303,37 +337,80 @@ namespace SlingMD.Outlook.Forms
 
             this.grpAttachments.Controls.Add(attachmentLayout);
             this.mainLayout.Controls.Add(this.grpAttachments);
-
             // Group: Development (always at bottom, always visible)
             this.grpDevelopment = new GroupBox();
             this.grpDevelopment.Text = "Development Settings";
             this.grpDevelopment.Dock = DockStyle.Top;
             this.grpDevelopment.AutoSize = true;
-            var devLayout = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, AutoSize = true };
+            FlowLayoutPanel devLayout = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, AutoSize = true };
             this.chkShowDevelopmentSettings = new CheckBox { Text = "Show development settings", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
+            this.chkShowDevelopmentSettings.CheckedChanged += chkShowDevelopmentSettings_CheckedChanged;
             this.chkShowThreadDebug = new CheckBox { Text = "Show thread debug", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
             devLayout.Controls.Add(this.chkShowDevelopmentSettings);
             devLayout.Controls.Add(this.chkShowThreadDebug);
             this.grpDevelopment.Controls.Add(devLayout);
             this.mainLayout.Controls.Add(this.grpDevelopment);
 
-            // Save/Cancel buttons
-            var btnLayout = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, Dock = DockStyle.Bottom, AutoSize = true };
+            TableLayoutPanel footerLayout = new TableLayoutPanel();
+            footerLayout.Dock = DockStyle.Fill;
+            footerLayout.AutoSize = true;
+            footerLayout.ColumnCount = 2;
+            footerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            footerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            footerLayout.Padding = new Padding(12, 10, 12, 10);
+
+            FlowLayoutPanel supportLayout = new FlowLayoutPanel();
+            supportLayout.FlowDirection = FlowDirection.TopDown;
+            supportLayout.WrapContents = false;
+            supportLayout.AutoSize = true;
+            supportLayout.Dock = DockStyle.Fill;
+            supportLayout.Margin = new Padding(0);
+            this.lblSupportMessage = new Label
+            {
+                AutoSize = true,
+                MaximumSize = new Size(460, 0),
+                Text = SupportService.GetSupportMessage(),
+                Margin = new Padding(0, 0, 0, 2)
+            };
+            this.lnkBuyMeACoffee = new LinkLabel
+            {
+                AutoSize = true,
+                Text = SupportService.BuyMeACoffeeUrl,
+                LinkBehavior = LinkBehavior.HoverUnderline,
+                Margin = new Padding(0)
+            };
+            this.lnkBuyMeACoffee.LinkClicked += lnkBuyMeACoffee_LinkClicked;
+            supportLayout.Controls.Add(this.lblSupportMessage);
+            supportLayout.Controls.Add(this.lnkBuyMeACoffee);
+            footerLayout.Controls.Add(supportLayout, 0, 0);
+
+            FlowLayoutPanel btnLayout = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.RightToLeft,
+                AutoSize = true,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Margin = new Padding(12, 0, 0, 0)
+            };
             this.btnSave = new Button { Text = "Save", DialogResult = DialogResult.OK };
             this.btnSave.Click += btnSave_Click;
             this.btnCancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel };
             btnLayout.Controls.Add(this.btnSave);
             btnLayout.Controls.Add(this.btnCancel);
-            this.mainLayout.Controls.Add(btnLayout);
+            footerLayout.Controls.Add(btnLayout, 1, 0);
+
+            this.rootLayout.Controls.Add(this.mainLayout, 0, 0);
+            this.rootLayout.Controls.Add(footerLayout, 0, 1);
 
             // Set up the form
-            this.Controls.Add(this.mainLayout);
+            this.Controls.Add(this.rootLayout);
+            this.AcceptButton = this.btnSave;
+            this.CancelButton = this.btnCancel;
             this.FormBorderStyle = FormBorderStyle.Sizable;
             this.MaximizeBox = true;
             this.MinimizeBox = true;
             this.StartPosition = FormStartPosition.CenterScreen;
             this.Text = "Obsidian Settings";
-            this.ClientSize = new System.Drawing.Size(700, 800);
+            this.ClientSize = new Size(760, 820);
         }
 
         private void LoadSettings()
@@ -361,7 +438,7 @@ namespace SlingMD.Outlook.Forms
             chkMoveDateToFrontInThread.Enabled = chkNoteTitleIncludeDate.Checked;
 
             // Initialize development settings visibility
-            grpDevelopment.Visible = _settings.ShowDevelopmentSettings;
+            grpDevelopment.Visible = true;
             chkShowThreadDebug.Visible = _settings.ShowDevelopmentSettings;
 
             // Load patterns
@@ -380,7 +457,7 @@ namespace SlingMD.Outlook.Forms
             chkMoveDateToFrontInThread.Enabled = chkNoteTitleIncludeDate.Checked;
             chkIncludeDailyNoteLink.Checked = _settings.IncludeDailyNoteLink;
             txtDailyNoteLinkFormat.Text = _settings.DailyNoteLinkFormat ?? "[[yyyy-MM-dd]]";
-            txtDailyNoteLinkFormat.Enabled = chkIncludeDailyNoteLink.Checked;
+            txtDailyNoteLinkFormat.Enabled = chkIncludeDailyNoteLink.Checked;`r`n            txtTemplatesFolder.Text = _settings.TemplatesFolder ?? "Templates";`r`n            txtEmailTemplateFile.Text = _settings.EmailTemplateFile ?? "EmailTemplate.md";`r`n            txtContactTemplateFile.Text = _settings.ContactTemplateFile ?? "ContactTemplate.md";`r`n            txtTaskTemplateFile.Text = _settings.TaskTemplateFile ?? "TaskTemplate.md";`r`n            txtThreadTemplateFile.Text = _settings.ThreadTemplateFile ?? "ThreadNoteTemplate.md";`r`n            txtEmailFilenameFormat.Text = _settings.EmailFilenameFormat ?? string.Empty;`r`n            txtContactFilenameFormat.Text = _settings.ContactFilenameFormat ?? "{ContactName}";
 
             // Load attachment settings
             txtAttachmentsFolder.Text = _settings.AttachmentsFolder ?? "Attachments";
@@ -442,7 +519,7 @@ namespace SlingMD.Outlook.Forms
             _settings.NoteTitleMaxLength = (int)numNoteTitleMaxLength.Value;
             _settings.NoteTitleIncludeDate = chkNoteTitleIncludeDate.Checked;
             _settings.IncludeDailyNoteLink = chkIncludeDailyNoteLink.Checked;
-            _settings.DailyNoteLinkFormat = txtDailyNoteLinkFormat.Text.Trim();
+            _settings.DailyNoteLinkFormat = txtDailyNoteLinkFormat.Text.Trim();`r`n            _settings.TemplatesFolder = txtTemplatesFolder.Text.Trim();`r`n            _settings.EmailTemplateFile = txtEmailTemplateFile.Text.Trim();`r`n            _settings.ContactTemplateFile = txtContactTemplateFile.Text.Trim();`r`n            _settings.TaskTemplateFile = txtTaskTemplateFile.Text.Trim();`r`n            _settings.ThreadTemplateFile = txtThreadTemplateFile.Text.Trim();`r`n            _settings.EmailFilenameFormat = txtEmailFilenameFormat.Text.Trim();`r`n            _settings.ContactFilenameFormat = txtContactFilenameFormat.Text.Trim();
 
             // Save attachment settings
             _settings.AttachmentsFolder = txtAttachmentsFolder.Text.Trim();
@@ -495,8 +572,21 @@ namespace SlingMD.Outlook.Forms
 
         private void chkShowDevelopmentSettings_CheckedChanged(object sender, EventArgs e)
         {
-            grpDevelopment.Visible = chkShowDevelopmentSettings.Checked;
+            grpDevelopment.Visible = true;
             chkShowThreadDebug.Visible = chkShowDevelopmentSettings.Checked;
+        }
+
+        private void lnkBuyMeACoffee_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            lnkBuyMeACoffee.LinkVisited = true;
+            SupportService.OpenBuyMeACoffeeLink(this);
         }
     }
 } 
+
+
+
+
+
+
+
