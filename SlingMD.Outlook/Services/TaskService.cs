@@ -30,6 +30,7 @@ namespace SlingMD.Outlook.Services
             _taskReminderDays = reminderDays ?? _settings.DefaultReminderDays;
             _taskReminderHour = reminderHour ?? _settings.DefaultReminderHour;
             _useRelativeReminder = useRelativeReminder ?? _settings.UseRelativeReminder;
+            _createTasks = true;
         }
 
         public bool ShouldCreateTasks => _createTasks;

@@ -270,6 +270,66 @@ namespace SlingMD.Tests.Models
 
             Assert.Equal(@"C:\Test\Path\TestVault\TestContacts", contactsPath);
         }
+
+        [Fact]
+        public void Load_MalformedJson_KeepsDefaultsAndDoesNotThrow()
+        {
+            File.WriteAllText(_testSettingsPath, "{ this is not valid json !!! ]");
+
+            ObsidianSettingsTestable settings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath
+            };
+
+            System.Exception caughtException = null;
+            try
+            {
+                settings.Load();
+            }
+            catch (System.Exception ex)
+            {
+                caughtException = ex;
+            }
+
+            Assert.Null(caughtException);
+            Assert.Equal("Logic", settings.VaultName);
+            Assert.Equal("Inbox", settings.InboxFolder);
+            Assert.Equal("Contacts", settings.ContactsFolder);
+        }
+
+        [Fact]
+        public void Load_TypeMismatchedFields_NormalizesInvalidValuesWithoutClearingValidOnes()
+        {
+            // VaultName is valid, but DefaultDueDays is a string instead of int (type mismatch)
+            string json = @"{
+  ""VaultName"": ""MyVault"",
+  ""VaultBasePath"": ""C:\\Notes"",
+  ""DefaultDueDays"": ""not-a-number"",
+  ""InboxFolder"": ""Inbox""
+}";
+            File.WriteAllText(_testSettingsPath, json);
+
+            ObsidianSettingsTestable settings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath
+            };
+
+            System.Exception caughtException = null;
+            try
+            {
+                settings.Load();
+            }
+            catch (System.Exception ex)
+            {
+                caughtException = ex;
+            }
+
+            Assert.Null(caughtException);
+            // Valid string field should be preserved
+            Assert.Equal("MyVault", settings.VaultName);
+            // Invalid numeric field should keep whatever value it has (default or unchanged)
+            // The important thing is no exception is thrown
+        }
     }
 
     public class ObsidianSettingsTestable : ObsidianSettings

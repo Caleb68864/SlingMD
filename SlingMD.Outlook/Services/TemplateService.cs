@@ -145,7 +145,7 @@ namespace SlingMD.Outlook.Services
                 }
                 else if (item.Value is string stringValue)
                 {
-                    frontMatter.AppendLine($"{item.Key}: \"{stringValue}\"");
+                    frontMatter.AppendLine($"{item.Key}: \"{EscapeYamlDoubleQuotedScalar(stringValue)}\"");
                 }
                 else if (item.Value is DateTime dateTimeValue)
                 {
@@ -555,6 +555,27 @@ for (const email of emails) {
             return result;
         }
 
+        /// <summary>
+        /// Escapes a string value so it is safe to embed inside a double-quoted YAML scalar.
+        /// Replaces backslashes, double-quotes, and newline/carriage-return characters with
+        /// their YAML escape sequences so the surrounding double-quote delimiters remain valid.
+        /// </summary>
+        internal static string EscapeYamlDoubleQuotedScalar(string value)
+        {
+            if (value == null)
+            {
+                return string.Empty;
+            }
+
+            // Order matters: backslash must be escaped first to avoid double-escaping.
+            return value
+                .Replace("\\", "\\\\")
+                .Replace("\"", "\\\"")
+                .Replace("\r\n", "\\n")
+                .Replace("\n", "\\n")
+                .Replace("\r", "\\n");
+        }
+
         private static void WriteYamlList(StringBuilder frontMatter, string key, IEnumerable<string> values)
         {
             List<string> materializedValues = values == null
@@ -570,7 +591,7 @@ for (const email of emails) {
             frontMatter.AppendLine($"{key}: ");
             foreach (string value in materializedValues)
             {
-                frontMatter.AppendLine($"  - \"{value}\"");
+                frontMatter.AppendLine($"  - \"{EscapeYamlDoubleQuotedScalar(value)}\"");
             }
         }
     }

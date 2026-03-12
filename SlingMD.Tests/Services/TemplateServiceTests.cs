@@ -112,6 +112,64 @@ namespace SlingMD.Tests.Services
             Assert.Equal("TASK ProjectNote 2026-03-12 2026-03-13", content);
         }
 
+        /// <summary>
+        /// Verifies that string scalar values containing double quotes, backslashes, and embedded
+        /// newlines are escaped so that the resulting YAML frontmatter remains parseable.
+        /// </summary>
+        [Fact]
+        public void BuildFrontMatter_EscapesQuotesBackslashesAndNewlines()
+        {
+            Dictionary<string, object> metadata = new Dictionary<string, object>
+            {
+                { "title", "He said \"hello\"" },
+                { "path", @"C:\Users\Test\note.md" },
+                { "body", "Line one\nLine two" }
+            };
+
+            string frontmatter = _templateService.BuildFrontMatter(metadata);
+
+            // Double quotes inside a YAML double-quoted scalar must be escaped as \"
+            Assert.Contains("title: \"He said \\\"hello\\\"\"", frontmatter);
+            // Backslashes must be escaped as \\
+            Assert.Contains("path: \"C:\\\\Users\\\\Test\\\\note.md\"", frontmatter);
+            // Newlines must be escaped as \n
+            Assert.Contains("body: \"Line one\\nLine two\"", frontmatter);
+        }
+
+        /// <summary>
+        /// Verifies that list entries containing special characters are also escaped, and that
+        /// the list shape (YAML block sequence) is preserved.
+        /// </summary>
+        [Fact]
+        public void BuildFrontMatter_EscapesListValuesWithoutChangingListShape()
+        {
+            Dictionary<string, object> metadata = new Dictionary<string, object>
+            {
+                { "to", new System.Collections.Generic.List<string> { "Normal Person", "Has \"Quotes\"", @"Back\Slash" } }
+            };
+
+            string frontmatter = _templateService.BuildFrontMatter(metadata);
+
+            // List block sequence prefix must still be present
+            Assert.Contains("  - \"Normal Person\"", frontmatter);
+            Assert.Contains("  - \"Has \\\"Quotes\\\"\"", frontmatter);
+            Assert.Contains("  - \"Back\\\\Slash\"", frontmatter);
+        }
+
+        /// <summary>
+        /// Unit-tests the escaping helper directly to cover edge cases.
+        /// </summary>
+        [Fact]
+        public void EscapeYamlDoubleQuotedScalar_HandlesAllSpecialCharacters()
+        {
+            Assert.Equal("\\\\", TemplateService.EscapeYamlDoubleQuotedScalar("\\"));
+            Assert.Equal("\\\"", TemplateService.EscapeYamlDoubleQuotedScalar("\""));
+            Assert.Equal("\\n", TemplateService.EscapeYamlDoubleQuotedScalar("\n"));
+            Assert.Equal("\\n", TemplateService.EscapeYamlDoubleQuotedScalar("\r\n"));
+            Assert.Equal("plain", TemplateService.EscapeYamlDoubleQuotedScalar("plain"));
+            Assert.Equal(string.Empty, TemplateService.EscapeYamlDoubleQuotedScalar(null));
+        }
+
         public void Dispose()
         {
             if (Directory.Exists(_testDir))

@@ -13,7 +13,9 @@ quality_score:
   criteria: 5
   decomposition: 4
   total: 28
-status: ready
+status: executed
+executed: 2026-03-12
+result: 3/3 sub-specs passed
 tags:
   - spec
   - slingmd

@@ -266,8 +266,14 @@ namespace SlingMD.Outlook.Services
             int emailCount = 0;
             List<string> matchingFiles = new List<string>(); // Track matching files for debugging
 
-            try 
+            try
             {
+                // Guard against a missing inbox folder (e.g. first run before any emails have been exported).
+                if (!Directory.Exists(inboxPath))
+                {
+                    return (false, null, null, 0);
+                }
+
                 // Get all markdown files from the inbox and subfolders
                 var files = Directory.GetFiles(inboxPath, "*.md", SearchOption.AllDirectories);
                 
@@ -285,14 +291,15 @@ namespace SlingMD.Outlook.Services
                             hasExistingThread = true;
                             emailCount++; // Increment email count for each matching email
                             matchingFiles.Add(file); // Add to our debugging list
-                            
-                            // Parse the date to find the earliest email
-                            var dateMatch = Regex.Match(emailContent, @"date: (\d{4}-\d{2}-\d{2} \d{2}:\d{2})");
+
+                            // Parse the date to find the earliest email.
+                            // Accept the currently written quoted "yyyy-MM-dd HH:mm:ss" format first,
+                            // then fall back to legacy minute-precision values for backward compatibility.
+                            var dateMatch = Regex.Match(emailContent, @"date: ""?(\d{4}-\d{2}-\d{2} \d{2}:\d{2}(?::\d{2})?)""?");
                             if (dateMatch.Success)
                             {
                                 DateTime emailDate;
-                                if (DateTime.TryParseExact(dateMatch.Groups[1].Value, "yyyy-MM-dd HH:mm", null, 
-                                                         System.Globalization.DateTimeStyles.None, out emailDate))
+                                if (TryParseThreadDate(dateMatch.Groups[1].Value, out emailDate))
                                 {
                                     if (!earliestEmailDate.HasValue || emailDate < earliestEmailDate.Value)
                                     {
@@ -365,6 +372,31 @@ namespace SlingMD.Outlook.Services
         /// <param name="baseName">Deprecated parameter (no longer used - kept for backward compatibility).</param>
         /// <param name="currentEmailPath">If supplied, returns the new path for the file that corresponds to the current email.</param>
         /// <returns>The new path for <c>currentEmailPath</c> if it was provided; otherwise <c>null</c>.</returns>
+        /// <summary>
+        /// Parses a date string from a thread note's frontmatter.
+        /// Accepts second-precision dates written by the current exporter ("yyyy-MM-dd HH:mm:ss")
+        /// and legacy minute-precision dates ("yyyy-MM-dd HH:mm") for backward compatibility.
+        /// </summary>
+        /// <param name="value">The raw date string extracted from the frontmatter.</param>
+        /// <param name="result">The parsed date, if successful.</param>
+        /// <returns><c>true</c> if the date could be parsed; otherwise <c>false</c>.</returns>
+        public static bool TryParseThreadDate(string value, out DateTime result)
+        {
+            if (DateTime.TryParseExact(value, "yyyy-MM-dd HH:mm:ss", null,
+                    System.Globalization.DateTimeStyles.None, out result))
+            {
+                return true;
+            }
+
+            if (DateTime.TryParseExact(value, "yyyy-MM-dd HH:mm", null,
+                    System.Globalization.DateTimeStyles.None, out result))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
         public string ResuffixThreadNotes(string threadFolderPath, string baseName, string currentEmailPath = null)
         {
             if (!Directory.Exists(threadFolderPath)) return null;

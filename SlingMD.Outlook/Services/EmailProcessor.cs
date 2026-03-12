@@ -87,6 +87,7 @@ namespace SlingMD.Outlook.Services
             string threadFolderPath = string.Empty;
             string threadNotePath = string.Empty;
             bool shouldGroupThread = false;
+            bool coreExportSucceeded = false;
 
             // Get task options first if needed
             if ((_settings.CreateOutlookTask || _settings.CreateObsidianTask) && _settings.AskForDates)
@@ -373,7 +374,8 @@ namespace SlingMD.Outlook.Services
                                         foreach (var attachment in attachmentInfo.SavedAttachments)
                                         {
                                             string wikilink = _attachmentService.GenerateWikilink(
-                                                attachment.Filename,
+                                                attachment.FullPath,
+                                                filePath,
                                                 attachment.IsInline
                                             );
                                             attachmentSection.AppendLine(wikilink);
@@ -421,7 +423,8 @@ namespace SlingMD.Outlook.Services
                                     foreach (var attachment in attachmentInfo.SavedAttachments)
                                     {
                                         string wikilink = _attachmentService.GenerateWikilink(
-                                            attachment.Filename,
+                                            attachment.FullPath,
+                                            filePath,
                                             attachment.IsInline
                                         );
                                         attachmentSection.AppendLine(wikilink);
@@ -445,15 +448,21 @@ namespace SlingMD.Outlook.Services
                         status.UpdateProgress("Creating Outlook task", 80);
                         await _taskService.CreateOutlookTask(mail);
                     }
-                    
+
                     status.UpdateProgress("Completing email processing", 100);
+                    coreExportSucceeded = true;
                 }
                 catch (System.Exception ex)
                 {
                     MessageBox.Show($"Error processing email: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
-            
+
+            if (!coreExportSucceeded)
+            {
+                return;
+            }
+
             // Process contacts outside the StatusService block
             // This ensures the progress window doesn't block the contact dialog
             if (_settings.EnableContactSaving && contactNames.Count > 0)
@@ -877,6 +886,14 @@ namespace SlingMD.Outlook.Services
                 }
 
                 _processedEmailIds.Clear();
+
+                if (!Directory.Exists(inboxPath))
+                {
+                    // Inbox folder does not yet exist (first run or vault not yet created).
+                    // Treat as an empty cache – no files to scan.
+                    _cacheLastBuilt = DateTime.Now;
+                    return;
+                }
 
                 var mdFiles = Directory.GetFiles(inboxPath, "*.md", SearchOption.AllDirectories);
                 foreach (var file in mdFiles)

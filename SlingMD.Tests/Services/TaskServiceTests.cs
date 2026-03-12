@@ -99,6 +99,37 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
+        public void InitializeTaskSettings_AfterDisableTaskCreation_ReEnablesTaskGeneration()
+        {
+            ObsidianSettings settings = new ObsidianSettings();
+            TaskService service = new TaskService(settings);
+
+            service.DisableTaskCreation();
+            Assert.False(service.ShouldCreateTasks);
+
+            service.InitializeTaskSettings();
+            Assert.True(service.ShouldCreateTasks);
+        }
+
+        [Fact]
+        public void ShouldCreateTasks_AfterCancelThenInitialize_ReturnsTrue()
+        {
+            ObsidianSettings settings = new ObsidianSettings();
+            TaskService service = new TaskService(settings);
+
+            // Simulate a canceled task dialog (which calls DisableTaskCreation)
+            service.DisableTaskCreation();
+
+            // Simulate the next export attempt calling InitializeTaskSettings
+            service.InitializeTaskSettings(2, 1, 9, false);
+
+            Assert.True(service.ShouldCreateTasks);
+            // Verify tasks can actually be generated after re-enable
+            string result = service.GenerateObsidianTask("TestNote", new List<string> { "FollowUp" });
+            Assert.NotEqual(string.Empty, result);
+        }
+
+        [Fact]
         public void GenerateObsidianTask_UsesCustomTemplateWhenPresent()
         {
             string templatesPath = Path.Combine(_testDir, "Templates");

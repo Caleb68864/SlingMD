@@ -19,13 +19,22 @@ dotnet restore
 dotnet test SlingMD.Tests/SlingMD.Tests.csproj
 ```
 
+## Prerequisites
+
+Running `dotnet test` requires **Visual Studio** with the **Office/VSTO development workload** installed. Without it the build fails with `error MSB4019: The imported project "...\Microsoft.VisualStudio.Tools.Office.targets" was not found`. Open the solution in Visual Studio or install that workload via the Visual Studio Installer under *Workloads > Office/SharePoint development*.
+
 ## Test Structure
 
 The tests are organized by the components they test:
 
-- `Models/ObsidianSettingsTests.cs`: Tests for settings persistence and loading
+- `Models/ObsidianSettingsTests.cs`: Tests for settings persistence, loading, corrupt-file fallback
+- `Services/AttachmentServiceTests.cs`: Tests for attachment link target and wikilink generation
+- `Services/ContactServiceTests.cs`: Tests for contact note creation and managed-block repair
+- `Services/EmailProcessorTests.cs`: Tests for metadata building and cache/export-flow guard
 - `Services/FileServiceTests.cs`: Tests for file operations and path handling
-- `Services/ContactServiceTests.cs`: Tests for contact-related functionality
+- `Services/TaskServiceTests.cs`: Tests for task generation, cancel/reset state
+- `Services/TemplateServiceTests.cs`: Tests for YAML frontmatter building and escaping
+- `Services/ThreadServiceTests.cs`: Tests for thread date parsing and missing-inbox handling
 
 ## Adding New Tests
 

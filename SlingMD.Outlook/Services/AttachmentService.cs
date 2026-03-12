@@ -265,7 +265,11 @@ namespace SlingMD.Outlook.Services
         }
 
         /// <summary>
-        /// Generates an Obsidian wikilink for an attachment.
+        /// Generates an Obsidian wikilink for an attachment using only its filename.
+        /// Use this overload only when the attachment is stored in the same directory as the note
+        /// (i.e. <see cref="AttachmentStorageMode.SameAsNote"/>).
+        /// For other storage modes use <see cref="GenerateWikilink(string, string, bool)"/> so that
+        /// the correct relative path is included in the link.
         /// </summary>
         /// <param name="filename">The filename of the attachment.</param>
         /// <param name="isImage">Whether this is an image (affects formatting).</param>
@@ -282,6 +286,78 @@ namespace SlingMD.Outlook.Services
                 // Standard markdown format
                 return isImage ? $"![{filename}]({filename})" : $"[{filename}]({filename})";
             }
+        }
+
+        /// <summary>
+        /// Generates an Obsidian wikilink for an attachment using the saved file path relative to the note.
+        /// For <see cref="AttachmentStorageMode.SameAsNote"/> the link contains only the bare filename,
+        /// preserving the existing behavior.  For <see cref="AttachmentStorageMode.SubfolderPerNote"/>
+        /// and <see cref="AttachmentStorageMode.Centralized"/> modes the link includes the relative path
+        /// from the note's directory so that it resolves correctly inside the vault.
+        /// </summary>
+        /// <param name="attachmentFullPath">Absolute path to the saved attachment file.</param>
+        /// <param name="noteFilePath">Absolute path to the markdown note that will reference the attachment.</param>
+        /// <param name="isImage">Whether this is an image (affects formatting).</param>
+        /// <returns>Wikilink string in Obsidian format.</returns>
+        public string GenerateWikilink(string attachmentFullPath, string noteFilePath, bool isImage)
+        {
+            string linkTarget = BuildAttachmentLinkTarget(attachmentFullPath, noteFilePath);
+
+            if (_settings.UseObsidianWikilinks)
+            {
+                return isImage ? $"![[{linkTarget}]]" : $"[[{linkTarget}]]";
+            }
+            else
+            {
+                string displayName = Path.GetFileName(attachmentFullPath) ?? linkTarget;
+                return isImage
+                    ? $"![{displayName}]({linkTarget})"
+                    : $"[{displayName}]({linkTarget})";
+            }
+        }
+
+        /// <summary>
+        /// Computes the link target for an attachment relative to the note file.
+        /// For same-folder storage the bare filename is returned so existing behavior is preserved.
+        /// For other modes a forward-slash delimited relative path is returned.
+        /// </summary>
+        internal string BuildAttachmentLinkTarget(string attachmentFullPath, string noteFilePath)
+        {
+            if (string.IsNullOrWhiteSpace(attachmentFullPath) || string.IsNullOrWhiteSpace(noteFilePath))
+            {
+                return Path.GetFileName(attachmentFullPath) ?? string.Empty;
+            }
+
+            string noteDir = Path.GetDirectoryName(noteFilePath);
+            string attachmentDir = Path.GetDirectoryName(attachmentFullPath);
+            string attachmentFilename = Path.GetFileName(attachmentFullPath);
+
+            if (string.IsNullOrEmpty(noteDir) || string.IsNullOrEmpty(attachmentDir))
+            {
+                return attachmentFilename ?? string.Empty;
+            }
+
+            // Normalise to the same case and separator for comparison
+            string normNoteDir = noteDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string normAttachDir = attachmentDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            if (string.Equals(normNoteDir, normAttachDir, StringComparison.OrdinalIgnoreCase))
+            {
+                // Same directory – use bare filename (preserves existing SameAsNote behavior)
+                return attachmentFilename;
+            }
+
+            // Build a URI-style relative path from the note directory to the attachment file
+            // using forward slashes as required by Obsidian wikilinks and standard markdown links.
+            // Prefix with "file:///" so that Uri can handle Windows drive-letter paths correctly.
+            string noteDirUri = "file:///" + normNoteDir.Replace('\\', '/') + "/";
+            string attachFileUri = "file:///" + attachmentFullPath.Replace('\\', '/');
+
+            Uri noteUri = new Uri(noteDirUri, UriKind.Absolute);
+            Uri attachUri = new Uri(attachFileUri, UriKind.Absolute);
+            string relativePath = Uri.UnescapeDataString(noteUri.MakeRelativeUri(attachUri).ToString());
+
+            return relativePath;
         }
     }
 }

@@ -59,7 +59,17 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your email com
 
 ## Development
 
-Editing the codebase can happen in VS Code or another editor, but building or publishing the Outlook VSTO add-in still requires Visual Studio with the Office developer tools installed because the project imports Microsoft.VisualStudio.Tools.Office.targets.
+### Prerequisites for building and testing
+
+Building, running tests, and publishing the VSTO add-in require **Visual Studio** (2019 or later) with the **Office/VSTO development workload** installed. This workload provides `Microsoft.VisualStudio.Tools.Office.targets`, which both `SlingMD.Outlook.csproj` and `SlingMD.Tests.csproj` import at build time.
+
+**If you run `dotnet build` or `dotnet test` from the command line without Visual Studio tooling installed, the build will fail with:**
+```
+error MSB4019: The imported project "...\Microsoft.VisualStudio.Tools.Office.targets" was not found.
+```
+This is expected. To resolve it, open the solution in Visual Studio with the Office developer tools workload enabled, or install that workload via the Visual Studio Installer under *Workloads > Office/SharePoint development*.
+
+Editing the codebase (reading, searching, and modifying files) can happen in any editor such as VS Code, but a full build or test run requires the Visual Studio tooling described above.
 
 ## Usage
 

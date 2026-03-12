@@ -73,11 +73,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Models\ObsidianSettingsTests.cs" />
+    <Compile Include="Services\AttachmentServiceTests.cs" />
     <Compile Include="Services\FileServiceTests.cs" />
     <Compile Include="Services\ContactServiceTests.cs" />
     <Compile Include="Services\EmailProcessorTests.cs" />
     <Compile Include="Services\TaskServiceTests.cs" />
     <Compile Include="Services\TemplateServiceTests.cs" />
+    <Compile Include="Services\ThreadServiceTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
