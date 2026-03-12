@@ -57,6 +57,10 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your email com
 - Windows 10 or later
 - Obsidian installed on your system
 
+## Development
+
+Editing the codebase can happen in VS Code or another editor, but building or publishing the Outlook VSTO add-in still requires Visual Studio with the Office developer tools installed because the project imports Microsoft.VisualStudio.Tools.Office.targets.
+
 ## Usage
 
 1. Open Microsoft Outlook
@@ -96,7 +100,7 @@ Before using SlingMD, you'll need to configure your Obsidian vault settings:
    - **Note Title Format / Max Length / Include Date**: Fine-tune how note titles are constructed
    - **Move Date To Front In Thread**: When grouping emails, place the date at the beginning of the filename
    - **Default Note Tags / Task Tags**: Tags automatically assigned to new notes or tasks
-   - **Templates Folder / Template Files**: Point SlingMD at Dataview-friendly templates for email notes, contact notes, inline task lines, and thread summaries
+   - **Templates Folder / Template Files**: Point SlingMD at Dataview-friendly templates for email notes, contact notes, inline task lines, and thread summaries (task templates customize the inline task line only)
    - **Email / Contact Filename Format**: Optional filename formats using tokens like `{Subject}`, `{Sender}`, `{Timestamp}`, `{ContactName}`, and `{ContactShortName}`
    - **Show Development Settings**: Reveals additional debug options in the settings dialog
    - **Show Thread Debug**: Pops up a diagnostic window listing every file that matches a conversationId

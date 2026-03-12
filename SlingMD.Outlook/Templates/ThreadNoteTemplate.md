@@ -2,6 +2,7 @@
 title: "{{title}}"
 type: email-thread
 threadId: "{{threadId}}"
+tags: [email-thread]
 ---
 
 # {{title}}
@@ -59,4 +60,4 @@ for (const email of emails) {
     dv.header(3, `${email.file.name} - ${email.date}`);
     dv.paragraph(`![[${email.file.name}]]`);
 }
-``` 
+```

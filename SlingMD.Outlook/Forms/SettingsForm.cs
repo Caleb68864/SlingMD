@@ -50,7 +50,15 @@ namespace SlingMD.Outlook.Forms
         private Label lblNoteTitleFormat;
         private Label lblNoteTitleMaxLength;
         private Label lblNoteTitleIncludeDate;
-        private CheckBox chkIncludeDailyNoteLink;`r`n        private TextBox txtDailyNoteLinkFormat;`r`n        private TextBox txtTemplatesFolder;`r`n        private TextBox txtEmailTemplateFile;`r`n        private TextBox txtContactTemplateFile;`r`n        private TextBox txtTaskTemplateFile;`r`n        private TextBox txtThreadTemplateFile;`r`n        private TextBox txtEmailFilenameFormat;`r`n        private TextBox txtContactFilenameFormat;
+        private CheckBox chkIncludeDailyNoteLink;
+        private TextBox txtDailyNoteLinkFormat;
+        private TextBox txtTemplatesFolder;
+        private TextBox txtEmailTemplateFile;
+        private TextBox txtContactTemplateFile;
+        private TextBox txtTaskTemplateFile;
+        private TextBox txtThreadTemplateFile;
+        private TextBox txtEmailFilenameFormat;
+        private TextBox txtContactFilenameFormat;
         private Label lblDailyNoteLinkFormat;
         private GroupBox grpNoteCustomization;
         private ToolTip toolTip;
@@ -457,7 +465,14 @@ namespace SlingMD.Outlook.Forms
             chkMoveDateToFrontInThread.Enabled = chkNoteTitleIncludeDate.Checked;
             chkIncludeDailyNoteLink.Checked = _settings.IncludeDailyNoteLink;
             txtDailyNoteLinkFormat.Text = _settings.DailyNoteLinkFormat ?? "[[yyyy-MM-dd]]";
-            txtDailyNoteLinkFormat.Enabled = chkIncludeDailyNoteLink.Checked;`r`n            txtTemplatesFolder.Text = _settings.TemplatesFolder ?? "Templates";`r`n            txtEmailTemplateFile.Text = _settings.EmailTemplateFile ?? "EmailTemplate.md";`r`n            txtContactTemplateFile.Text = _settings.ContactTemplateFile ?? "ContactTemplate.md";`r`n            txtTaskTemplateFile.Text = _settings.TaskTemplateFile ?? "TaskTemplate.md";`r`n            txtThreadTemplateFile.Text = _settings.ThreadTemplateFile ?? "ThreadNoteTemplate.md";`r`n            txtEmailFilenameFormat.Text = _settings.EmailFilenameFormat ?? string.Empty;`r`n            txtContactFilenameFormat.Text = _settings.ContactFilenameFormat ?? "{ContactName}";
+            txtDailyNoteLinkFormat.Enabled = chkIncludeDailyNoteLink.Checked;
+            txtTemplatesFolder.Text = _settings.TemplatesFolder ?? "Templates";
+            txtEmailTemplateFile.Text = _settings.EmailTemplateFile ?? "EmailTemplate.md";
+            txtContactTemplateFile.Text = _settings.ContactTemplateFile ?? "ContactTemplate.md";
+            txtTaskTemplateFile.Text = _settings.TaskTemplateFile ?? "TaskTemplate.md";
+            txtThreadTemplateFile.Text = _settings.ThreadTemplateFile ?? "ThreadNoteTemplate.md";
+            txtEmailFilenameFormat.Text = _settings.EmailFilenameFormat ?? string.Empty;
+            txtContactFilenameFormat.Text = _settings.ContactFilenameFormat ?? "{ContactName}";
 
             // Load attachment settings
             txtAttachmentsFolder.Text = _settings.AttachmentsFolder ?? "Attachments";
@@ -519,7 +534,14 @@ namespace SlingMD.Outlook.Forms
             _settings.NoteTitleMaxLength = (int)numNoteTitleMaxLength.Value;
             _settings.NoteTitleIncludeDate = chkNoteTitleIncludeDate.Checked;
             _settings.IncludeDailyNoteLink = chkIncludeDailyNoteLink.Checked;
-            _settings.DailyNoteLinkFormat = txtDailyNoteLinkFormat.Text.Trim();`r`n            _settings.TemplatesFolder = txtTemplatesFolder.Text.Trim();`r`n            _settings.EmailTemplateFile = txtEmailTemplateFile.Text.Trim();`r`n            _settings.ContactTemplateFile = txtContactTemplateFile.Text.Trim();`r`n            _settings.TaskTemplateFile = txtTaskTemplateFile.Text.Trim();`r`n            _settings.ThreadTemplateFile = txtThreadTemplateFile.Text.Trim();`r`n            _settings.EmailFilenameFormat = txtEmailFilenameFormat.Text.Trim();`r`n            _settings.ContactFilenameFormat = txtContactFilenameFormat.Text.Trim();
+            _settings.DailyNoteLinkFormat = txtDailyNoteLinkFormat.Text.Trim();
+            _settings.TemplatesFolder = txtTemplatesFolder.Text.Trim();
+            _settings.EmailTemplateFile = txtEmailTemplateFile.Text.Trim();
+            _settings.ContactTemplateFile = txtContactTemplateFile.Text.Trim();
+            _settings.TaskTemplateFile = txtTaskTemplateFile.Text.Trim();
+            _settings.ThreadTemplateFile = txtThreadTemplateFile.Text.Trim();
+            _settings.EmailFilenameFormat = txtEmailFilenameFormat.Text.Trim();
+            _settings.ContactFilenameFormat = txtContactFilenameFormat.Text.Trim();
 
             // Save attachment settings
             _settings.AttachmentsFolder = txtAttachmentsFolder.Text.Trim();

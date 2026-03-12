@@ -364,9 +364,18 @@ namespace SlingMD.Outlook.Models
                 return;
             }
 
-            if (value.IndexOfAny(invalidChars) >= 0)
+            string[] pathSegments = value.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (string pathSegment in pathSegments)
             {
-                throw new ArgumentException($"{label} contains invalid characters: {value}");
+                if (pathSegment == "." || pathSegment == "..")
+                {
+                    throw new ArgumentException($"{label} cannot contain relative traversal segments: {value}");
+                }
+
+                if (pathSegment.IndexOfAny(invalidChars) >= 0)
+                {
+                    throw new ArgumentException($"{label} contains invalid characters: {value}");
+                }
             }
         }
 

@@ -14,5 +14,79 @@
       "Bash(cmd.exe:*)"
     ]
   },
-  "enableAllProjectMcpServers": false
+  "enableAllProjectMcpServers": false,
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:\\Users\\CalebBennett\\AppData\\Local\\ClaudeTerminal\\hooks\\on-session-start.js\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:\\Users\\CalebBennett\\AppData\\Local\\ClaudeTerminal\\hooks\\on-prompt-submit.js\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:\\Users\\CalebBennett\\AppData\\Local\\ClaudeTerminal\\hooks\\on-tool-use.js\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:\\Users\\CalebBennett\\AppData\\Local\\ClaudeTerminal\\hooks\\on-stop.js\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:\\Users\\CalebBennett\\AppData\\Local\\ClaudeTerminal\\hooks\\on-notification.js\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:\\Users\\CalebBennett\\AppData\\Local\\ClaudeTerminal\\hooks\\on-session-end.js\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
 }

@@ -137,20 +137,16 @@ namespace SlingMD.Outlook.Services
         /// <param name="mail">The current email being processed – used only for the title.</param>
         public Task UpdateThreadNote(string threadFolderPath, string threadNotePath, string conversationId, string threadNoteName, MailItem mail)
         {
-            var templateContent = _templateService.LoadTemplate("ThreadNoteTemplate.md") ??
-                                _templateService.GetDefaultThreadNoteTemplate();
-
-            // Clean the title using the same method as thread name
             string threadTitle = mail.ConversationTopic ?? mail.Subject;
             threadTitle = _fileService.CleanFileName(threadTitle);
 
-            var replacements = new Dictionary<string, string>
+            ThreadTemplateContext context = new ThreadTemplateContext
             {
-                { "title", threadTitle },
-                { "threadId", conversationId }
+                Title = threadTitle,
+                ThreadId = conversationId
             };
 
-            string content = _templateService.ProcessTemplate(templateContent, replacements);
+            string content = _templateService.RenderThreadContent(context);
             _fileService.WriteUtf8File(threadNotePath, content);
 
             return Task.CompletedTask;
