@@ -53,6 +53,38 @@ namespace SlingMD.Outlook.Services
         public string FolderPath { get; set; } = string.Empty;
     }
 
+    public class AppointmentTemplateContext
+    {
+        public Dictionary<string, object> Metadata { get; set; } = new Dictionary<string, object>();
+        public string NoteTitle { get; set; } = string.Empty;
+        public string Subject { get; set; } = string.Empty;
+        public string Organizer { get; set; } = string.Empty;
+        public string OrganizerEmail { get; set; } = string.Empty;
+        public string Attendees { get; set; } = string.Empty;
+        public string OptionalAttendees { get; set; } = string.Empty;
+        public string Resources { get; set; } = string.Empty;
+        public string Location { get; set; } = string.Empty;
+        public string StartDateTime { get; set; } = string.Empty;
+        public string EndDateTime { get; set; } = string.Empty;
+        public string Recurrence { get; set; } = string.Empty;
+        public string Date { get; set; } = string.Empty;
+        public string Body { get; set; } = string.Empty;
+        public string TaskBlock { get; set; } = string.Empty;
+        public string FileName { get; set; } = string.Empty;
+        public string FileNameWithoutExtension { get; set; } = string.Empty;
+    }
+
+    public class MeetingNoteTemplateContext
+    {
+        public Dictionary<string, object> Metadata { get; set; } = new Dictionary<string, object>();
+        public string AppointmentTitle { get; set; } = string.Empty;
+        public string AppointmentLink { get; set; } = string.Empty;
+        public string Organizer { get; set; } = string.Empty;
+        public string Attendees { get; set; } = string.Empty;
+        public string Date { get; set; } = string.Empty;
+        public string Location { get; set; } = string.Empty;
+    }
+
     /// <summary>
     /// Handles loading, rendering and construction of markdown templates. The service supports both
     /// repo-shipped defaults and user-provided overrides stored in the configured templates folder.
@@ -248,6 +280,94 @@ namespace SlingMD.Outlook.Services
             };
 
             return ProcessTemplate(templateContent, replacements);
+        }
+
+        public string RenderAppointmentContent(AppointmentTemplateContext context)
+        {
+            string templateContent = LoadConfiguredTemplate(_settings?.AppointmentTemplateFile, "AppointmentTemplate.md");
+            if (string.IsNullOrEmpty(templateContent))
+            {
+                templateContent = GetDefaultAppointmentTemplate();
+            }
+
+            Dictionary<string, string> replacements = BuildMetadataReplacements(context.Metadata);
+            AddReplacement(replacements, "noteTitle", context.NoteTitle);
+            AddReplacement(replacements, "subject", context.Subject);
+            AddReplacement(replacements, "organizer", context.Organizer);
+            AddReplacement(replacements, "organizerEmail", context.OrganizerEmail);
+            AddReplacement(replacements, "attendees", context.Attendees);
+            AddReplacement(replacements, "optionalAttendees", context.OptionalAttendees);
+            AddReplacement(replacements, "resources", context.Resources);
+            AddReplacement(replacements, "location", context.Location);
+            AddReplacement(replacements, "startDateTime", context.StartDateTime);
+            AddReplacement(replacements, "endDateTime", context.EndDateTime);
+            AddReplacement(replacements, "recurrence", context.Recurrence);
+            AddReplacement(replacements, "date", context.Date);
+            AddReplacement(replacements, "body", context.Body);
+            AddReplacement(replacements, "taskBlock", context.TaskBlock);
+            AddReplacement(replacements, "fileName", context.FileName);
+            AddReplacement(replacements, "fileNameNoExt", context.FileNameWithoutExtension);
+
+            return ProcessTemplate(templateContent, replacements);
+        }
+
+        public string RenderMeetingNoteContent(MeetingNoteTemplateContext context)
+        {
+            string meetingNoteTemplateFile = _settings?.MeetingNoteTemplateFile;
+            if (string.IsNullOrEmpty(meetingNoteTemplateFile))
+            {
+                meetingNoteTemplateFile = "MeetingNoteTemplate.md";
+            }
+
+            string templateContent = LoadConfiguredTemplate(meetingNoteTemplateFile, "MeetingNoteTemplate.md");
+            if (string.IsNullOrEmpty(templateContent))
+            {
+                templateContent = GetDefaultMeetingNoteTemplate();
+            }
+
+            Dictionary<string, string> replacements = BuildMetadataReplacements(context.Metadata);
+            AddReplacement(replacements, "appointmentTitle", context.AppointmentTitle);
+            AddReplacement(replacements, "appointmentLink", context.AppointmentLink);
+            AddReplacement(replacements, "organizer", context.Organizer);
+            AddReplacement(replacements, "attendees", context.Attendees);
+            AddReplacement(replacements, "date", context.Date);
+            AddReplacement(replacements, "location", context.Location);
+
+            return ProcessTemplate(templateContent, replacements);
+        }
+
+        public string GetDefaultAppointmentTemplate()
+        {
+            return "{{frontmatter}}{{taskBlock}}" + Environment.NewLine +
+                "## Attendees" + Environment.NewLine + Environment.NewLine +
+                "**Organizer:** {{organizer}}" + Environment.NewLine +
+                "**Required:** {{attendees}}" + Environment.NewLine +
+                "**Optional:** {{optionalAttendees}}" + Environment.NewLine +
+                "**Resources:** {{resources}}" + Environment.NewLine + Environment.NewLine +
+                "## Details" + Environment.NewLine + Environment.NewLine +
+                "**Location:** {{location}}" + Environment.NewLine +
+                "**Start:** {{startDateTime}}" + Environment.NewLine +
+                "**End:** {{endDateTime}}" + Environment.NewLine +
+                "**Recurrence:** {{recurrence}}" + Environment.NewLine + Environment.NewLine +
+                "## Notes" + Environment.NewLine + Environment.NewLine +
+                "{{body}}";
+        }
+
+        public string GetDefaultMeetingNoteTemplate()
+        {
+            return "{{frontmatter}}" + Environment.NewLine +
+                "## Meeting Notes" + Environment.NewLine + Environment.NewLine +
+                "**Appointment:** {{appointmentLink}}" + Environment.NewLine +
+                "**Organizer:** {{organizer}}" + Environment.NewLine +
+                "**Attendees:** {{attendees}}" + Environment.NewLine +
+                "**Date:** {{date}}" + Environment.NewLine +
+                "**Location:** {{location}}" + Environment.NewLine + Environment.NewLine +
+                "## Agenda" + Environment.NewLine + Environment.NewLine +
+                "-" + Environment.NewLine + Environment.NewLine +
+                "## Notes" + Environment.NewLine + Environment.NewLine +
+                "-" + Environment.NewLine + Environment.NewLine +
+                "## Action Items" + Environment.NewLine + Environment.NewLine +
+                "- [ ]";
         }
 
         /// <summary>

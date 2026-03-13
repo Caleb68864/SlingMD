@@ -78,6 +78,16 @@ namespace SlingMD.Outlook.Models
         public string ThreadTemplateFile { get; set; } = "ThreadNoteTemplate.md";
 
         /// <summary>
+        /// Template filename used for appointment notes.
+        /// </summary>
+        public string AppointmentTemplateFile { get; set; } = "AppointmentTemplate.md";
+
+        /// <summary>
+        /// Template filename used for meeting note stubs.
+        /// </summary>
+        public string MeetingNoteTemplateFile { get; set; } = "MeetingNoteTemplate.md";
+
+        /// <summary>
         /// Optional filename format for email notes. Leave blank to preserve the legacy naming behavior.
         /// Supported tokens include {Subject}, {Sender}, {Date}, and {Timestamp}.
         /// </summary>
@@ -142,6 +152,58 @@ namespace SlingMD.Outlook.Models
         /// </summary>
         public bool UseObsidianWikilinks { get; set; } = true;
 
+        // Appointment Settings
+
+        /// <summary>
+        /// Folder name for appointment notes (relative to vault root).
+        /// </summary>
+        public string AppointmentsFolder { get; set; } = "Appointments";
+
+        /// <summary>
+        /// Format for appointment note titles. Supported tokens: {Date}, {Subject}, {Sender}.
+        /// </summary>
+        public string AppointmentNoteTitleFormat { get; set; } = "{Date} - {Subject}";
+
+        /// <summary>
+        /// Maximum length for appointment note titles.
+        /// </summary>
+        public int AppointmentNoteTitleMaxLength { get; set; } = 50;
+
+        /// <summary>
+        /// Default tags to apply to appointment note frontmatter.
+        /// </summary>
+        public List<string> AppointmentDefaultNoteTags { get; set; } = new List<string> { "Appointment" };
+
+        /// <summary>
+        /// Whether to save attachments from appointment items.
+        /// </summary>
+        public bool AppointmentSaveAttachments { get; set; } = true;
+
+        /// <summary>
+        /// Whether to create a meeting notes section in appointment notes.
+        /// </summary>
+        public bool CreateMeetingNotes { get; set; } = true;
+
+        /// <summary>
+        /// Optional custom template path for meeting notes. Leave empty to use the default template.
+        /// </summary>
+        public string MeetingNoteTemplate { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Whether to group recurring meeting occurrences into a shared folder.
+        /// </summary>
+        public bool GroupRecurringMeetings { get; set; } = true;
+
+        /// <summary>
+        /// Whether to save notes for cancelled appointments.
+        /// </summary>
+        public bool SaveCancelledAppointments { get; set; } = false;
+
+        /// <summary>
+        /// Task creation mode for appointments. Valid values: "None", "Obsidian", "Outlook", "Both".
+        /// </summary>
+        public string AppointmentTaskCreation { get; set; } = "None";
+
         public List<string> SubjectCleanupPatterns { get; set; } = CreateDefaultSubjectCleanupPatterns();
 
         private static List<string> CreateDefaultNoteTags()
@@ -188,6 +250,11 @@ namespace SlingMD.Outlook.Models
         public string GetContactsPath()
         {
             return Path.Combine(GetFullVaultPath(), ContactsFolder);
+        }
+
+        public string GetAppointmentsPath()
+        {
+            return Path.Combine(GetFullVaultPath(), AppointmentsFolder);
         }
 
         public bool HasSavedSettings()
@@ -269,6 +336,19 @@ namespace SlingMD.Outlook.Models
                     }
                 }
             }
+
+            ValidateFolderName(AppointmentsFolder, "Appointments folder", invalidFileNameChars);
+
+            if (AppointmentNoteTitleMaxLength < 10 || AppointmentNoteTitleMaxLength > 500)
+            {
+                throw new ArgumentException("Appointment note title max length must be between 10 and 500.");
+            }
+
+            string[] validTaskCreationValues = { "None", "Obsidian", "Outlook", "Both" };
+            if (!System.Array.Exists(validTaskCreationValues, v => v == AppointmentTaskCreation))
+            {
+                throw new ArgumentException($"Invalid AppointmentTaskCreation value: {AppointmentTaskCreation}. Must be one of: None, Obsidian, Outlook, Both.");
+            }
         }
 
         public void Save()
@@ -346,6 +426,19 @@ namespace SlingMD.Outlook.Models
             if (!Enum.IsDefined(typeof(AttachmentStorageMode), AttachmentStorageMode))
             {
                 AttachmentStorageMode = AttachmentStorageMode.SameAsNote;
+            }
+
+            AppointmentsFolder = string.IsNullOrWhiteSpace(AppointmentsFolder) ? "Appointments" : AppointmentsFolder;
+            AppointmentNoteTitleFormat = string.IsNullOrWhiteSpace(AppointmentNoteTitleFormat) ? "{Date} - {Subject}" : AppointmentNoteTitleFormat;
+            AppointmentDefaultNoteTags = AppointmentDefaultNoteTags ?? new List<string> { "Appointment" };
+            MeetingNoteTemplate = MeetingNoteTemplate ?? string.Empty;
+            AppointmentTemplateFile = string.IsNullOrWhiteSpace(AppointmentTemplateFile) ? "AppointmentTemplate.md" : AppointmentTemplateFile;
+            MeetingNoteTemplateFile = string.IsNullOrWhiteSpace(MeetingNoteTemplateFile) ? "MeetingNoteTemplate.md" : MeetingNoteTemplateFile;
+
+            string[] validTaskCreationValues = { "None", "Obsidian", "Outlook", "Both" };
+            if (string.IsNullOrWhiteSpace(AppointmentTaskCreation) || !System.Array.Exists(validTaskCreationValues, v => v == AppointmentTaskCreation))
+            {
+                AppointmentTaskCreation = "None";
             }
         }
 

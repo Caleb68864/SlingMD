@@ -145,6 +145,145 @@ namespace SlingMD.Outlook.Services
         }
 
         /// <summary>
+        /// Attempts to resolve the SMTP address for a meeting <paramref name="recipient"/>.
+        /// Falls back to <see cref="Recipient.Address"/> when the property accessor fails.
+        /// </summary>
+        public string GetSMTPEmailAddress(Recipient recipient)
+        {
+            try
+            {
+                const string PrSmtpAddress = "http://schemas.microsoft.com/mapi/proptag/0x39FE001E";
+                return recipient.PropertyAccessor.GetProperty(PrSmtpAddress) as string ?? recipient.Address;
+            }
+            catch
+            {
+                return recipient.Address;
+            }
+        }
+
+        /// <summary>
+        /// Builds a list of Obsidian wiki-links (e.g. <c>[[Jane Doe]]</c>) filtered by one or more
+        /// <see cref="OlMeetingRecipientType"/> values.
+        /// </summary>
+        public List<string> BuildLinkedNames(Recipients recipients, params OlMeetingRecipientType[] types)
+        {
+            List<string> linkedNames = new List<string>();
+            HashSet<int> typeSet = new HashSet<int>();
+            foreach (OlMeetingRecipientType type in types)
+            {
+                typeSet.Add((int)type);
+            }
+
+            foreach (Recipient recipient in recipients)
+            {
+                try
+                {
+                    if (typeSet.Contains(recipient.Type))
+                    {
+                        string name = recipient.Name;
+                        if (!string.IsNullOrEmpty(name))
+                        {
+                            linkedNames.Add($"[[{name}]]");
+                        }
+                    }
+                }
+                finally
+                {
+                    if (recipient != null)
+                    {
+                        System.Runtime.InteropServices.Marshal.ReleaseComObject(recipient);
+                    }
+                }
+            }
+
+            return linkedNames;
+        }
+
+        /// <summary>
+        /// Collects plain email addresses for recipients matching the specified meeting role types.
+        /// </summary>
+        public List<string> BuildEmailList(Recipients recipients, IEnumerable<OlMeetingRecipientType> types)
+        {
+            List<string> emails = new List<string>();
+            HashSet<int> typeSet = new HashSet<int>();
+            foreach (OlMeetingRecipientType type in types)
+            {
+                typeSet.Add((int)type);
+            }
+
+            foreach (Recipient recipient in recipients)
+            {
+                try
+                {
+                    if (typeSet.Contains(recipient.Type))
+                    {
+                        try
+                        {
+                            const string PrSmtpAddress = "http://schemas.microsoft.com/mapi/proptag/0x39FE001E";
+                            string email = recipient.PropertyAccessor.GetProperty(PrSmtpAddress) as string;
+                            if (!string.IsNullOrEmpty(email))
+                            {
+                                emails.Add(email);
+                            }
+                            else if (!string.IsNullOrEmpty(recipient.Address))
+                            {
+                                emails.Add(recipient.Address);
+                            }
+                        }
+                        catch
+                        {
+                            if (!string.IsNullOrEmpty(recipient.Address))
+                            {
+                                emails.Add(recipient.Address);
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    if (recipient != null)
+                    {
+                        System.Runtime.InteropServices.Marshal.ReleaseComObject(recipient);
+                    }
+                }
+            }
+
+            return emails;
+        }
+
+        /// <summary>
+        /// Extracts conference room and equipment names from <see cref="OlMeetingRecipientType.olResource"/>
+        /// recipients.
+        /// </summary>
+        public List<string> GetMeetingResourceData(Recipients recipients)
+        {
+            List<string> resources = new List<string>();
+            foreach (Recipient recipient in recipients)
+            {
+                try
+                {
+                    if (recipient.Type == (int)OlMeetingRecipientType.olResource)
+                    {
+                        string name = recipient.Name;
+                        if (!string.IsNullOrEmpty(name))
+                        {
+                            resources.Add(name);
+                        }
+                    }
+                }
+                finally
+                {
+                    if (recipient != null)
+                    {
+                        System.Runtime.InteropServices.Marshal.ReleaseComObject(recipient);
+                    }
+                }
+            }
+
+            return resources;
+        }
+
+        /// <summary>
         /// Quick existence check for a contact note. Depending on user preference the entire vault may be
         /// searched in addition to the dedicated contacts folder.
         /// </summary>

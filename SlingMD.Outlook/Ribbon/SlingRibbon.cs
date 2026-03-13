@@ -45,6 +45,21 @@ namespace SlingMD.Outlook.Ribbon
 
         public string GetCustomUI(string ribbonID)
         {
+            if (ribbonID == "Microsoft.Outlook.Appointment")
+            {
+                return @"<customUI xmlns=""http://schemas.microsoft.com/office/2009/07/customui"" onLoad=""Ribbon_Load"">
+  <ribbon><tabs>
+    <tab idMso=""TabAppointment"">
+      <group id=""SlingAppointmentGroup"" label=""Sling"" insertBeforeMso=""GroupActions"">
+        <button id=""InspectorSlingButton"" label=""Sling"" size=""large""
+                getImage=""GetSlingButtonImage"" onAction=""OnInspectorSlingClick""
+                supertip=""Save this appointment to Obsidian as a markdown note""/>
+      </group>
+    </tab>
+  </tabs></ribbon>
+</customUI>";
+            }
+
             return GetResourceText("SlingMD.Outlook.Ribbon.SlingRibbon.xml");
         }
 
@@ -61,11 +76,35 @@ namespace SlingMD.Outlook.Ribbon
         {
             try
             {
-                _addIn.ProcessSelectedEmail();
+                _addIn.ProcessSelection();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error processing email: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Error processing item: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        public void OnSaveTodaysClick(Office.IRibbonControl control)
+        {
+            try
+            {
+                _addIn.SaveTodaysAppointments();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error saving today's appointments: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        public void OnInspectorSlingClick(Office.IRibbonControl control)
+        {
+            try
+            {
+                _addIn.ProcessCurrentAppointment();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error processing appointment: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 

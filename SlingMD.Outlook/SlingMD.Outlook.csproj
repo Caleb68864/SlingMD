@@ -273,6 +273,7 @@
     </Compile>
     <Compile Include="Models\ObsidianSettings.cs" />
     <Compile Include="Models\AttachmentInfo.cs" />
+    <Compile Include="Services\AppointmentProcessor.cs" />
     <Compile Include="Services\AttachmentService.cs" />
     <Compile Include="Services\ContactService.cs" />
     <Compile Include="Services\EmailProcessor.cs" />

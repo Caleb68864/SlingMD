@@ -11,11 +11,19 @@
                   getImage="GetSlingButtonImage" />
         </group>
         <group id="SettingsGroup" label="Settings">
-          <button id="SettingsButton" 
-                  label="Configure" 
+          <button id="SettingsButton"
+                  label="Configure"
                   size="large"
                   imageMso="ControlProperties"
                   onAction="OnSettingsButtonClick" />
+        </group>
+        <group id="AppointmentsGroup" label="Appointments">
+          <button id="SaveTodaysButton"
+                  label="Save Today"
+                  size="large"
+                  imageMso="ShowSchedulingPage"
+                  onAction="OnSaveTodaysClick"
+                  supertip="Save all of today's appointments to Obsidian"/>
         </group>
       </tab>
     </tabs>
