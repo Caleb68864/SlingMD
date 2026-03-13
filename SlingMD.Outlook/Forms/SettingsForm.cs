@@ -60,6 +60,7 @@ namespace SlingMD.Outlook.Forms
         private CheckBox chkSearchEntireVaultForContacts;
         private TextBox txtContactFilenameFormat;
         private TextBox txtContactTemplateFile;
+        private CheckBox chkContactNoteIncludeDetails;
 
         // Tasks tab controls
         private CheckBox chkCreateObsidianTask;
@@ -379,6 +380,10 @@ namespace SlingMD.Outlook.Forms
             contactsTabLayout.Controls.Add(new Label { Text = "Contact Template File:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, cRow);
             this.txtContactTemplateFile = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             contactsTabLayout.Controls.Add(this.txtContactTemplateFile, 1, cRow++);
+
+            contactsTabLayout.Controls.Add(new Label(), 0, cRow);
+            this.chkContactNoteIncludeDetails = new CheckBox { Text = "Include contact details (phone, email, company, etc.)", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
+            contactsTabLayout.Controls.Add(this.chkContactNoteIncludeDetails, 1, cRow++);
 
             contactsTabLayout.RowCount = cRow + 1;
             for (int i = 0; i < cRow; i++)
@@ -700,6 +705,7 @@ namespace SlingMD.Outlook.Forms
             chkSearchEntireVaultForContacts.Checked = _settings.SearchEntireVaultForContacts;
             txtContactFilenameFormat.Text = _settings.ContactFilenameFormat ?? "{ContactName}";
             txtContactTemplateFile.Text = _settings.ContactTemplateFile ?? "ContactTemplate.md";
+            chkContactNoteIncludeDetails.Checked = _settings.ContactNoteIncludeDetails;
 
             // Tasks tab
             chkCreateObsidianTask.Checked = _settings.CreateObsidianTask;
@@ -796,6 +802,7 @@ namespace SlingMD.Outlook.Forms
             _settings.SearchEntireVaultForContacts = chkSearchEntireVaultForContacts.Checked;
             _settings.ContactFilenameFormat = txtContactFilenameFormat.Text.Trim();
             _settings.ContactTemplateFile = txtContactTemplateFile.Text.Trim();
+            _settings.ContactNoteIncludeDetails = chkContactNoteIncludeDetails.Checked;
 
             // Tasks tab
             _settings.CreateObsidianTask = chkCreateObsidianTask.Checked;

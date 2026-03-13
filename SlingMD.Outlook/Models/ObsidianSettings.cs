@@ -100,6 +100,11 @@ namespace SlingMD.Outlook.Models
         public string ContactFilenameFormat { get; set; } = "{ContactName}";
 
         /// <summary>
+        /// Whether to include contact details (phone, email, company, etc.) in the contact note.
+        /// </summary>
+        public bool ContactNoteIncludeDetails { get; set; } = true;
+
+        /// <summary>
         /// Default tags to apply to the note's frontmatter.
         /// Leave empty to not include any tags.
         /// </summary>

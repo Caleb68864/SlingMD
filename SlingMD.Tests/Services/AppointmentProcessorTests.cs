@@ -79,6 +79,26 @@ namespace SlingMD.Tests.Services
         // that verify the processor was wired correctly.
 
         [Fact]
+        public void Constructor_WithContactSettings_CreatesInstance()
+        {
+            // Arrange
+            ObsidianSettings settings = new ObsidianSettings
+            {
+                VaultBasePath = _testDir,
+                VaultName = "TestVault",
+                AppointmentsFolder = "Appointments",
+                EnableContactSaving = true,
+                ContactsFolder = "Contacts"
+            };
+
+            // Act
+            AppointmentProcessor processor = new AppointmentProcessor(settings);
+
+            // Assert
+            Assert.NotNull(processor);
+        }
+
+        [Fact]
         public void Constructor_CreatesWithDifferentSettings()
         {
             // Arrange

@@ -108,6 +108,30 @@ namespace SlingMD.Outlook.Ribbon
             }
         }
 
+        public void OnSlingContactClick(Office.IRibbonControl control)
+        {
+            try
+            {
+                _addIn.ProcessSelectedContact();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error processing contact: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        public void OnSlingAllContactsClick(Office.IRibbonControl control)
+        {
+            try
+            {
+                _addIn.SlingAllContacts();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error exporting contacts: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         public void OnSettingsButtonClick(Office.IRibbonControl control)
         {
             try

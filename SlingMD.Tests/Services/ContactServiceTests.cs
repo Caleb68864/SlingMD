@@ -248,5 +248,68 @@ namespace SlingMD.Tests.Services
             Assert.False(File.Exists(expectedFilePath));
             _settings.EnableContactSaving = true;
         }
+
+        [Fact]
+        public void CreateContactNote_CreatesFileWithExpectedContent()
+        {
+            ContactTemplateContext context = new ContactTemplateContext
+            {
+                Metadata = new Dictionary<string, object>
+                {
+                    { "title", "Test Contact" },
+                    { "type", "contact" },
+                    { "tags", new List<string> { "contact" } }
+                },
+                ContactName = "Test Contact",
+                ContactShortName = "TestC",
+                Created = DateTime.Now.ToString("yyyy-MM-dd HH:mm"),
+                Phone = "555-0100",
+                Email = "test@example.com",
+                Company = "Test Corp",
+                JobTitle = "Developer",
+                Address = "456 Oak Ave",
+                Birthday = "1985-06-15",
+                Notes = "Test notes",
+                IncludeDetails = true
+            };
+
+            _contactService.CreateContactNote(context);
+
+            string expectedPath = _contactService.GetManagedContactNotePath("Test Contact");
+            Assert.True(File.Exists(expectedPath));
+            string content = File.ReadAllText(expectedPath);
+            Assert.Contains("## Contact Details", content);
+            Assert.Contains("555-0100", content);
+            Assert.Contains("test@example.com", content);
+        }
+
+        [Fact]
+        public void CreateContactNote_MergesWhenFileExists()
+        {
+            ContactTemplateContext context = new ContactTemplateContext
+            {
+                Metadata = new Dictionary<string, object>
+                {
+                    { "title", "Test Contact" },
+                    { "type", "contact" },
+                    { "tags", new List<string> { "contact" } }
+                },
+                ContactName = "Test Contact",
+                ContactShortName = "TestC",
+                Created = DateTime.Now.ToString("yyyy-MM-dd HH:mm"),
+                Phone = "555-0100",
+                Email = "test@example.com",
+                IncludeDetails = true
+            };
+
+            _contactService.CreateContactNote(context);
+
+            context.Phone = "555-0200";
+            _contactService.CreateContactNote(context);
+
+            string expectedPath = _contactService.GetManagedContactNotePath("Test Contact");
+            string content = File.ReadAllText(expectedPath);
+            Assert.Contains("555-0200", content);
+        }
     }
 }

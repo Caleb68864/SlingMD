@@ -30,6 +30,7 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook e
 - Relative vs. absolute reminder modes with optional per-task prompt
 - Development/debug mode to surface internal thread-matching diagnostics
 - Duplicate-email protection and safe file-naming, including chronological prefixes for threads
+- **Contact slinging** — export single contacts or your entire address book to Obsidian with rich detail notes (phone, email, company, etc.)
 - First-class markdown templates for email notes, contact notes, inline task lines, thread notes, **appointment notes, and meeting notes**
 - **Tabbed settings dialog** organized into 8 focused tabs (General, Email, Appointments, Contacts, Tasks, Threading, Attachments, Developer)
 
@@ -176,6 +177,98 @@ When email threading is enabled (via the "Group Email Threads" setting), SlingMD
 6. Link emails to their thread summary for easy navigation
 
 This organization helps keep related emails together and provides a clear overview of email conversations in your vault.
+
+## Contact Slinging
+
+SlingMD can export your Outlook contacts directly to Obsidian as rich markdown notes:
+
+### Single Contact
+1. Select a contact in Outlook
+2. Click "Sling Contact" in the Contacts group on the Sling ribbon
+3. The contact is exported with all available details (phone, email, company, address, etc.)
+
+### All Contacts
+1. Click "Sling All Contacts" in the Contacts group on the Sling ribbon
+2. SlingMD exports every contact from your default address book
+3. Existing contact notes are skipped (no duplicates)
+4. A summary dialog shows how many contacts were saved, skipped, or had errors
+
+### Appointment Contact Linking
+When you sling an appointment, SlingMD automatically checks the attendees against your vault. Existing contact notes are refreshed, and you're offered the option to create notes for new contacts (same behavior as email slinging).
+
+### Contact Note Include Details
+In Settings > Contacts, the "Include contact details" checkbox controls whether slung contact notes get a `## Contact Details` section with phone, email, company, title, address, and birthday. When disabled, contacts get the simpler template (name + communication history only).
+
+## Custom Templates
+
+SlingMD uses `{{placeholder}}` templates to generate markdown notes. You can customize the layout and content of every note type by creating your own template files.
+
+### How It Works
+
+1. Create a `.md` file in your vault's Templates folder (configured in Settings > General)
+2. Use `{{placeholders}}` for dynamic content — SlingMD replaces them at export time
+3. Point the matching template setting (e.g., "Contact Template File") to your file name
+4. Your template is used for all notes of that type going forward
+
+If no custom template is configured, SlingMD uses sensible built-in defaults.
+
+### Template Types and Settings
+
+| Note Type | Setting Name | Default File | Description |
+|-----------|-------------|--------------|-------------|
+| Email | Email Template File | `EmailTemplate.md` | Exported email notes |
+| Contact | Contact Template File | `ContactTemplate.md` | Contact notes (both email-created and slung) |
+| Task | Task Template File | `TaskTemplate.md` | Inline task lines in notes |
+| Thread | Thread Template File | `ThreadNoteTemplate.md` | Thread summary notes |
+| Appointment | Appointment Template File | `AppointmentTemplate.md` | Exported appointment notes |
+| Meeting Note | Meeting Note Template File | `MeetingNoteTemplate.md` | Companion meeting notes |
+
+### Available Placeholders
+
+Every template type supports `{{frontmatter}}` (generates the YAML frontmatter block) plus type-specific fields:
+
+**Email Templates:**
+`{{subject}}`, `{{from}}`, `{{to}}`, `{{cc}}`, `{{date}}`, `{{body}}`, `{{attachments}}`, `{{fileName}}`, `{{fileNameNoExt}}`, `{{threadNote}}`, `{{threadId}}`
+
+**Contact Templates:**
+`{{contactName}}`, `{{contactShortName}}`, `{{created}}`, `{{fileName}}`, `{{fileNameNoExt}}`, `{{phone}}`, `{{email}}`, `{{company}}`, `{{jobTitle}}`, `{{address}}`, `{{birthday}}`, `{{notes}}`
+
+All 12 contact placeholders are available regardless of how the contact was created. When a contact comes from email (name only), the detail fields (`{{phone}}`, `{{email}}`, etc.) render as empty strings. When a contact is slung from Outlook, all available fields are populated.
+
+**Appointment Templates:**
+`{{subject}}`, `{{organizer}}`, `{{start}}`, `{{end}}`, `{{location}}`, `{{body}}`, `{{requiredAttendees}}`, `{{optionalAttendees}}`, `{{resourceAttendees}}`, `{{categories}}`, `{{recurrenceInfo}}`, `{{fileName}}`, `{{fileNameNoExt}}`
+
+**Task Templates:**
+`{{taskText}}`, `{{dueDate}}`, `{{scheduledDate}}`, `{{tags}}`
+
+### Example Custom Contact Template
+
+Create a file called `MyContactTemplate.md` in your vault's Templates folder:
+
+```markdown
+{{frontmatter}}
+# {{contactName}}
+
+> **{{jobTitle}}** at **{{company}}**
+
+## Details
+| Field | Value |
+|-------|-------|
+| Phone | {{phone}} |
+| Email | {{email}} |
+| Address | {{address}} |
+| Birthday | {{birthday}} |
+
+## Communication History
+
+(Add your Dataview query here)
+
+## Notes
+
+{{notes}}
+```
+
+Then set "Contact Template File" to `MyContactTemplate.md` in Settings > Contacts.
 
 ## Contributing
 

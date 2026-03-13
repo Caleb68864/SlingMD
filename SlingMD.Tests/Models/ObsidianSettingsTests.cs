@@ -330,6 +330,54 @@ namespace SlingMD.Tests.Models
             // Invalid numeric field should keep whatever value it has (default or unchanged)
             // The important thing is no exception is thrown
         }
+
+        [Fact]
+        public void ContactNoteIncludeDetails_DefaultsToTrue()
+        {
+            ObsidianSettings settings = new ObsidianSettings();
+
+            Assert.True(settings.ContactNoteIncludeDetails);
+        }
+
+        [Fact]
+        public void ContactNoteIncludeDetails_SavedAndLoaded_Correctly()
+        {
+            ObsidianSettingsTestable settings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath,
+                ContactNoteIncludeDetails = false
+            };
+
+            settings.Save();
+
+            ObsidianSettingsTestable loadedSettings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath
+            };
+            loadedSettings.Load();
+
+            Assert.False(loadedSettings.ContactNoteIncludeDetails);
+        }
+
+        [Fact]
+        public void NormalizeLoadedSettings_MissingContactNoteIncludeDetails_DefaultsToTrue()
+        {
+            string legacyJson = @"{
+  ""VaultName"": ""TestVault"",
+  ""VaultBasePath"": ""C:\\Test\\Path"",
+  ""InboxFolder"": ""Inbox"",
+  ""ContactsFolder"": ""Contacts""
+}";
+            File.WriteAllText(_testSettingsPath, legacyJson);
+
+            ObsidianSettingsTestable settings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath
+            };
+            settings.Load();
+
+            Assert.True(settings.ContactNoteIncludeDetails);
+        }
     }
 
     public class ObsidianSettingsTestable : ObsidianSettings

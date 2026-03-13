@@ -25,6 +25,20 @@
                   onAction="OnSaveTodaysClick"
                   supertip="Save all of today's appointments to Obsidian"/>
         </group>
+        <group id="ContactsGroup" label="Contacts">
+          <button id="SlingContactButton"
+                  label="Sling Contact"
+                  size="large"
+                  imageMso="ContactPictureMenu"
+                  onAction="OnSlingContactClick"
+                  supertip="Export selected contact to Obsidian as a markdown note"/>
+          <button id="SlingAllContactsButton"
+                  label="Sling All Contacts"
+                  size="large"
+                  imageMso="DistributionListSelectMembers"
+                  onAction="OnSlingAllContactsClick"
+                  supertip="Export all contacts from your address book to Obsidian"/>
+        </group>
       </tab>
     </tabs>
   </ribbon>

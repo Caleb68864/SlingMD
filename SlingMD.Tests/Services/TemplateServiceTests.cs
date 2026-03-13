@@ -170,6 +170,100 @@ namespace SlingMD.Tests.Services
             Assert.Equal(string.Empty, TemplateService.EscapeYamlDoubleQuotedScalar(null));
         }
 
+        [Fact]
+        public void RenderContactContent_WithAllFields_ContainsContactDetails()
+        {
+            ContactTemplateContext context = new ContactTemplateContext
+            {
+                Metadata = new Dictionary<string, object>
+                {
+                    { "title", "Jane Doe" }
+                },
+                ContactName = "Jane Doe",
+                ContactShortName = "Jane",
+                Created = "2026-03-13",
+                FileName = "Jane Doe.md",
+                FileNameWithoutExtension = "Jane Doe",
+                Phone = "555-1234",
+                Email = "jane@example.com",
+                Company = "Acme Corp",
+                JobTitle = "Engineer",
+                Address = "123 Main St",
+                Birthday = "1990-01-01",
+                Notes = "Some notes here",
+                IncludeDetails = true
+            };
+
+            string content = _templateService.RenderContactContent(context);
+
+            Assert.Contains("## Contact Details", content);
+            Assert.Contains("555-1234", content);
+            Assert.Contains("jane@example.com", content);
+            Assert.Contains("Acme Corp", content);
+            Assert.Contains("Engineer", content);
+            Assert.Contains("123 Main St", content);
+            Assert.Contains("1990-01-01", content);
+        }
+
+        [Fact]
+        public void RenderContactContent_WithIncludeDetailsFalse_OmitsContactDetails()
+        {
+            ContactTemplateContext context = new ContactTemplateContext
+            {
+                Metadata = new Dictionary<string, object>
+                {
+                    { "title", "Jane Doe" }
+                },
+                ContactName = "Jane Doe",
+                ContactShortName = "Jane",
+                Created = "2026-03-13",
+                FileName = "Jane Doe.md",
+                FileNameWithoutExtension = "Jane Doe",
+                Phone = "555-1234",
+                Email = "jane@example.com",
+                Company = "Acme Corp",
+                JobTitle = "Engineer",
+                Address = "123 Main St",
+                Birthday = "1990-01-01",
+                Notes = "Some notes here",
+                IncludeDetails = false
+            };
+
+            string content = _templateService.RenderContactContent(context);
+
+            Assert.DoesNotContain("## Contact Details", content);
+        }
+
+        [Fact]
+        public void RenderContactContent_WithEmptyFields_DoesNotContainNull()
+        {
+            ContactTemplateContext context = new ContactTemplateContext
+            {
+                Metadata = new Dictionary<string, object>
+                {
+                    { "title", "Jane Doe" }
+                },
+                ContactName = "Jane Doe",
+                ContactShortName = "Jane",
+                Created = "2026-03-13",
+                FileName = "Jane Doe.md",
+                FileNameWithoutExtension = "Jane Doe",
+                Phone = string.Empty,
+                Email = string.Empty,
+                Company = string.Empty,
+                JobTitle = string.Empty,
+                Address = string.Empty,
+                Birthday = string.Empty,
+                Notes = string.Empty,
+                IncludeDetails = true
+            };
+
+            string content = _templateService.RenderContactContent(context);
+
+            Assert.DoesNotContain("null", content, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("## Contact Details", content);
+        }
+
         public void Dispose()
         {
             if (Directory.Exists(_testDir))

@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.Office.Interop.Outlook;
+using SlingMD.Outlook.Forms;
 using SlingMD.Outlook.Helpers;
 using SlingMD.Outlook.Models;
 using Logger = SlingMD.Outlook.Helpers.Logger;
@@ -563,6 +564,97 @@ namespace SlingMD.Outlook.Services
             if (!coreExportSucceeded)
             {
                 return AppointmentProcessingResult.Error;
+            }
+
+            // --- Process contacts after core export (outside StatusService block so dialogs are not blocked) ---
+            if (_settings.EnableContactSaving)
+            {
+                try
+                {
+                    // Collect attendee names from organizer, required, and optional (excluding resource/room attendees)
+                    List<string> contactNames = new List<string>();
+
+                    if (!string.IsNullOrWhiteSpace(organizerName))
+                    {
+                        contactNames.Add(organizerName.Replace("[[", "").Replace("]]", ""));
+                    }
+
+                    foreach (string name in requiredAttendees)
+                    {
+                        string cleaned = name.Replace("[[", "").Replace("]]", "");
+                        if (!string.IsNullOrWhiteSpace(cleaned))
+                        {
+                            contactNames.Add(cleaned);
+                        }
+                    }
+
+                    foreach (string name in optionalAttendees)
+                    {
+                        string cleaned = name.Replace("[[", "").Replace("]]", "");
+                        if (!string.IsNullOrWhiteSpace(cleaned))
+                        {
+                            contactNames.Add(cleaned);
+                        }
+                    }
+
+                    if (contactNames.Count > 0)
+                    {
+                        // Deduplicate and sort
+                        contactNames = contactNames.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(n => n).ToList();
+
+                        // Separate managed contacts (refresh) from truly new contacts (prompt)
+                        List<string> newContacts = new List<string>();
+                        List<string> managedContactsToRefresh = new List<string>();
+
+                        foreach (string contactName in contactNames)
+                        {
+                            if (_contactService.ManagedContactNoteExists(contactName))
+                            {
+                                managedContactsToRefresh.Add(contactName);
+                            }
+                            else if (!_contactService.ContactExists(contactName))
+                            {
+                                newContacts.Add(contactName);
+                            }
+                        }
+
+                        // Refresh existing managed contact notes
+                        foreach (string contactName in managedContactsToRefresh)
+                        {
+                            _contactService.CreateContactNote(contactName);
+                        }
+
+                        // In single mode, show dialog for new contacts; in bulk mode, skip silently
+                        if (!bulkMode && newContacts.Count > 0)
+                        {
+                            using (ContactConfirmationDialog dialog = new ContactConfirmationDialog(newContacts))
+                            {
+                                if (dialog.ShowDialog() == DialogResult.OK)
+                                {
+                                    foreach (string contactName in dialog.SelectedContacts)
+                                    {
+                                        _contactService.CreateContactNote(contactName);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    if (!bulkMode)
+                    {
+                        MessageBox.Show(
+                            $"Error processing contacts: {ex.Message}",
+                            "SlingMD Error",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                    }
+                    else
+                    {
+                        _bulkErrors.Add($"Contact processing error for '{subject}': {ex.Message}");
+                    }
+                }
             }
 
             // --- Create Outlook task if enabled ---

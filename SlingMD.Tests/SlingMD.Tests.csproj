@@ -80,6 +80,7 @@
     <Compile Include="Services\ContactServiceMeetingTests.cs" />
     <Compile Include="Services\EmailProcessorTests.cs" />
     <Compile Include="Services\AppointmentProcessorTests.cs" />
+    <Compile Include="Services\ContactProcessorTests.cs" />
     <Compile Include="Services\TaskServiceTests.cs" />
     <Compile Include="Services\TemplateServiceTests.cs" />
     <Compile Include="Services\TemplateServiceAppointmentTests.cs" />
