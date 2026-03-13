@@ -199,6 +199,11 @@ namespace SlingMD.Outlook.Forms
                 this.txtDailyNoteLinkFormat.Enabled = this.chkIncludeDailyNoteLink.Checked;
             };
 
+            generalTabLayout.RowCount = gRow + 1;
+            for (int i = 0; i < gRow; i++)
+                generalTabLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            generalTabLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
             tabGeneral.Controls.Add(generalTabLayout);
 
             // ---- Email Tab ----
@@ -269,6 +274,11 @@ namespace SlingMD.Outlook.Forms
             this.txtEmailTemplateFile = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             emailTabLayout.Controls.Add(this.txtEmailTemplateFile, 1, eRow++);
 
+            emailTabLayout.RowCount = eRow + 1;
+            for (int i = 0; i < eRow; i++)
+                emailTabLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            emailTabLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
             tabEmail.Controls.Add(emailTabLayout);
 
             // ---- Appointments Tab ----
@@ -329,6 +339,11 @@ namespace SlingMD.Outlook.Forms
             apptCheckboxPanel.Controls.Add(this.chkSaveCancelledAppointments);
             apptTabLayout.Controls.Add(apptCheckboxPanel, 1, aRow++);
 
+            apptTabLayout.RowCount = aRow + 1;
+            for (int i = 0; i < aRow; i++)
+                apptTabLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            apptTabLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
             tabAppointments.Controls.Add(apptTabLayout);
 
             // ---- Contacts Tab ----
@@ -364,6 +379,11 @@ namespace SlingMD.Outlook.Forms
             contactsTabLayout.Controls.Add(new Label { Text = "Contact Template File:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, cRow);
             this.txtContactTemplateFile = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             contactsTabLayout.Controls.Add(this.txtContactTemplateFile, 1, cRow++);
+
+            contactsTabLayout.RowCount = cRow + 1;
+            for (int i = 0; i < cRow; i++)
+                contactsTabLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            contactsTabLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
             tabContacts.Controls.Add(contactsTabLayout);
 
@@ -413,6 +433,11 @@ namespace SlingMD.Outlook.Forms
             this.txtTaskTemplateFile = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             tasksTabLayout.Controls.Add(this.txtTaskTemplateFile, 1, tRow++);
 
+            tasksTabLayout.RowCount = tRow + 1;
+            for (int i = 0; i < tRow; i++)
+                tasksTabLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            tasksTabLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
             tabTasks.Controls.Add(tasksTabLayout);
 
             // ---- Threading Tab ----
@@ -453,6 +478,11 @@ namespace SlingMD.Outlook.Forms
                     chkMoveDateToFrontInThread.Enabled = true;
                 }
             };
+
+            threadingTabLayout.RowCount = thRow + 1;
+            for (int i = 0; i < thRow; i++)
+                threadingTabLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            threadingTabLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
             tabThreading.Controls.Add(threadingTabLayout);
 
@@ -609,6 +639,13 @@ namespace SlingMD.Outlook.Forms
             this.StartPosition = FormStartPosition.CenterScreen;
             this.Text = "Obsidian Settings";
             this.ClientSize = new Size(760, 820);
+
+            System.IO.Stream iconStream = System.Reflection.Assembly.GetExecutingAssembly()
+                .GetManifestResourceStream("SlingMD.Outlook.Resources.SlingMD.ico");
+            if (iconStream != null)
+            {
+                this.Icon = new Icon(iconStream);
+            }
 
             // grpNoteCustomization is kept as a field reference (unused in tabs, legacy field kept for compatibility)
             this.grpNoteCustomization = new GroupBox();
