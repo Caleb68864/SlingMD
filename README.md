@@ -30,7 +30,7 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your email com
 ## Installation
 
 1. Go to the [Releases](./Releases) folder in this repository
-2. Download the newest versioned ZIP from the [Releases](./Releases) folder (for example, `SlingMD.Outlook_1_0_0_121.zip` at the time of writing)
+2. Download the newest versioned ZIP from the [Releases](./Releases) folder (for example, `SlingMD.Outlook_1_0_0_124.zip` at the time of writing)
 3. **Important Security Step - Unblock the ZIP File**:
    - Right-click the downloaded ZIP file
    - Click "Properties"
@@ -184,6 +184,21 @@ This project is licensed under the terms included in the [LICENSE](LICENSE) file
 If you encounter any issues or have questions, please open an issue in the GitHub repository.
 
 ## Changelog
+
+### Version 1.0.0.124
+- **Reliability Hardening** — corrupt or malformed settings files no longer crash the add-in on startup; safe defaults are loaded instead ([#6](https://github.com/Caleb68864/SlingMD/issues/6))
+- **Settings Persistence Fix** — settings now persist correctly across Outlook restarts ([#6](https://github.com/Caleb68864/SlingMD/issues/6))
+- **Export Flow Safeguards** — a fatal export error no longer continues into contact creation or Obsidian launch
+- **Task State Reset** — canceling the task-options dialog no longer disables task creation for the rest of the Outlook session
+- **Thread Summary Fix** — the DataviewJS query in thread summary notes (0-file) now correctly scopes to the thread folder instead of producing a JavaScript syntax error
+- **Thread Date Alignment** — thread discovery now parses both second-precision and legacy minute-precision date formats for backward compatibility
+- **YAML-Safe Frontmatter** — email metadata containing double quotes, backslashes, or newlines is now properly escaped in frontmatter
+- **Attachment Link Hardening** — attachment links now resolve correctly for same-folder, per-note-subfolder, and centralized storage modes
+- **Missing Vault Handling** — exporting into a fresh vault with no inbox folder no longer throws during duplicate detection
+- **Customizable Templates** — email, contact, task, and thread templates are fully configurable via the Templates settings ([#8](https://github.com/Caleb68864/SlingMD/issues/8))
+- **Contact Note Dataview Fix** — contact notes now use `## Communication History` with a working DataviewJS query for email history display ([#4](https://github.com/Caleb68864/SlingMD/issues/4))
+- **VSTO Build Documentation** — README now documents the Visual Studio Office/VSTO prerequisite for building and testing
+- Added regression test coverage for all hardened behaviors
 
 ### Version 1.0.0.44
 - Added automatic email thread detection and organization
