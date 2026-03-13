@@ -6,7 +6,7 @@ Tools for Use with ObsidianMD - Seamlessly integrate your Outlook emails with Ob
 
 ## Overview
 
-SlingMD is a powerful Outlook add-in that bridges the gap between your email communications and Obsidian notes. It allows you to easily export and manage your emails within your Obsidian knowledge base, helping you maintain a comprehensive personal knowledge management system.
+SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook emails, calendar appointments, and contacts with Obsidian notes. It allows you to easily export and manage your emails, appointments, and contact information within your Obsidian knowledge base, helping you maintain a comprehensive personal knowledge management system.
 
 ## Features
 
