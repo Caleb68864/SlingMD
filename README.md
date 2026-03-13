@@ -11,13 +11,18 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your email com
 ## Features
 
 - Export Outlook emails directly to Obsidian markdown format
+- **Export Outlook calendar appointments to Obsidian markdown** with full attendee, location, and recurrence metadata
 - Preserve email metadata and formatting
 - Create follow-up tasks in Obsidian notes and/or Outlook
+- **Appointment task creation** (None / Obsidian / Outlook / Both)
 - Seamless integration with Outlook's interface
-- Easy-to-use ribbon interface
+- Easy-to-use ribbon interface with **appointment inspector support**
 - Support for attachments and email threading
 - Automatic email thread organization
+- **Recurring meeting threading** — group recurring meeting instances into thread folders with summary notes
 - Thread summary pages with timeline views
+- **Companion meeting notes** — optional blank note for real-time meeting capture, linked to the appointment note
+- **Bulk "Save Today's Appointments"** — one-click export of all today's calendar items
 - Automatic contact note creation with communication-history Dataview tables
 - Customisable note title formatting (placeholders for {Subject}, {Sender}, {Date}) with max-length trimming
 - Advanced subject clean-up engine using user-defined regex patterns
@@ -25,12 +30,13 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your email com
 - Relative vs. absolute reminder modes with optional per-task prompt
 - Development/debug mode to surface internal thread-matching diagnostics
 - Duplicate-email protection and safe file-naming, including chronological prefixes for threads
-- First-class markdown templates for email notes, contact notes, inline task lines, and thread notes
+- First-class markdown templates for email notes, contact notes, inline task lines, thread notes, **appointment notes, and meeting notes**
+- **Tabbed settings dialog** organized into 8 focused tabs (General, Email, Appointments, Contacts, Tasks, Threading, Attachments, Developer)
 
 ## Installation
 
 1. Go to the [Releases](./Releases) folder in this repository
-2. Download the newest versioned ZIP from the [Releases](./Releases) folder (for example, `SlingMD.Outlook_1_0_0_124.zip` at the time of writing)
+2. Download the newest versioned ZIP from the [Releases](./Releases) folder (for example, `SlingMD.Outlook_1_1_0_1.zip` at the time of writing)
 3. **Important Security Step - Unblock the ZIP File**:
    - Right-click the downloaded ZIP file
    - Click "Properties"
@@ -184,6 +190,17 @@ This project is licensed under the terms included in the [LICENSE](LICENSE) file
 If you encounter any issues or have questions, please open an issue in the GitHub repository.
 
 ## Changelog
+
+### Version 1.1.0.1
+- **Appointment Processing** — full pipeline for exporting Outlook calendar appointments to Obsidian markdown, with attendee lists, location, recurrence metadata, and configurable templates
+- **Appointment Ribbon Integration** — "Save Today's Appointments" bulk-export button and appointment inspector "Sling" button
+- **Recurring Meeting Threading** — recurring instances grouped into thread folders with summary notes
+- **Companion Meeting Notes** — optional blank meeting note linked bidirectionally to the appointment note
+- **Appointment Task Creation** — configurable task creation for appointments (None / Obsidian / Outlook / Both)
+- **Tabbed Settings Form** — settings reorganized into 8 focused tabs (General, Email, Appointments, Contacts, Tasks, Threading, Attachments, Developer)
+- **Settings Form UI Fix** — last row on all tabs no longer stretches; form now displays the SlingMD icon
+- 10 new appointment-related settings and dedicated appointment/meeting note templates
+- 13 new tests (75/75 total passing)
 
 ### Version 1.0.0.124
 - **Reliability Hardening** — corrupt or malformed settings files no longer crash the add-in on startup; safe defaults are loaded instead ([#6](https://github.com/Caleb68864/SlingMD/issues/6))

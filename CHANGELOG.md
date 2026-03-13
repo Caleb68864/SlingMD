@@ -2,6 +2,25 @@
 
 All notable changes to SlingMD are documented in this file.
 
+## [1.1.0.1] - 2026-03-13
+
+### Added
+- **Appointment Processing** — full pipeline for exporting Outlook calendar appointments to Obsidian markdown notes, mirroring the existing email export flow
+- **Appointment Ribbon Integration** — "Save Today's Appointments" button in the Sling ribbon for bulk-exporting all of today's calendar items; "Sling" button in the appointment inspector for single-item export
+- **Recurring Meeting Threading** — recurring meeting instances are automatically grouped into thread folders with summary notes, reusing the email threading pattern
+- **Companion Meeting Notes** — optional blank meeting note created alongside the appointment note for capturing real-time meeting notes, linked bidirectionally
+- **Appointment Task Creation** — configurable task creation for appointments (None / Obsidian / Outlook / Both), using the same TaskService pipeline as emails
+- **Appointment Templates** — dedicated `AppointmentTemplate.md` and `MeetingNoteTemplate.md` with full template variable support (attendees, location, recurrence, resources, etc.)
+- **ContactService Meeting Extensions** — `BuildLinkedNames`, `BuildEmailList`, and `GetMeetingResourceData` methods for extracting attendee information from appointments
+- **TemplateService Appointment Support** — `AppointmentTemplateContext` (17 properties) and `MeetingNoteTemplateContext` for rendering appointment and meeting note content
+- **Tabbed Settings Form** — settings dialog reorganized from a single scrollable form into 8 focused tabs (General, Email, Appointments, Contacts, Tasks, Threading, Attachments, Developer)
+- 10 new appointment-related settings: `AppointmentsFolder`, `AppointmentNoteTitleFormat`, `AppointmentNoteTitleMaxLength`, `AppointmentDefaultNoteTags`, `AppointmentSaveAttachments`, `CreateMeetingNotes`, `MeetingNoteTemplate`, `GroupRecurringMeetings`, `SaveCancelledAppointments`, `AppointmentTaskCreation`
+- 13 new tests across 4 test files covering appointment settings validation, processor logic, contact meeting methods, and template rendering (75/75 total tests passing)
+
+### Fixed
+- Settings form last row on every tab stretched to fill remaining space — added explicit `AutoSize` RowStyles with a `Percent` filler row to all tab `TableLayoutPanel` layouts
+- Settings form displayed the default Windows icon — now loads `SlingMD.ico` from embedded resources for the title bar
+
 ## [1.0.0.124] - 2026-03-13
 
 ### Fixed
