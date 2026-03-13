@@ -209,7 +209,7 @@ namespace SlingMD.Tests.Models
   ""VaultBasePath"": ""C:\\Legacy\\Vault"",
   ""InboxFolder"": ""Inbox"",
   ""ContactsFolder"": ""Contacts""
-}"@;
+}";
             File.WriteAllText(_testSettingsPath, legacyJson);
 
             ObsidianSettingsTestable settings = new ObsidianSettingsTestable

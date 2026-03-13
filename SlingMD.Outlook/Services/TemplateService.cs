@@ -50,6 +50,7 @@ namespace SlingMD.Outlook.Services
     {
         public string Title { get; set; } = string.Empty;
         public string ThreadId { get; set; } = string.Empty;
+        public string FolderPath { get; set; } = string.Empty;
     }
 
     /// <summary>
@@ -242,7 +243,8 @@ namespace SlingMD.Outlook.Services
             Dictionary<string, string> replacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 { "title", context.Title ?? string.Empty },
-                { "threadId", context.ThreadId ?? string.Empty }
+                { "threadId", context.ThreadId ?? string.Empty },
+                { "folderPath", context.FolderPath ?? string.Empty }
             };
 
             return ProcessTemplate(templateContent, replacements);
@@ -388,7 +390,7 @@ tags: [email-thread]
 ```dataviewjs
 // Get all emails with matching threadId from current folder
 const threadId = ""{{threadId}}"";
-const emails = dv.pages("")
+const emails = dv.pages('""{{folderPath}}""')
     .where(p => p.threadId === threadId && p.file.name !== dv.current().file.name)
     .sort(p => p.date, 'desc');
 

@@ -10,7 +10,7 @@ tags: [email-thread]
 ```dataviewjs
 // Get all emails with matching threadId from current folder
 const threadId = "{{threadId}}";
-const emails = dv.pages("")
+const emails = dv.pages('"{{folderPath}}"')
     .where(p => p.threadId === threadId && p.file.name !== dv.current().file.name)
     .sort(p => p.date, 'desc');
 

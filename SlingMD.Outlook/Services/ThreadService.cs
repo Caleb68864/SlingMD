@@ -140,10 +140,20 @@ namespace SlingMD.Outlook.Services
             string threadTitle = mail.ConversationTopic ?? mail.Subject;
             threadTitle = _fileService.CleanFileName(threadTitle);
 
+            string vaultRoot = Path.Combine(_settings.VaultBasePath, _settings.VaultName);
+            string folderPath = string.Empty;
+            if (threadFolderPath.StartsWith(vaultRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                folderPath = threadFolderPath.Substring(vaultRoot.Length)
+                    .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .Replace(Path.DirectorySeparatorChar, '/');
+            }
+
             ThreadTemplateContext context = new ThreadTemplateContext
             {
                 Title = threadTitle,
-                ThreadId = conversationId
+                ThreadId = conversationId,
+                FolderPath = folderPath
             };
 
             string content = _templateService.RenderThreadContent(context);
