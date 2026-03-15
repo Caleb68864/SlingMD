@@ -19,6 +19,7 @@ namespace SlingMD.Outlook
         private ContactProcessor _contactProcessor;
         private FileService _fileService;
         private SlingRibbon _ribbon;
+        private Explorer _activeExplorer;
 
         protected override Microsoft.Office.Core.IRibbonExtensibility CreateRibbonExtensibilityObject()
         {
@@ -43,10 +44,10 @@ namespace SlingMD.Outlook
 
             try
             {
-                Explorer explorer = Application.ActiveExplorer();
-                if (explorer != null)
+                _activeExplorer = Application.ActiveExplorer();
+                if (_activeExplorer != null)
                 {
-                    explorer.SelectionChange += Explorer_SelectionChange;
+                    _activeExplorer.SelectionChange += Explorer_SelectionChange;
                 }
             }
             catch { }
@@ -88,7 +89,12 @@ namespace SlingMD.Outlook
 
         private void ThisAddIn_Shutdown(object sender, System.EventArgs e)
         {
-            // Save settings when Outlook is closing
+            if (_activeExplorer != null)
+            {
+                _activeExplorer.SelectionChange -= Explorer_SelectionChange;
+                _activeExplorer = null;
+            }
+
             if (_settings != null)
             {
                 _settings.Save();
