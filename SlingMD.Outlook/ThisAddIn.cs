@@ -20,6 +20,7 @@ namespace SlingMD.Outlook
         private FileService _fileService;
         private SlingRibbon _ribbon;
         private Explorer _activeExplorer;
+        private bool _startupComplete;
 
         protected override Microsoft.Office.Core.IRibbonExtensibility CreateRibbonExtensibilityObject()
         {
@@ -51,6 +52,9 @@ namespace SlingMD.Outlook
                 }
             }
             catch { }
+
+            _startupComplete = true;
+            _ribbon?.InvalidateSlingButton();
         }
 
         private void Explorer_SelectionChange()
@@ -60,6 +64,11 @@ namespace SlingMD.Outlook
 
         public string GetSelectedItemLabel()
         {
+            if (!_startupComplete)
+            {
+                return "Sling";
+            }
+
             try
             {
                 Explorer explorer = Application.ActiveExplorer();
