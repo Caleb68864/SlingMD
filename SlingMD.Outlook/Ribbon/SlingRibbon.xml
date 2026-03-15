@@ -7,7 +7,6 @@
           <button id="SlingButton"
                   label="Sling"
                   size="large"
-                  getLabel="GetSlingButtonLabel"
                   onAction="OnSlingButtonClick"
                   getImage="GetSlingButtonImage" />
         </group>
