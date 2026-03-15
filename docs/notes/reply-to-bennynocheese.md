@@ -19,4 +19,4 @@ A few things you might like:
 
 Templates are customizable if you want to tweak the layout -- just drop a markdown file with `{{placeholders}}` in your templates folder.
 
-Grab it from the [Releases folder](https://github.com/Caleb68864/SlingMD/tree/main/Releases) and let me know how it goes!
+Heads up -- this release is still semi-beta so there might be some rough edges. But it's working well for me day to day. Grab it from the [Releases folder](https://github.com/Caleb68864/SlingMD/tree/main/Releases) and let me know how it goes or if you run into anything!
