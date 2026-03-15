@@ -14,6 +14,7 @@ namespace SlingMD.Outlook.Ribbon
         private Office.IRibbonUI _ribbon;
         private readonly ThisAddIn _addIn;
         private Bitmap _slingLogo;
+        private string _slingButtonLabel = "Sling";
 
         public SlingRibbon(ThisAddIn addIn)
         {
@@ -68,6 +69,11 @@ namespace SlingMD.Outlook.Ribbon
             _ribbon = ribbonUI;
         }
 
+        public void InvalidateSlingButton()
+        {
+            _ribbon?.InvalidateControl("SlingButton");
+        }
+
         #endregion
 
         #region Ribbon Callbacks
@@ -105,6 +111,29 @@ namespace SlingMD.Outlook.Ribbon
             catch (Exception ex)
             {
                 MessageBox.Show($"Error processing appointment: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        public string GetSlingButtonLabel(Office.IRibbonControl control)
+        {
+            return _slingButtonLabel;
+        }
+
+        public void UpdateSlingButtonLabel(string label)
+        {
+            _slingButtonLabel = label ?? "Sling";
+            _ribbon?.InvalidateControl("SlingButton");
+        }
+
+        public void OnSlingAllContactsClick(Office.IRibbonControl control)
+        {
+            try
+            {
+                _addIn.SlingAllContacts();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error exporting contacts: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 

@@ -16,8 +16,11 @@ namespace SlingMD.Outlook
         private ObsidianSettings _settings;
         private EmailProcessor _emailProcessor;
         private AppointmentProcessor _appointmentProcessor;
+        private ContactProcessor _contactProcessor;
         private FileService _fileService;
         private SlingRibbon _ribbon;
+        private Explorer _activeExplorer;
+        private bool _startupComplete;
 
         protected override Microsoft.Office.Core.IRibbonExtensibility CreateRibbonExtensibilityObject()
         {
@@ -32,17 +35,75 @@ namespace SlingMD.Outlook
             _settings = LoadSettings(out isFirstLaunchAfterInstall);
             _emailProcessor = new EmailProcessor(_settings);
             _appointmentProcessor = new AppointmentProcessor(_settings);
+            _contactProcessor = new ContactProcessor(_settings);
             _fileService = new FileService(_settings);
 
             if (isFirstLaunchAfterInstall && !_settings.HasShownSupportPrompt)
             {
                 ShowFirstRunSupportPrompt();
             }
+
+            try
+            {
+                _activeExplorer = Application.ActiveExplorer();
+                if (_activeExplorer != null)
+                {
+                    _activeExplorer.SelectionChange += Explorer_SelectionChange;
+                }
+            }
+            catch { }
+
+            _startupComplete = true;
+            _ribbon?.UpdateSlingButtonLabel(GetSelectedItemLabel());
+        }
+
+        private void Explorer_SelectionChange()
+        {
+            _ribbon?.UpdateSlingButtonLabel(GetSelectedItemLabel());
+        }
+
+        public string GetSelectedItemLabel()
+        {
+            if (!_startupComplete)
+            {
+                return "Sling";
+            }
+
+            try
+            {
+                Explorer explorer = Application.ActiveExplorer();
+                if (explorer == null || explorer.Selection.Count == 0)
+                {
+                    return "Sling";
+                }
+
+                object selected = explorer.Selection[1];
+                if (selected is MailItem)
+                {
+                    return "Sling Email";
+                }
+                if (selected is AppointmentItem)
+                {
+                    return "Sling Appointment";
+                }
+                if (selected is ContactItem)
+                {
+                    return "Sling Contact";
+                }
+            }
+            catch { }
+
+            return "Sling";
         }
 
         private void ThisAddIn_Shutdown(object sender, System.EventArgs e)
         {
-            // Save settings when Outlook is closing
+            if (_activeExplorer != null)
+            {
+                _activeExplorer.SelectionChange -= Explorer_SelectionChange;
+                _activeExplorer = null;
+            }
+
             if (_settings != null)
             {
                 _settings.Save();
@@ -99,13 +160,14 @@ namespace SlingMD.Outlook
                 Explorer explorer = Application.ActiveExplorer();
                 if (explorer.Selection.Count == 0)
                 {
-                    MessageBox.Show("Please select an email or appointment first.", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show("Please select an email, appointment, or contact first.", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
                 object selected = explorer.Selection[1];
                 MailItem mail = selected as MailItem;
                 AppointmentItem appointment = selected as AppointmentItem;
+                ContactItem contact = selected as ContactItem;
 
                 if (mail != null)
                 {
@@ -115,9 +177,17 @@ namespace SlingMD.Outlook
                 {
                     await _appointmentProcessor.ProcessAppointment(appointment, bulkMode: false);
                 }
+                else if (contact != null)
+                {
+                    ContactProcessingResult contactResult = _contactProcessor.ProcessContact(contact);
+                    if (contactResult == ContactProcessingResult.Success && _settings.LaunchObsidian)
+                    {
+                        _fileService.LaunchObsidian(_settings.VaultName, _settings.GetContactsPath());
+                    }
+                }
                 else
                 {
-                    MessageBox.Show("Please select an email or appointment.", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show("Please select an email, appointment, or contact.", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
             catch (System.Exception ex)
@@ -174,6 +244,59 @@ namespace SlingMD.Outlook
         public void ProcessSelectedEmail()
         {
             ProcessSelection();
+        }
+
+        public void SlingAllContacts()
+        {
+            int saved = 0;
+            int skipped = 0;
+            int errors = 0;
+
+            MAPIFolder contactsFolder = null;
+            try
+            {
+                try
+                {
+                    contactsFolder = Application.Session.GetDefaultFolder(OlDefaultFolders.olFolderContacts);
+                    _contactProcessor.ProcessAddressBook(contactsFolder, out saved, out skipped, out errors);
+                }
+                finally
+                {
+                    if (contactsFolder != null)
+                    {
+                        System.Runtime.InteropServices.Marshal.ReleaseComObject(contactsFolder);
+                    }
+                }
+
+                System.Collections.Generic.List<string> bulkErrors = _contactProcessor.GetBulkErrors();
+                string summary = string.Format(
+                    "Saved {0} contacts.\nSkipped: {1} (already exist or not a contact)\nErrors: {2}",
+                    saved, skipped, errors);
+
+                if (bulkErrors.Count > 0)
+                {
+                    summary += "\n\nError details:\n" + string.Join("\n", bulkErrors);
+                }
+
+                MessageBox.Show(
+                    summary,
+                    "Sling All Contacts",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+
+                if (_settings.LaunchObsidian && saved > 0)
+                {
+                    _fileService.LaunchObsidian(_settings.VaultName, _settings.GetContactsPath());
+                }
+            }
+            catch (System.Exception ex)
+            {
+                MessageBox.Show(
+                    string.Format("Error exporting contacts: {0}", ex.Message),
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
         }
 
         public async void SaveTodaysAppointments()
@@ -303,6 +426,7 @@ namespace SlingMD.Outlook
                         // Recreate processors with new settings
                         _emailProcessor = new EmailProcessor(_settings);
                         _appointmentProcessor = new AppointmentProcessor(_settings);
+                        _contactProcessor = new ContactProcessor(_settings);
                         _fileService = new FileService(_settings);
                     }
                 }

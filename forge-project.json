@@ -1,0 +1,13 @@
+{
+  "project_name": "SlingMD",
+  "project_vault": "docs",
+  "build_command": "dotnet build SlingMD.sln --configuration Release",
+  "test_command": "dotnet test SlingMD.Tests\\SlingMD.Tests.csproj",
+  "verification_strategy": "build+test",
+  "spec_output_dir": "docs/specs",
+  "notes_dir": "docs/notes",
+  "claude_md_path": "CLAUDE.md",
+  "review_enabled": true,
+  "review_max_compliance_loops": 3,
+  "review_max_quality_loops": 2
+}

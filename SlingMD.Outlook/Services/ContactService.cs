@@ -376,28 +376,35 @@ namespace SlingMD.Outlook.Services
             }
 
             string filePath = GetManagedContactNotePath(contactName);
-            _fileService.EnsureDirectoryExists(_settings.GetContactsPath());
-
             string fileNameNoExtension = Path.GetFileNameWithoutExtension(filePath);
-            Dictionary<string, object> metadata = new Dictionary<string, object>
-            {
-                { "title", contactName },
-                { "type", "contact" },
-                { "created", DateTime.Now.ToString("yyyy-MM-dd HH:mm") },
-                { "tags", new List<string> { "contact" } }
-            };
 
             ContactTemplateContext context = new ContactTemplateContext
             {
-                Metadata = metadata,
+                Metadata = new Dictionary<string, object>
+                {
+                    { "title", contactName },
+                    { "type", "contact" },
+                    { "created", DateTime.Now.ToString("yyyy-MM-dd HH:mm") },
+                    { "tags", new List<string> { "contact" } }
+                },
                 ContactName = contactName,
                 ContactShortName = GetShortName(contactName),
                 Created = DateTime.Now.ToString("yyyy-MM-dd HH:mm"),
                 FileName = fileNameNoExtension + ".md",
-                FileNameWithoutExtension = fileNameNoExtension
+                FileNameWithoutExtension = fileNameNoExtension,
+                IncludeDetails = false
             };
 
+            CreateContactNote(context);
+        }
+
+        public void CreateContactNote(ContactTemplateContext context)
+        {
+            string filePath = GetManagedContactNotePath(context.ContactName);
+            _fileService.EnsureDirectoryExists(_settings.GetContactsPath());
+
             string renderedContent = _templateService.RenderContactContent(context);
+
             if (!File.Exists(filePath))
             {
                 _fileService.WriteUtf8File(filePath, renderedContent);
@@ -405,9 +412,216 @@ namespace SlingMD.Outlook.Services
             }
 
             string existingContent = File.ReadAllText(filePath);
-            string managedSection = ExtractManagedCommunicationHistorySection(renderedContent);
-            string updatedContent = MergeManagedSections(existingContent, managedSection);
-            _fileService.WriteUtf8File(filePath, updatedContent);
+            if (context.IncludeDetails)
+            {
+                // Rich contact: preserve user-authored Notes section, refresh everything else
+                string preservedNotes = ExtractUserNotesSection(existingContent);
+                string updatedContent = ReplaceNotesSection(renderedContent, preservedNotes);
+                _fileService.WriteUtf8File(filePath, updatedContent);
+            }
+            else
+            {
+                // Basic contact: preserve user content, refresh managed Communication History
+                string managedSection = ExtractManagedCommunicationHistorySection(renderedContent);
+                string updatedContent = MergeManagedSections(existingContent, managedSection);
+                _fileService.WriteUtf8File(filePath, updatedContent);
+            }
+        }
+
+        /// <summary>
+        /// Extracts rich contact data from an Outlook <see cref="ContactItem"/> and returns a fully
+        /// populated <see cref="ContactTemplateContext"/>. Each COM property read is individually
+        /// try/caught to tolerate missing or restricted properties.
+        /// </summary>
+        public ContactTemplateContext ExtractContactData(ContactItem contact)
+        {
+            string fullName = string.Empty;
+            try
+            {
+                fullName = contact.FullName ?? string.Empty;
+            }
+            catch (System.Exception) { }
+
+            if (string.IsNullOrWhiteSpace(fullName))
+            {
+                try
+                {
+                    string lastName = contact.LastName ?? string.Empty;
+                    string firstName = contact.FirstName ?? string.Empty;
+                    if (!string.IsNullOrWhiteSpace(lastName) || !string.IsNullOrWhiteSpace(firstName))
+                    {
+                        fullName = string.IsNullOrWhiteSpace(firstName)
+                            ? lastName
+                            : string.IsNullOrWhiteSpace(lastName)
+                                ? firstName
+                                : $"{firstName} {lastName}";
+                    }
+                }
+                catch (System.Exception) { }
+            }
+
+            if (string.IsNullOrWhiteSpace(fullName))
+            {
+                try
+                {
+                    fullName = contact.FileAs ?? string.Empty;
+                }
+                catch (System.Exception) { }
+            }
+
+            if (string.IsNullOrWhiteSpace(fullName))
+            {
+                fullName = "Unknown Contact";
+            }
+
+            string phone = string.Empty;
+            try
+            {
+                phone = contact.BusinessTelephoneNumber ?? string.Empty;
+            }
+            catch (System.Exception) { }
+
+            if (string.IsNullOrWhiteSpace(phone))
+            {
+                try
+                {
+                    phone = contact.MobileTelephoneNumber ?? string.Empty;
+                }
+                catch (System.Exception) { }
+            }
+
+            if (string.IsNullOrWhiteSpace(phone))
+            {
+                try
+                {
+                    phone = contact.HomeTelephoneNumber ?? string.Empty;
+                }
+                catch (System.Exception) { }
+            }
+
+            string email = string.Empty;
+            try
+            {
+                email = contact.Email1Address ?? string.Empty;
+            }
+            catch (System.Exception) { }
+
+            string company = string.Empty;
+            try
+            {
+                company = contact.CompanyName ?? string.Empty;
+            }
+            catch (System.Exception) { }
+
+            string jobTitle = string.Empty;
+            try
+            {
+                jobTitle = contact.JobTitle ?? string.Empty;
+            }
+            catch (System.Exception) { }
+
+            string address = string.Empty;
+            try
+            {
+                address = contact.BusinessAddress ?? string.Empty;
+            }
+            catch (System.Exception) { }
+
+            if (string.IsNullOrWhiteSpace(address))
+            {
+                try
+                {
+                    address = contact.HomeAddress ?? string.Empty;
+                }
+                catch (System.Exception) { }
+            }
+
+            string birthday = string.Empty;
+            try
+            {
+                DateTime birthdayDate = contact.Birthday;
+                if (birthdayDate.Year != 4501)
+                {
+                    birthday = birthdayDate.ToString("yyyy-MM-dd");
+                }
+            }
+            catch (System.Exception) { }
+
+            string notes = string.Empty;
+            try
+            {
+                notes = contact.Body ?? string.Empty;
+            }
+            catch (System.Exception) { }
+
+            string cleanName = _fileService.CleanFileName(fullName);
+            string fileNameNoExtension = _fileService.CleanFileName(fullName);
+
+            Dictionary<string, object> metadata = new Dictionary<string, object>
+            {
+                { "title", fullName },
+                { "type", "contact" },
+                { "created", DateTime.Now.ToString("yyyy-MM-dd HH:mm") },
+                { "tags", new List<string> { "contact" } }
+            };
+
+            if (!string.IsNullOrWhiteSpace(company))
+            {
+                metadata["company"] = company;
+            }
+
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                metadata["email"] = email;
+            }
+
+            return new ContactTemplateContext
+            {
+                Metadata = metadata,
+                ContactName = fullName,
+                ContactShortName = GetShortName(fullName),
+                Created = DateTime.Now.ToString("yyyy-MM-dd HH:mm"),
+                FileName = fileNameNoExtension + ".md",
+                FileNameWithoutExtension = fileNameNoExtension,
+                Phone = phone,
+                Email = email,
+                Company = company,
+                JobTitle = jobTitle,
+                Address = address,
+                Birthday = birthday,
+                Notes = notes,
+                IncludeDetails = true
+            };
+        }
+
+
+        private static string ExtractUserNotesSection(string content)
+        {
+            int notesStart = FindSectionStart(content, NotesHeading);
+            if (notesStart < 0)
+            {
+                return string.Empty;
+            }
+
+            return content.Substring(notesStart).TrimEnd();
+        }
+
+        private static string ReplaceNotesSection(string renderedContent, string preservedNotes)
+        {
+            int notesStart = FindSectionStart(renderedContent, NotesHeading);
+            if (notesStart < 0)
+            {
+                if (string.IsNullOrWhiteSpace(preservedNotes))
+                {
+                    return renderedContent;
+                }
+
+                return renderedContent.TrimEnd() + Environment.NewLine + Environment.NewLine + preservedNotes + Environment.NewLine;
+            }
+
+            string prefix = renderedContent.Substring(0, notesStart).TrimEnd();
+            string notesSection = string.IsNullOrWhiteSpace(preservedNotes) ? BuildEmptyNotesSection() : preservedNotes;
+            return prefix + Environment.NewLine + Environment.NewLine + notesSection.TrimEnd() + Environment.NewLine;
         }
 
         public string GetManagedContactNotePath(string contactName)

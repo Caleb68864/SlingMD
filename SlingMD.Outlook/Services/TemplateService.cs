@@ -34,6 +34,14 @@ namespace SlingMD.Outlook.Services
         public string Created { get; set; } = string.Empty;
         public string FileName { get; set; } = string.Empty;
         public string FileNameWithoutExtension { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Company { get; set; } = string.Empty;
+        public string JobTitle { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string Birthday { get; set; } = string.Empty;
+        public string Notes { get; set; } = string.Empty;
+        public bool IncludeDetails { get; set; } = true;
     }
 
     public class TaskTemplateContext
@@ -227,10 +235,21 @@ namespace SlingMD.Outlook.Services
 
         public string RenderContactContent(ContactTemplateContext context)
         {
-            string templateContent = LoadConfiguredTemplate(_settings.ContactTemplateFile, "ContactTemplate.md");
+            string templateContent = null;
+
+            // If the user has customized ContactTemplateFile, use their template
+            // for ALL contacts — all 13 fields are available as {{placeholders}}.
+            if (!string.Equals(_settings.ContactTemplateFile, "ContactTemplate.md", StringComparison.OrdinalIgnoreCase))
+            {
+                templateContent = LoadTemplate(_settings.ContactTemplateFile);
+            }
+
+            // Fall back to built-in defaults based on IncludeDetails
             if (string.IsNullOrEmpty(templateContent))
             {
-                templateContent = GetDefaultContactTemplate();
+                templateContent = context.IncludeDetails
+                    ? GetDefaultRichContactTemplate()
+                    : GetDefaultContactTemplate();
             }
 
             Dictionary<string, string> replacements = BuildMetadataReplacements(context.Metadata);
@@ -239,6 +258,13 @@ namespace SlingMD.Outlook.Services
             AddReplacement(replacements, "created", context.Created);
             AddReplacement(replacements, "fileName", context.FileName);
             AddReplacement(replacements, "fileNameNoExt", context.FileNameWithoutExtension);
+            AddReplacement(replacements, "phone", context.Phone);
+            AddReplacement(replacements, "email", context.Email);
+            AddReplacement(replacements, "company", context.Company);
+            AddReplacement(replacements, "jobTitle", context.JobTitle);
+            AddReplacement(replacements, "address", context.Address);
+            AddReplacement(replacements, "birthday", context.Birthday);
+            AddReplacement(replacements, "notes", context.Notes);
 
             return ProcessTemplate(templateContent, replacements);
         }
@@ -485,6 +511,102 @@ dv.table([""Date"", ""Subject"", ""Type""],
 
 ## Notes
 ";
+        }
+
+        public string GetDefaultRichContactTemplate()
+        {
+            StringBuilder template = new StringBuilder();
+            template.AppendLine("{{frontmatter}}");
+            template.AppendLine("# {{contactName}}");
+            template.AppendLine();
+            template.AppendLine("## Contact Details");
+            template.AppendLine();
+            template.AppendLine("**Phone:** {{phone}}");
+            template.AppendLine("**Email:** {{email}}");
+            template.AppendLine("**Company:** {{company}}");
+            template.AppendLine("**Title:** {{jobTitle}}");
+            template.AppendLine("**Address:** {{address}}");
+            template.AppendLine("**Birthday:** {{birthday}}");
+            template.AppendLine();
+            template.AppendLine("## Communication History");
+            template.AppendLine();
+            template.AppendLine("```dataviewjs");
+            template.AppendLine("const current = dv.current();");
+            template.AppendLine("const contactSources = [current.title, current.file?.name, current.file?.path];");
+            template.AppendLine();
+            template.AppendLine("function normalizeSingle(value) {");
+            template.AppendLine("    if (!value && value !== 0) return [];");
+            template.AppendLine();
+            template.AppendLine("    if (typeof value === \"object\") {");
+            template.AppendLine("        const candidates = [];");
+            template.AppendLine("        if (value.path) candidates.push(value.path);");
+            template.AppendLine("        if (value.display) candidates.push(value.display);");
+            template.AppendLine("        if (value.file?.path) candidates.push(value.file.path);");
+            template.AppendLine("        return candidates.flatMap(normalizeSingle);");
+            template.AppendLine("    }");
+            template.AppendLine();
+            template.AppendLine("    const text = String(value).trim();");
+            template.AppendLine("    if (!text) return [];");
+            template.AppendLine();
+            template.AppendLine("    const unwrapped = text");
+            template.AppendLine("        .replace(/^\\[\\[/, \"\")");
+            template.AppendLine("        .replace(/\\]\\]$/, \"\")");
+            template.AppendLine("        .split(\"|\")[0]");
+            template.AppendLine("        .trim();");
+            template.AppendLine();
+            template.AppendLine("    if (!unwrapped) return [];");
+            template.AppendLine();
+            template.AppendLine("    const withoutExtension = unwrapped.replace(/\\.md$/i, \"\");");
+            template.AppendLine("    const pathParts = withoutExtension.split(\"/\");");
+            template.AppendLine("    const fileName = pathParts[pathParts.length - 1];");
+            template.AppendLine();
+            template.AppendLine("    return [...new Set([unwrapped, withoutExtension, fileName]");
+            template.AppendLine("        .map(item => item.trim().toLowerCase())");
+            template.AppendLine("        .filter(Boolean))];");
+            template.AppendLine("}");
+            template.AppendLine();
+            template.AppendLine("function normalizeValue(value) {");
+            template.AppendLine("    if (!value && value !== 0) return [];");
+            template.AppendLine("    if (Array.isArray(value)) return value.flatMap(normalizeSingle);");
+            template.AppendLine("    return normalizeSingle(value);");
+            template.AppendLine("}");
+            template.AppendLine();
+            template.AppendLine("const contactKeys = new Set(normalizeValue(contactSources));");
+            template.AppendLine();
+            template.AppendLine("function containsContact(field) {");
+            template.AppendLine("    return normalizeValue(field).some(value => contactKeys.has(value));");
+            template.AppendLine("}");
+            template.AppendLine();
+            template.AppendLine("function isEmailPage(page) {");
+            template.AppendLine("    const types = normalizeValue(page.type);");
+            template.AppendLine("    return types.includes('email') || !!page.fromEmail || !!page.internetMessageId || !!page.entryId;");
+            template.AppendLine("}");
+            template.AppendLine();
+            template.AppendLine("const emails = dv.pages()");
+            template.AppendLine("    .where(page => isEmailPage(page) && (");
+            template.AppendLine("        containsContact(page.from) ||");
+            template.AppendLine("        containsContact(page.to) ||");
+            template.AppendLine("        containsContact(page.cc)");
+            template.AppendLine("    ))");
+            template.AppendLine("    .sort(page => page.date, 'desc');");
+            template.AppendLine();
+            template.AppendLine("dv.table([\"Date\", \"Subject\", \"Type\"],");
+            template.AppendLine("    emails.map(page => {");
+            template.AppendLine("        const role = containsContact(page.from)");
+            template.AppendLine("            ? \"From\"");
+            template.AppendLine("            : containsContact(page.to)");
+            template.AppendLine("                ? \"To\"");
+            template.AppendLine("                : \"CC\";");
+            template.AppendLine();
+            template.AppendLine("        return [page.date, page.file.link, role];");
+            template.AppendLine("    })");
+            template.AppendLine(");");
+            template.AppendLine("```");
+            template.AppendLine();
+            template.AppendLine("## Notes");
+            template.AppendLine();
+            template.Append("{{notes}}");
+            return template.ToString();
         }
 
         public string GetDefaultTaskTemplate()

@@ -3,9 +3,9 @@
   <ribbon>
     <tabs>
       <tab id="SlingTab" label="Sling">
-        <group id="EmailGroup" label="Email">
-          <button id="SlingButton" 
-                  label="Sling" 
+        <group id="SlingGroup" label="Sling">
+          <button id="SlingButton"
+                  label="Sling"
                   size="large"
                   onAction="OnSlingButtonClick"
                   getImage="GetSlingButtonImage" />
@@ -24,6 +24,14 @@
                   imageMso="ShowSchedulingPage"
                   onAction="OnSaveTodaysClick"
                   supertip="Save all of today's appointments to Obsidian"/>
+        </group>
+        <group id="ContactsGroup" label="Contacts">
+          <button id="SlingAllContactsButton"
+                  label="Sling All Contacts"
+                  size="large"
+                  imageMso="DistributionListSelectMembers"
+                  onAction="OnSlingAllContactsClick"
+                  supertip="Export all contacts from your address book to Obsidian"/>
         </group>
       </tab>
     </tabs>
