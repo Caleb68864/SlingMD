@@ -54,12 +54,12 @@ namespace SlingMD.Outlook
             catch { }
 
             _startupComplete = true;
-            _ribbon?.InvalidateSlingButton();
+            _ribbon?.UpdateSlingButtonLabel(GetSelectedItemLabel());
         }
 
         private void Explorer_SelectionChange()
         {
-            _ribbon?.InvalidateSlingButton();
+            _ribbon?.UpdateSlingButtonLabel(GetSelectedItemLabel());
         }
 
         public string GetSelectedItemLabel()

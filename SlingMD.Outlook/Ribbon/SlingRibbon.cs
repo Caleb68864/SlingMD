@@ -14,6 +14,7 @@ namespace SlingMD.Outlook.Ribbon
         private Office.IRibbonUI _ribbon;
         private readonly ThisAddIn _addIn;
         private Bitmap _slingLogo;
+        private string _slingButtonLabel = "Sling";
 
         public SlingRibbon(ThisAddIn addIn)
         {
@@ -115,14 +116,13 @@ namespace SlingMD.Outlook.Ribbon
 
         public string GetSlingButtonLabel(Office.IRibbonControl control)
         {
-            try
-            {
-                return _addIn.GetSelectedItemLabel();
-            }
-            catch
-            {
-                return "Sling";
-            }
+            return _slingButtonLabel;
+        }
+
+        public void UpdateSlingButtonLabel(string label)
+        {
+            _slingButtonLabel = label ?? "Sling";
+            _ribbon?.InvalidateControl("SlingButton");
         }
 
         public void OnSlingAllContactsClick(Office.IRibbonControl control)
