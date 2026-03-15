@@ -68,6 +68,11 @@ namespace SlingMD.Outlook.Ribbon
             _ribbon = ribbonUI;
         }
 
+        public void InvalidateSlingButton()
+        {
+            _ribbon?.InvalidateControl("SlingButton");
+        }
+
         #endregion
 
         #region Ribbon Callbacks
@@ -108,15 +113,15 @@ namespace SlingMD.Outlook.Ribbon
             }
         }
 
-        public void OnSlingContactClick(Office.IRibbonControl control)
+        public string GetSlingButtonLabel(Office.IRibbonControl control)
         {
             try
             {
-                _addIn.ProcessSelectedContact();
+                return _addIn.GetSelectedItemLabel();
             }
-            catch (Exception ex)
+            catch
             {
-                MessageBox.Show($"Error processing contact: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return "Sling";
             }
         }
 
