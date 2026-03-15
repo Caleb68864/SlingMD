@@ -71,7 +71,7 @@ namespace SlingMD.Outlook.Forms
             this.Controls.Add(btnPanel);
             
             // Form settings
-            this.ClientSize = new System.Drawing.Size(400, 350);
+            this.ClientSize = new System.Drawing.Size(500, 350);
             this.Text = "Create Contact Notes";
             this.AcceptButton = btnOk;
             this.CancelButton = btnCancel;
