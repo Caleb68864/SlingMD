@@ -37,7 +37,7 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook e
 ## Installation
 
 1. Go to the [Releases](./Releases) folder in this repository
-2. Download the newest versioned ZIP from the [Releases](./Releases) folder (for example, `SlingMD.Outlook_1_1_0_1.zip` at the time of writing)
+2. Download the newest versioned ZIP from the [Releases](./Releases) folder (for example, `SlingMD.Outlook_1_1_0_7.zip` at the time of writing)
 3. **Important Security Step - Unblock the ZIP File**:
    - Right-click the downloaded ZIP file
    - Click "Properties"
@@ -283,6 +283,19 @@ This project is licensed under the terms included in the [LICENSE](LICENSE) file
 If you encounter any issues or have questions, please open an issue in the GitHub repository.
 
 ## Changelog
+
+### Version 1.1.0.7
+- **Contact Slinging** — export single contacts or your entire address book to Obsidian with rich detail notes (phone, email, company, address, birthday)
+- **Appointment Contact Linking** — after exporting an appointment, attendees are checked against vault contacts; existing managed notes are refreshed, new contacts offered via dialog
+- **Unified Sling Button** — main Sling button now handles emails, appointments, and contacts; dispatches based on selected item type
+- **Obsidian Launch on Contact Export** — single-contact export now launches Obsidian for immediate feedback, matching email behavior
+- **Unified Contact Template System** — one `RenderContactContent()` path for all contacts; custom templates get all 13 placeholders regardless of source (email or slung)
+- **ContactNoteIncludeDetails Setting** — toggle `## Contact Details` section on/off for slung contacts in Settings > Contacts
+- **"Sling All Contacts" Ribbon Button** — bulk-export entire address book with progress tracking and summary dialog
+- **Contact Confirmation Dialog Clarity** — Cancel button renamed to "Skip Creating Contacts" for clearer intent
+- **Custom Templates Documentation** — README now documents all template types, available placeholders, and includes example custom contact template
+- New `ContactProcessor` orchestrator, `ExtractContactData()`, `CreateContactNote(ContactTemplateContext)` overload
+- 12 new tests (87/87 total passing)
 
 ### Version 1.1.0.1
 - **Appointment Processing** — full pipeline for exporting Outlook calendar appointments to Obsidian markdown, with attendee lists, location, recurrence metadata, and configurable templates
