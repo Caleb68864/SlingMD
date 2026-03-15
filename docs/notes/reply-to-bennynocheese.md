@@ -4,7 +4,7 @@
 
 **Reply:**
 
-Hey! Good news -- just shipped this in v1.1.0.7!
+Hey! Good news -- just shipped this in v1.1.0.7! Fair warning, this release is still semi-beta so there might be some rough edges, but it's working well for me day to day.
 
 You can sling calendar items now and it pulls everything -- attendees, location, categories, recurrence info, the whole thing. Attendees come through as `[[wiki-links]]` so they hook right into your contact notes.
 
@@ -19,4 +19,4 @@ A few things you might like:
 
 Templates are customizable if you want to tweak the layout -- just drop a markdown file with `{{placeholders}}` in your templates folder.
 
-Heads up -- this release is still semi-beta so there might be some rough edges. But it's working well for me day to day. Grab it from the [Releases folder](https://github.com/Caleb68864/SlingMD/tree/main/Releases) and let me know how it goes or if you run into anything!
+Grab it from the [Releases folder](https://github.com/Caleb68864/SlingMD/tree/main/Releases) and let me know how it goes or if you run into anything!
