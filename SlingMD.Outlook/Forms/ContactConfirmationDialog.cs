@@ -50,9 +50,9 @@ namespace SlingMD.Outlook.Forms
             btnOk.Click += BtnOk_Click;
             
             var btnCancel = new Button();
-            btnCancel.Text = "Cancel";
+            btnCancel.Text = "Skip Creating Contacts";
             btnCancel.DialogResult = DialogResult.Cancel;
-            btnCancel.Size = new System.Drawing.Size(100, 30);
+            btnCancel.Size = new System.Drawing.Size(160, 30);
             btnCancel.Location = new System.Drawing.Point(250, 10);
             
             var btnSelectAll = new Button();
