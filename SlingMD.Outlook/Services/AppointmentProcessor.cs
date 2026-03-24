@@ -297,6 +297,14 @@ namespace SlingMD.Outlook.Services
                 }
             }
 
+            // --- Vault path pre-check before any file writes ---
+            string vaultPath = _settings.GetFullVaultPath();
+            if (!System.IO.Directory.Exists(vaultPath))
+            {
+                throw new System.IO.DirectoryNotFoundException(
+                    $"Obsidian vault at \"{vaultPath}\" is not accessible. Check that the folder exists.");
+            }
+
             // --- Task creation flags ---
             bool createObsidianTask = _settings.AppointmentTaskCreation == "Obsidian"
                                    || _settings.AppointmentTaskCreation == "Both";

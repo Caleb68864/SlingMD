@@ -40,6 +40,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -72,10 +73,17 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Helpers\BoundedHashSetTests.cs" />
+    <Compile Include="Helpers\SafeComActionTests.cs" />
+    <Compile Include="Forms\CalendarRangeDialogTests.cs" />
     <Compile Include="Models\ObsidianSettingsTests.cs" />
     <Compile Include="Models\ObsidianSettingsAppointmentTests.cs" />
+    <Compile Include="Models\AutoSlingRuleTests.cs" />
+    <Compile Include="Models\WatchedFolderTests.cs" />
     <Compile Include="Services\AttachmentServiceTests.cs" />
+    <Compile Include="Services\FlagMonitorServiceTests.cs" />
     <Compile Include="Services\FileServiceTests.cs" />
+    <Compile Include="Services\RuleEngineTests.cs" />
     <Compile Include="Services\ContactServiceTests.cs" />
     <Compile Include="Services\ContactServiceMeetingTests.cs" />
     <Compile Include="Services\EmailProcessorTests.cs" />
@@ -85,6 +93,8 @@
     <Compile Include="Services\TemplateServiceTests.cs" />
     <Compile Include="Services\TemplateServiceAppointmentTests.cs" />
     <Compile Include="Services\ThreadServiceTests.cs" />
+    <Compile Include="Services\FolderMonitorServiceTests.cs" />
+    <Compile Include="Services\ThreadCompletionServiceTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

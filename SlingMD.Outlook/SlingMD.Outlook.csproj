@@ -247,6 +247,9 @@
     can be found.
   -->
   <ItemGroup>
+    <Compile Include="Forms\CalendarRangeDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Forms\InputDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -265,13 +268,23 @@
     <Compile Include="Forms\ContactConfirmationDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\ThreadCompletionDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\ToastForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <!-- FileHelper.cs deprecated - use FileService instead (duplicates functionality) -->
     <!-- <Compile Include="Helpers\FileHelper.cs" /> -->
     <Compile Include="Helpers\Logger.cs" />
+    <Compile Include="Helpers\BoundedHashSet.cs" />
+    <Compile Include="Helpers\SafeComAction.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Models\ObsidianSettings.cs" />
+    <Compile Include="Models\AutoSlingRule.cs" />
+    <Compile Include="Models\WatchedFolder.cs" />
     <Compile Include="Models\AttachmentInfo.cs" />
     <Compile Include="Services\AppointmentProcessor.cs" />
     <Compile Include="Services\ContactProcessor.cs" />
@@ -320,12 +333,18 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
+    <Compile Include="Services\AutoSlingService.cs" />
     <Compile Include="Services\FileService.cs" />
+    <Compile Include="Services\FlagMonitorService.cs" />
+    <Compile Include="Services\FolderMonitorService.cs" />
+    <Compile Include="Services\NotificationService.cs" />
+    <Compile Include="Services\RuleEngine.cs" />
     <Compile Include="Services\StatusService.cs" />
     <Compile Include="Services\SupportService.cs" />
     <Compile Include="Services\TaskService.cs" />
     <Compile Include="Services\TemplateService.cs" />
     <Compile Include="Services\ThreadService.cs" />
+    <Compile Include="Services\ThreadCompletionService.cs" />
     <Compile Include="ThisAddIn.cs">
       <SubType>Code</SubType>
     </Compile>

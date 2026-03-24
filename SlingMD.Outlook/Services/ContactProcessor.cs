@@ -59,6 +59,14 @@ namespace SlingMD.Outlook.Services
 
             try
             {
+                // Vault path pre-check before any file writes
+                string vaultPath = _settings.GetFullVaultPath();
+                if (!System.IO.Directory.Exists(vaultPath))
+                {
+                    throw new System.IO.DirectoryNotFoundException(
+                        $"Obsidian vault at \"{vaultPath}\" is not accessible. Check that the folder exists.");
+                }
+
                 ContactTemplateContext context = _contactService.ExtractContactData(contact);
                 context.IncludeDetails = _settings?.ContactNoteIncludeDetails ?? true;
 

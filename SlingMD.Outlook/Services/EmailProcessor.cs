@@ -26,9 +26,7 @@ namespace SlingMD.Outlook.Services
             = new System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.SemaphoreSlim>(StringComparer.OrdinalIgnoreCase);
 
         // Static cache to track processed email IDs and prevent O(n*m) file scanning on every email
-        // Key: email ID (internetMessageId or entryId), Value: true (exists)
-        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool> _processedEmailIds
-            = new System.Collections.Concurrent.ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        private static readonly BoundedHashSet _processedEmailIds = new BoundedHashSet();
         private static DateTime _cacheLastBuilt = DateTime.MinValue;
         private static readonly object _cacheBuildLock = new object();
 
@@ -151,6 +149,14 @@ namespace SlingMD.Outlook.Services
                 try
                 {
                     status.UpdateProgress("Processing email...", 0);
+
+                    // Vault path pre-check before any file writes
+                    string vaultPath = _settings.GetFullVaultPath();
+                    if (!System.IO.Directory.Exists(vaultPath))
+                    {
+                        throw new System.IO.DirectoryNotFoundException(
+                            $"Obsidian vault at \"{vaultPath}\" is not accessible. Check that the folder exists.");
+                    }
 
                     // Check for cancellation
                     cancellationToken.ThrowIfCancellationRequested();
@@ -922,7 +928,7 @@ namespace SlingMD.Outlook.Services
                                 var value = trimmed.Substring("internetMessageId:".Length).Trim().Trim('"');
                                 if (!string.IsNullOrWhiteSpace(value))
                                 {
-                                    _processedEmailIds.TryAdd(value, true);
+                                    _processedEmailIds.Add(value);
                                 }
                             }
                             else if (trimmed.StartsWith("entryId:", StringComparison.OrdinalIgnoreCase))
@@ -930,7 +936,7 @@ namespace SlingMD.Outlook.Services
                                 var value = trimmed.Substring("entryId:".Length).Trim().Trim('"');
                                 if (!string.IsNullOrWhiteSpace(value))
                                 {
-                                    _processedEmailIds.TryAdd(value, true);
+                                    _processedEmailIds.Add(value);
                                 }
                             }
                         }
@@ -952,12 +958,12 @@ namespace SlingMD.Outlook.Services
             EnsureEmailCacheIsBuilt(inboxPath);
 
             // Fast O(1) lookup in cache
-            if (!string.IsNullOrWhiteSpace(internetMessageId) && _processedEmailIds.ContainsKey(internetMessageId))
+            if (!string.IsNullOrWhiteSpace(internetMessageId) && _processedEmailIds.Contains(internetMessageId))
             {
                 return true;
             }
 
-            if (!string.IsNullOrWhiteSpace(entryId) && _processedEmailIds.ContainsKey(entryId))
+            if (!string.IsNullOrWhiteSpace(entryId) && _processedEmailIds.Contains(entryId))
             {
                 return true;
             }
@@ -973,11 +979,11 @@ namespace SlingMD.Outlook.Services
         {
             if (!string.IsNullOrWhiteSpace(internetMessageId))
             {
-                _processedEmailIds.TryAdd(internetMessageId, true);
+                _processedEmailIds.Add(internetMessageId);
             }
             if (!string.IsNullOrWhiteSpace(entryId))
             {
-                _processedEmailIds.TryAdd(entryId, true);
+                _processedEmailIds.Add(entryId);
             }
         }
     }
