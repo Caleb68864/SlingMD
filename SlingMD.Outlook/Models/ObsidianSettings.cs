@@ -209,6 +209,38 @@ namespace SlingMD.Outlook.Models
         /// </summary>
         public string AppointmentTaskCreation { get; set; } = "None";
 
+        // Auto-Sling Settings
+
+        /// <summary>
+        /// Whether automatic email slinging is enabled.
+        /// </summary>
+        public bool EnableAutoSling { get; set; } = false;
+
+        /// <summary>
+        /// Notification mode for auto-sling activity. Valid values: "Toast", "Silent".
+        /// </summary>
+        public string AutoSlingNotificationMode { get; set; } = "Toast";
+
+        /// <summary>
+        /// Rules that determine which emails are automatically slung.
+        /// </summary>
+        public List<AutoSlingRule> AutoSlingRules { get; set; } = new List<AutoSlingRule>();
+
+        /// <summary>
+        /// Outlook folders to watch for incoming emails to auto-sling.
+        /// </summary>
+        public List<WatchedFolder> WatchedFolders { get; set; } = new List<WatchedFolder>();
+
+        /// <summary>
+        /// Whether flagged emails are automatically slung to Obsidian.
+        /// </summary>
+        public bool EnableFlagToSling { get; set; } = false;
+
+        /// <summary>
+        /// Outlook category applied to emails that have been sent to Obsidian.
+        /// </summary>
+        public string SentToObsidianCategory { get; set; } = "Sent to Obsidian";
+
         public List<string> SubjectCleanupPatterns { get; set; } = CreateDefaultSubjectCleanupPatterns();
 
         private static List<string> CreateDefaultNoteTags()
@@ -354,6 +386,12 @@ namespace SlingMD.Outlook.Models
             {
                 throw new ArgumentException($"Invalid AppointmentTaskCreation value: {AppointmentTaskCreation}. Must be one of: None, Obsidian, Outlook, Both.");
             }
+
+            string[] validNotificationModes = { "Toast", "Silent" };
+            if (!System.Array.Exists(validNotificationModes, v => v == AutoSlingNotificationMode))
+            {
+                throw new ArgumentException($"Invalid AutoSlingNotificationMode: {AutoSlingNotificationMode}. Must be Toast or Silent.");
+            }
         }
 
         public void Save()
@@ -445,6 +483,11 @@ namespace SlingMD.Outlook.Models
             {
                 AppointmentTaskCreation = "None";
             }
+
+            AutoSlingNotificationMode = string.IsNullOrWhiteSpace(AutoSlingNotificationMode) ? "Toast" : AutoSlingNotificationMode;
+            AutoSlingRules = AutoSlingRules ?? new List<AutoSlingRule>();
+            WatchedFolders = WatchedFolders ?? new List<WatchedFolder>();
+            SentToObsidianCategory = string.IsNullOrWhiteSpace(SentToObsidianCategory) ? "Sent to Obsidian" : SentToObsidianCategory;
         }
 
         private static void ValidateFolderName(string value, string label, char[] invalidChars)

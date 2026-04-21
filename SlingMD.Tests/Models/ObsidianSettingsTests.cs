@@ -380,6 +380,141 @@ namespace SlingMD.Tests.Models
         }
     }
 
+    // Auto-Sling settings tests
+
+    public class ObsidianSettingsAutoSlingTests
+    {
+        private readonly string _testSettingsDir;
+        private readonly string _testSettingsPath;
+
+        public ObsidianSettingsAutoSlingTests()
+        {
+            _testSettingsDir = Path.Combine(Path.GetTempPath(), "SlingMDTests", "AutoSlingSettings");
+            _testSettingsPath = Path.Combine(_testSettingsDir, "ObsidianSettings.json");
+
+            if (Directory.Exists(_testSettingsDir))
+            {
+                Directory.Delete(_testSettingsDir, true);
+            }
+
+            Directory.CreateDirectory(_testSettingsDir);
+        }
+
+        [Fact]
+        public void EnableAutoSling_DefaultsToFalse()
+        {
+            ObsidianSettings settings = new ObsidianSettings();
+
+            Assert.False(settings.EnableAutoSling);
+        }
+
+        [Fact]
+        public void AutoSlingSettings_SavedAndLoaded_Correctly()
+        {
+            ObsidianSettingsTestable settings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath,
+                EnableAutoSling = true,
+                AutoSlingNotificationMode = "Silent",
+                EnableFlagToSling = true,
+                SentToObsidianCategory = "TestCategory"
+            };
+
+            settings.Save();
+
+            ObsidianSettingsTestable loadedSettings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath
+            };
+            loadedSettings.Load();
+
+            Assert.True(loadedSettings.EnableAutoSling);
+            Assert.Equal("Silent", loadedSettings.AutoSlingNotificationMode);
+            Assert.True(loadedSettings.EnableFlagToSling);
+            Assert.Equal("TestCategory", loadedSettings.SentToObsidianCategory);
+        }
+
+        [Fact]
+        public void AutoSlingRules_SavedAndLoaded_Correctly()
+        {
+            ObsidianSettingsTestable settings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath
+            };
+            settings.AutoSlingRules.Add(new AutoSlingRule { Type = "Sender", Pattern = "test@example.com", Enabled = true });
+            settings.AutoSlingRules.Add(new AutoSlingRule { Type = "Domain", Pattern = "example.com", Enabled = false });
+
+            settings.Save();
+
+            ObsidianSettingsTestable loadedSettings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath
+            };
+            loadedSettings.Load();
+
+            Assert.Equal(2, loadedSettings.AutoSlingRules.Count);
+            Assert.Equal("Sender", loadedSettings.AutoSlingRules[0].Type);
+            Assert.Equal("test@example.com", loadedSettings.AutoSlingRules[0].Pattern);
+            Assert.True(loadedSettings.AutoSlingRules[0].Enabled);
+            Assert.Equal("Domain", loadedSettings.AutoSlingRules[1].Type);
+            Assert.Equal("example.com", loadedSettings.AutoSlingRules[1].Pattern);
+            Assert.False(loadedSettings.AutoSlingRules[1].Enabled);
+        }
+
+        [Fact]
+        public void WatchedFolders_SavedAndLoaded_Correctly()
+        {
+            ObsidianSettingsTestable settings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath
+            };
+            settings.WatchedFolders.Add(new WatchedFolder { FolderPath = "Inbox/Work", CustomTemplate = "WorkEmail.md", Enabled = true });
+            settings.WatchedFolders.Add(new WatchedFolder { FolderPath = "Inbox/Personal", CustomTemplate = string.Empty, Enabled = false });
+
+            settings.Save();
+
+            ObsidianSettingsTestable loadedSettings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath
+            };
+            loadedSettings.Load();
+
+            Assert.Equal(2, loadedSettings.WatchedFolders.Count);
+            Assert.Equal("Inbox/Work", loadedSettings.WatchedFolders[0].FolderPath);
+            Assert.Equal("WorkEmail.md", loadedSettings.WatchedFolders[0].CustomTemplate);
+            Assert.True(loadedSettings.WatchedFolders[0].Enabled);
+            Assert.Equal("Inbox/Personal", loadedSettings.WatchedFolders[1].FolderPath);
+            Assert.False(loadedSettings.WatchedFolders[1].Enabled);
+        }
+
+        [Fact]
+        public void NormalizeLoadedSettings_MissingAutoSlingFields_UsesDefaults()
+        {
+            string legacyJson = @"{
+  ""VaultName"": ""LegacyVault"",
+  ""VaultBasePath"": ""C:\\Legacy\\Vault"",
+  ""InboxFolder"": ""Inbox"",
+  ""ContactsFolder"": ""Contacts""
+}";
+            File.WriteAllText(_testSettingsPath, legacyJson);
+
+            ObsidianSettingsTestable settings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath
+            };
+            settings.Load();
+
+            Assert.False(settings.EnableAutoSling);
+            Assert.Equal("Toast", settings.AutoSlingNotificationMode);
+            Assert.NotNull(settings.AutoSlingRules);
+            Assert.Empty(settings.AutoSlingRules);
+            Assert.NotNull(settings.WatchedFolders);
+            Assert.Empty(settings.WatchedFolders);
+            Assert.False(settings.EnableFlagToSling);
+            Assert.Equal("Sent to Obsidian", settings.SentToObsidianCategory);
+        }
+    }
+
     public class ObsidianSettingsTestable : ObsidianSettings
     {
         public string TestSettingsPath { get; set; }

@@ -93,6 +93,14 @@ namespace SlingMD.Outlook.Forms
         private CheckBox chkShowDevelopmentSettings;
         private CheckBox chkShowThreadDebug;
 
+        // Auto-Sling tab controls
+        private CheckBox chkEnableAutoSling;
+        private ComboBox cmbNotificationMode;
+        private CheckBox chkEnableFlagToSling;
+        private TextBox txtSentToObsidianCategory;
+        private DataGridView dgvAutoSlingRules;
+        private DataGridView dgvWatchedFolders;
+
         // Footer controls
         private Label lblSupportMessage;
         private LinkLabel lnkBuyMeACoffee;
@@ -130,7 +138,7 @@ namespace SlingMD.Outlook.Forms
                 Dock = DockStyle.Fill
             };
 
-            // Create 8 tab pages
+            // Create 9 tab pages
             TabPage tabGeneral = new TabPage("General");
             TabPage tabEmail = new TabPage("Email");
             TabPage tabAppointments = new TabPage("Appointments");
@@ -138,11 +146,12 @@ namespace SlingMD.Outlook.Forms
             TabPage tabTasks = new TabPage("Tasks");
             TabPage tabThreading = new TabPage("Threading");
             TabPage tabAttachments = new TabPage("Attachments");
+            TabPage tabAutoSling = new TabPage("Auto-Sling");
             TabPage tabDeveloper = new TabPage("Developer");
 
             tabControl.TabPages.AddRange(new TabPage[] {
                 tabGeneral, tabEmail, tabAppointments, tabContacts,
-                tabTasks, tabThreading, tabAttachments, tabDeveloper
+                tabTasks, tabThreading, tabAttachments, tabAutoSling, tabDeveloper
             });
 
             // ---- General Tab ----
@@ -552,6 +561,121 @@ namespace SlingMD.Outlook.Forms
             attachmentsTabLayout.Controls.Add(this.grpAttachments);
             tabAttachments.Controls.Add(attachmentsTabLayout);
 
+            // ---- Auto-Sling Tab ----
+            TableLayoutPanel autoSlingTabLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                AutoSize = true,
+                AutoScroll = true,
+                Padding = new Padding(8)
+            };
+            autoSlingTabLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35F));
+            autoSlingTabLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65F));
+
+            int asRow = 0;
+
+            autoSlingTabLayout.Controls.Add(new Label(), 0, asRow);
+            this.chkEnableAutoSling = new CheckBox { Text = "Enable Auto-Sling", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
+            autoSlingTabLayout.Controls.Add(this.chkEnableAutoSling, 1, asRow++);
+
+            autoSlingTabLayout.Controls.Add(new Label { Text = "Notification Mode:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, asRow);
+            this.cmbNotificationMode = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Anchor = AnchorStyles.Left | AnchorStyles.Right,
+                Dock = DockStyle.Fill
+            };
+            this.cmbNotificationMode.Items.Add("Toast");
+            this.cmbNotificationMode.Items.Add("Silent");
+            autoSlingTabLayout.Controls.Add(this.cmbNotificationMode, 1, asRow++);
+
+            autoSlingTabLayout.Controls.Add(new Label(), 0, asRow);
+            this.chkEnableFlagToSling = new CheckBox { Text = "Enable Flag-to-Sling (auto-sling flagged emails)", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
+            autoSlingTabLayout.Controls.Add(this.chkEnableFlagToSling, 1, asRow++);
+
+            autoSlingTabLayout.Controls.Add(new Label { Text = "\"Sent to Obsidian\" Category:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, asRow);
+            this.txtSentToObsidianCategory = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
+            autoSlingTabLayout.Controls.Add(this.txtSentToObsidianCategory, 1, asRow++);
+
+            autoSlingTabLayout.Controls.Add(new Label { Text = "Auto-Sling Rules:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, asRow);
+            autoSlingTabLayout.Controls.Add(new Label(), 1, asRow++);
+
+            this.dgvAutoSlingRules = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                AllowUserToAddRows = true,
+                AllowUserToDeleteRows = true,
+                Height = 120
+            };
+            DataGridViewComboBoxColumn ruleTypeCol = new DataGridViewComboBoxColumn
+            {
+                HeaderText = "Type",
+                Name = "Type",
+                FillWeight = 30
+            };
+            ruleTypeCol.Items.AddRange("Sender", "Domain", "Category");
+            DataGridViewTextBoxColumn rulePatternCol = new DataGridViewTextBoxColumn
+            {
+                HeaderText = "Pattern",
+                Name = "Pattern",
+                FillWeight = 55
+            };
+            DataGridViewCheckBoxColumn ruleEnabledCol = new DataGridViewCheckBoxColumn
+            {
+                HeaderText = "Enabled",
+                Name = "Enabled",
+                FillWeight = 15
+            };
+            this.dgvAutoSlingRules.Columns.Add(ruleTypeCol);
+            this.dgvAutoSlingRules.Columns.Add(rulePatternCol);
+            this.dgvAutoSlingRules.Columns.Add(ruleEnabledCol);
+            autoSlingTabLayout.SetColumnSpan(this.dgvAutoSlingRules, 2);
+            autoSlingTabLayout.Controls.Add(this.dgvAutoSlingRules, 0, asRow++);
+
+            autoSlingTabLayout.Controls.Add(new Label { Text = "Watched Folders:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, asRow);
+            autoSlingTabLayout.Controls.Add(new Label(), 1, asRow++);
+
+            this.dgvWatchedFolders = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                AllowUserToAddRows = true,
+                AllowUserToDeleteRows = true,
+                Height = 120
+            };
+            DataGridViewTextBoxColumn folderPathCol = new DataGridViewTextBoxColumn
+            {
+                HeaderText = "Folder Path",
+                Name = "FolderPath",
+                FillWeight = 50
+            };
+            DataGridViewTextBoxColumn folderTemplateCol = new DataGridViewTextBoxColumn
+            {
+                HeaderText = "Custom Template",
+                Name = "CustomTemplate",
+                FillWeight = 35
+            };
+            DataGridViewCheckBoxColumn folderEnabledCol = new DataGridViewCheckBoxColumn
+            {
+                HeaderText = "Enabled",
+                Name = "Enabled",
+                FillWeight = 15
+            };
+            this.dgvWatchedFolders.Columns.Add(folderPathCol);
+            this.dgvWatchedFolders.Columns.Add(folderTemplateCol);
+            this.dgvWatchedFolders.Columns.Add(folderEnabledCol);
+            autoSlingTabLayout.SetColumnSpan(this.dgvWatchedFolders, 2);
+            autoSlingTabLayout.Controls.Add(this.dgvWatchedFolders, 0, asRow++);
+
+            autoSlingTabLayout.RowCount = asRow + 1;
+            for (int i = 0; i < asRow; i++)
+                autoSlingTabLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            autoSlingTabLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            tabAutoSling.Controls.Add(autoSlingTabLayout);
+
             // ---- Developer Tab ----
             this.grpDevelopment = new GroupBox
             {
@@ -736,6 +860,25 @@ namespace SlingMD.Outlook.Forms
             chkShowThreadDebug.Checked = _settings.ShowThreadDebug;
             grpDevelopment.Visible = true;
             chkShowThreadDebug.Visible = _settings.ShowDevelopmentSettings;
+
+            // Auto-Sling tab
+            chkEnableAutoSling.Checked = _settings.EnableAutoSling;
+            int notifIdx = cmbNotificationMode.Items.IndexOf(_settings.AutoSlingNotificationMode ?? "Toast");
+            cmbNotificationMode.SelectedIndex = notifIdx >= 0 ? notifIdx : 0;
+            chkEnableFlagToSling.Checked = _settings.EnableFlagToSling;
+            txtSentToObsidianCategory.Text = _settings.SentToObsidianCategory ?? "Sent to Obsidian";
+
+            dgvAutoSlingRules.Rows.Clear();
+            foreach (AutoSlingRule rule in _settings.AutoSlingRules ?? new List<AutoSlingRule>())
+            {
+                dgvAutoSlingRules.Rows.Add(rule.Type, rule.Pattern, rule.Enabled);
+            }
+
+            dgvWatchedFolders.Rows.Clear();
+            foreach (WatchedFolder folder in _settings.WatchedFolders ?? new List<WatchedFolder>())
+            {
+                dgvWatchedFolders.Rows.Add(folder.FolderPath, folder.CustomTemplate, folder.Enabled);
+            }
         }
 
         private void btnBrowse_Click(object sender, EventArgs e)
@@ -830,6 +973,40 @@ namespace SlingMD.Outlook.Forms
             // Developer tab
             _settings.ShowDevelopmentSettings = chkShowDevelopmentSettings.Checked;
             _settings.ShowThreadDebug = chkShowThreadDebug.Checked;
+
+            // Auto-Sling tab
+            _settings.EnableAutoSling = chkEnableAutoSling.Checked;
+            _settings.AutoSlingNotificationMode = cmbNotificationMode.SelectedItem?.ToString() ?? "Toast";
+            _settings.EnableFlagToSling = chkEnableFlagToSling.Checked;
+            _settings.SentToObsidianCategory = txtSentToObsidianCategory.Text.Trim();
+
+            _settings.AutoSlingRules.Clear();
+            foreach (DataGridViewRow row in dgvAutoSlingRules.Rows)
+            {
+                if (row.IsNewRow)
+                {
+                    continue;
+                }
+
+                string ruleType = row.Cells["Type"].Value?.ToString() ?? "Sender";
+                string rulePattern = row.Cells["Pattern"].Value?.ToString() ?? string.Empty;
+                bool ruleEnabled = row.Cells["Enabled"].Value is bool b && b;
+                _settings.AutoSlingRules.Add(new AutoSlingRule { Type = ruleType, Pattern = rulePattern, Enabled = ruleEnabled });
+            }
+
+            _settings.WatchedFolders.Clear();
+            foreach (DataGridViewRow row in dgvWatchedFolders.Rows)
+            {
+                if (row.IsNewRow)
+                {
+                    continue;
+                }
+
+                string folderPath = row.Cells["FolderPath"].Value?.ToString() ?? string.Empty;
+                string customTemplate = row.Cells["CustomTemplate"].Value?.ToString() ?? string.Empty;
+                bool folderEnabled = row.Cells["Enabled"].Value is bool fb && fb;
+                _settings.WatchedFolders.Add(new WatchedFolder { FolderPath = folderPath, CustomTemplate = customTemplate, Enabled = folderEnabled });
+            }
 
             _settings.Save();
         }

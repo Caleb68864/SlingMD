@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using Office = Microsoft.Office.Core;
 using System.Windows.Forms;
+using SlingMD.Outlook.Forms;
 
 namespace SlingMD.Outlook.Ribbon
 {
@@ -102,6 +103,24 @@ namespace SlingMD.Outlook.Ribbon
             }
         }
 
+        public void OnSaveDateRangeClick(Office.IRibbonControl control)
+        {
+            try
+            {
+                using (CalendarRangeDialog dialog = new CalendarRangeDialog())
+                {
+                    if (dialog.ShowDialog() == DialogResult.OK)
+                    {
+                        _addIn.SaveAppointmentRange(dialog.StartDate, dialog.EndDate);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         public void OnInspectorSlingClick(Office.IRibbonControl control)
         {
             try
@@ -123,6 +142,18 @@ namespace SlingMD.Outlook.Ribbon
         {
             _slingButtonLabel = label ?? "Sling";
             _ribbon?.InvalidateControl("SlingButton");
+        }
+
+        public void OnCompleteThreadClick(Office.IRibbonControl control)
+        {
+            try
+            {
+                _addIn.CompleteThread();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error completing thread: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         public void OnSlingAllContactsClick(Office.IRibbonControl control)

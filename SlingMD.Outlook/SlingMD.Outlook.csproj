@@ -387,7 +387,7 @@
     <ManifestKeyFile>SlingMD.Outlook_TemporaryKey.pfx</ManifestKeyFile>
   </PropertyGroup>
   <PropertyGroup>
-    <ManifestCertificateThumbprint>440E42B99668DA63F81F911420EDAACDD3E1B1A1</ManifestCertificateThumbprint>
+    <ManifestCertificateThumbprint>736CF7BD97289EC0E7B925A4364C54B1822892F2</ManifestCertificateThumbprint>
   </PropertyGroup>
   <!-- Include the build rules for a C# project. -->
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
