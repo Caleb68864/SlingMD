@@ -10,3 +10,6 @@ SlingMD.Outlook/SlingMD.Outlook.csproj.vspscc
 packages/
 SlingMD.Outlook/publish/
 docs/
+vault/
+.forge-factory/
+.claude-terminal/sessions.json
