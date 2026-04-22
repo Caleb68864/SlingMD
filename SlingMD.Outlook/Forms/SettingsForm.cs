@@ -123,6 +123,54 @@ namespace SlingMD.Outlook.Forms
             LoadSettings();
         }
 
+        /// <summary>
+        /// Glyph appended to labels that have extended help available via tooltip + HelpForm.
+        /// Circled Latin small letter i (U+24D8).
+        /// </summary>
+        private const string HelpIndicator = "  ⓘ";
+
+        /// <summary>
+        /// Binds a label (and optionally one or more controls) to a help entry. Appends the
+        /// help indicator glyph to the label text and attaches a formatted tooltip to every
+        /// provided control.
+        /// </summary>
+        private void BindHelp(string entryId, Label label, params Control[] controls)
+        {
+            HelpEntry entry = SettingsHelp.Get(entryId);
+            if (entry == null) return;
+
+            if (label != null && !label.Text.Contains("ⓘ"))
+            {
+                label.Text = label.Text.TrimEnd(':') + ":" + HelpIndicator;
+            }
+
+            string tip = SettingsHelp.FormatAsTooltip(entry);
+            if (label != null) toolTip.SetToolTip(label, tip);
+            if (controls != null)
+            {
+                foreach (Control c in controls)
+                {
+                    if (c != null) toolTip.SetToolTip(c, tip);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Binds a help entry to a control that has no separate label (e.g. a standalone
+        /// CheckBox). The control's Text gets the help indicator appended.
+        /// </summary>
+        private void BindHelpInline(string entryId, Control control)
+        {
+            HelpEntry entry = SettingsHelp.Get(entryId);
+            if (entry == null || control == null) return;
+
+            if (!control.Text.Contains("ⓘ"))
+            {
+                control.Text = control.Text + HelpIndicator;
+            }
+            toolTip.SetToolTip(control, SettingsHelp.FormatAsTooltip(entry));
+        }
+
         private void InitializeComponent()
         {
             this.toolTip = new ToolTip
@@ -177,13 +225,17 @@ namespace SlingMD.Outlook.Forms
             generalTabLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65F));
 
             int gRow = 0;
-            generalTabLayout.Controls.Add(new Label { Text = "Vault Name:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, gRow);
+            Label lblVaultName = new Label { Text = "Vault Name:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            generalTabLayout.Controls.Add(lblVaultName, 0, gRow);
             this.txtVaultName = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             generalTabLayout.Controls.Add(this.txtVaultName, 1, gRow++);
+            BindHelp("General.VaultName", lblVaultName, txtVaultName);
 
-            generalTabLayout.Controls.Add(new Label { Text = "Vault Base Path:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, gRow);
+            Label lblVaultPath = new Label { Text = "Vault Base Path:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            generalTabLayout.Controls.Add(lblVaultPath, 0, gRow);
             this.txtVaultPath = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             generalTabLayout.Controls.Add(this.txtVaultPath, 1, gRow++);
+            BindHelp("General.VaultBasePath", lblVaultPath, txtVaultPath);
 
             generalTabLayout.Controls.Add(new Label(), 0, gRow);
             this.btnBrowse = new Button { Text = "Browse...", Anchor = AnchorStyles.Left };
@@ -194,25 +246,33 @@ namespace SlingMD.Outlook.Forms
             generalTabLayout.Controls.Add(this.chkLaunchObsidian, 0, gRow);
             this.chkShowCountdown = new CheckBox { Text = "Show countdown", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
             generalTabLayout.Controls.Add(this.chkShowCountdown, 1, gRow++);
+            BindHelpInline("General.LaunchObsidian", chkLaunchObsidian);
+            BindHelpInline("General.ShowCountdown", chkShowCountdown);
 
-            generalTabLayout.Controls.Add(new Label { Text = "Delay (seconds):", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, gRow);
+            Label lblDelay = new Label { Text = "Delay (seconds):", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            generalTabLayout.Controls.Add(lblDelay, 0, gRow);
             this.numDelay = new NumericUpDown { Minimum = 0, Maximum = 10, Anchor = AnchorStyles.Left };
             generalTabLayout.Controls.Add(this.numDelay, 1, gRow++);
+            BindHelp("General.Delay", lblDelay, numDelay);
 
-            generalTabLayout.Controls.Add(new Label { Text = "Templates Folder (vault-relative or absolute):", Anchor = AnchorStyles.Left, AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, gRow);
+            Label lblTemplatesFolder = new Label { Text = "Templates Folder:", Anchor = AnchorStyles.Left, AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            generalTabLayout.Controls.Add(lblTemplatesFolder, 0, gRow);
             this.txtTemplatesFolder = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             generalTabLayout.Controls.Add(this.txtTemplatesFolder, 1, gRow++);
+            BindHelp("General.TemplatesFolder", lblTemplatesFolder, txtTemplatesFolder);
 
             FlowLayoutPanel dailyLinkPanel = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, AutoSize = true, Anchor = AnchorStyles.Left };
             this.chkIncludeDailyNoteLink = new CheckBox { Text = "Include Daily Note Link", Anchor = AnchorStyles.Left, AutoSize = true };
             dailyLinkPanel.Controls.Add(this.chkIncludeDailyNoteLink);
             generalTabLayout.Controls.Add(new Label(), 0, gRow);
             generalTabLayout.Controls.Add(dailyLinkPanel, 1, gRow++);
+            BindHelpInline("General.IncludeDailyNoteLink", chkIncludeDailyNoteLink);
 
             this.lblDailyNoteLinkFormat = new Label { Text = "Daily Note Link Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
             this.txtDailyNoteLinkFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             generalTabLayout.Controls.Add(this.lblDailyNoteLinkFormat, 0, gRow);
             generalTabLayout.Controls.Add(this.txtDailyNoteLinkFormat, 1, gRow++);
+            BindHelp("General.DailyNoteLinkFormat", lblDailyNoteLinkFormat, txtDailyNoteLinkFormat);
 
             this.chkIncludeDailyNoteLink.CheckedChanged += (s, e) =>
             {
@@ -239,19 +299,23 @@ namespace SlingMD.Outlook.Forms
             emailTabLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65F));
 
             int eRow = 0;
-            emailTabLayout.Controls.Add(new Label { Text = "Inbox Folder:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, eRow);
+            Label lblInboxFolder = new Label { Text = "Inbox Folder:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            emailTabLayout.Controls.Add(lblInboxFolder, 0, eRow);
             this.txtInboxFolder = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             emailTabLayout.Controls.Add(this.txtInboxFolder, 1, eRow++);
+            BindHelp("Email.InboxFolder", lblInboxFolder, txtInboxFolder);
 
-            this.lblNoteTitleFormat = new Label { Text = "Note Title Format (use {Subject}, {Sender}, {Date}):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            this.lblNoteTitleFormat = new Label { Text = "Note Title Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
             this.txtNoteTitleFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             emailTabLayout.Controls.Add(this.lblNoteTitleFormat, 0, eRow);
             emailTabLayout.Controls.Add(this.txtNoteTitleFormat, 1, eRow++);
+            BindHelp("Email.NoteTitleFormat", lblNoteTitleFormat, txtNoteTitleFormat);
 
             this.lblNoteTitleMaxLength = new Label { Text = "Max Title Length:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
             this.numNoteTitleMaxLength = new NumericUpDown { Minimum = 10, Maximum = 200, Anchor = AnchorStyles.Left };
             emailTabLayout.Controls.Add(this.lblNoteTitleMaxLength, 0, eRow);
             emailTabLayout.Controls.Add(this.numNoteTitleMaxLength, 1, eRow++);
+            BindHelp("Email.NoteTitleMaxLength", lblNoteTitleMaxLength, numNoteTitleMaxLength);
 
             FlowLayoutPanel noteTitleDatePanel = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, AutoSize = true, Anchor = AnchorStyles.Left };
             this.lblNoteTitleIncludeDate = new Label { Text = "Include Date in Title:", Anchor = AnchorStyles.Left, AutoSize = true, TextAlign = ContentAlignment.MiddleLeft };
@@ -260,14 +324,18 @@ namespace SlingMD.Outlook.Forms
             noteTitleDatePanel.Controls.Add(this.chkNoteTitleIncludeDate);
             emailTabLayout.Controls.Add(new Label(), 0, eRow);
             emailTabLayout.Controls.Add(noteTitleDatePanel, 1, eRow++);
+            BindHelp("Email.NoteTitleIncludeDate", lblNoteTitleIncludeDate, chkNoteTitleIncludeDate);
 
-            this.lblDefaultNoteTags = new Label { Text = "Default Note Tags (comma-separated):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            this.lblDefaultNoteTags = new Label { Text = "Default Note Tags:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
             this.txtDefaultNoteTags = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             emailTabLayout.Controls.Add(this.lblDefaultNoteTags, 0, eRow);
             emailTabLayout.Controls.Add(this.txtDefaultNoteTags, 1, eRow++);
+            BindHelp("Email.DefaultNoteTags", lblDefaultNoteTags, txtDefaultNoteTags);
 
             // Subject Cleanup Patterns section
-            emailTabLayout.Controls.Add(new Label { Text = "Subject Cleanup Patterns:", Anchor = AnchorStyles.Left | AnchorStyles.Top, TextAlign = ContentAlignment.TopLeft, Dock = DockStyle.Fill }, 0, eRow);
+            Label lblSubjectCleanupPatterns = new Label { Text = "Subject Cleanup Patterns:", Anchor = AnchorStyles.Left | AnchorStyles.Top, TextAlign = ContentAlignment.TopLeft, Dock = DockStyle.Fill };
+            emailTabLayout.Controls.Add(lblSubjectCleanupPatterns, 0, eRow);
+            BindHelp("Email.SubjectCleanupPatterns", lblSubjectCleanupPatterns);
             TableLayoutPanel patternsPanel = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, Dock = DockStyle.Fill };
             patternsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 80F));
             patternsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
@@ -286,17 +354,23 @@ namespace SlingMD.Outlook.Forms
             patternsPanel.Controls.Add(btnPanel, 1, 0);
             emailTabLayout.Controls.Add(patternsPanel, 1, eRow++);
 
-            emailTabLayout.Controls.Add(new Label { Text = "Email Filename Format (blank = legacy; tokens {Subject}, {Sender}, {Date}, {Timestamp}):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, eRow);
+            Label lblEmailFilenameFormat = new Label { Text = "Email Filename Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            emailTabLayout.Controls.Add(lblEmailFilenameFormat, 0, eRow);
             this.txtEmailFilenameFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             emailTabLayout.Controls.Add(this.txtEmailFilenameFormat, 1, eRow++);
+            BindHelp("Email.EmailFilenameFormat", lblEmailFilenameFormat, txtEmailFilenameFormat);
 
-            emailTabLayout.Controls.Add(new Label { Text = "Email Template File:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, eRow);
+            Label lblEmailTemplateFile = new Label { Text = "Email Template File:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            emailTabLayout.Controls.Add(lblEmailTemplateFile, 0, eRow);
             this.txtEmailTemplateFile = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             emailTabLayout.Controls.Add(this.txtEmailTemplateFile, 1, eRow++);
+            BindHelp("Email.EmailTemplateFile", lblEmailTemplateFile, txtEmailTemplateFile);
 
-            emailTabLayout.Controls.Add(new Label { Text = "Email Date Format (.NET format string, e.g. yyyy-MM-dd HH:mm:ss):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, eRow);
+            Label lblEmailDateFormat = new Label { Text = "Email Date Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            emailTabLayout.Controls.Add(lblEmailDateFormat, 0, eRow);
             this.txtEmailDateFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             emailTabLayout.Controls.Add(this.txtEmailDateFormat, 1, eRow++);
+            BindHelp("Email.EmailDateFormat", lblEmailDateFormat, txtEmailDateFormat);
 
             emailTabLayout.RowCount = eRow + 1;
             for (int i = 0; i < eRow; i++)
@@ -318,35 +392,50 @@ namespace SlingMD.Outlook.Forms
             apptTabLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60F));
 
             int aRow = 0;
-            apptTabLayout.Controls.Add(new Label { Text = "Appointments Folder:", AutoSize = false, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, aRow);
+            Label lblApptFolder = new Label { Text = "Appointments Folder:", AutoSize = false, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            apptTabLayout.Controls.Add(lblApptFolder, 0, aRow);
             this.txtAppointmentsFolder = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             apptTabLayout.Controls.Add(this.txtAppointmentsFolder, 1, aRow++);
+            BindHelp("Appointments.AppointmentsFolder", lblApptFolder, txtAppointmentsFolder);
 
-            apptTabLayout.Controls.Add(new Label { Text = "Note Title Format (tokens {Date}, {Subject}, {Sender}):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, aRow);
+            Label lblApptTitleFormat = new Label { Text = "Note Title Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            apptTabLayout.Controls.Add(lblApptTitleFormat, 0, aRow);
             this.txtAppointmentNoteTitleFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             apptTabLayout.Controls.Add(this.txtAppointmentNoteTitleFormat, 1, aRow++);
+            BindHelp("Appointments.AppointmentNoteTitleFormat", lblApptTitleFormat, txtAppointmentNoteTitleFormat);
 
-            apptTabLayout.Controls.Add(new Label { Text = "Max Title Length:", AutoSize = false, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, aRow);
+            Label lblApptMaxLength = new Label { Text = "Max Title Length:", AutoSize = false, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            apptTabLayout.Controls.Add(lblApptMaxLength, 0, aRow);
             this.numAppointmentTitleMaxLength = new NumericUpDown { Minimum = 10, Maximum = 500, Value = 50, Anchor = AnchorStyles.Left };
             apptTabLayout.Controls.Add(this.numAppointmentTitleMaxLength, 1, aRow++);
+            BindHelp("Appointments.AppointmentNoteTitleMaxLength", lblApptMaxLength, numAppointmentTitleMaxLength);
 
-            apptTabLayout.Controls.Add(new Label { Text = "Default Tags (comma-separated):", AutoSize = false, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, aRow);
+            Label lblApptDefaultTags = new Label { Text = "Default Tags:", AutoSize = false, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            apptTabLayout.Controls.Add(lblApptDefaultTags, 0, aRow);
             this.txtAppointmentDefaultTags = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             apptTabLayout.Controls.Add(this.txtAppointmentDefaultTags, 1, aRow++);
+            BindHelp("Appointments.AppointmentDefaultTags", lblApptDefaultTags, txtAppointmentDefaultTags);
 
-            apptTabLayout.Controls.Add(new Label { Text = "Appointment Template File:", AutoSize = false, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, aRow);
+            Label lblApptTemplate = new Label { Text = "Appointment Template File:", AutoSize = false, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            apptTabLayout.Controls.Add(lblApptTemplate, 0, aRow);
             this.txtAppointmentTemplateFile = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             apptTabLayout.Controls.Add(this.txtAppointmentTemplateFile, 1, aRow++);
+            BindHelp("Appointments.AppointmentTemplateFile", lblApptTemplate, txtAppointmentTemplateFile);
 
-            apptTabLayout.Controls.Add(new Label { Text = "Meeting Note Template:", AutoSize = false, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, aRow);
+            Label lblMeetingNoteTemplate = new Label { Text = "Meeting Note Template:", AutoSize = false, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            apptTabLayout.Controls.Add(lblMeetingNoteTemplate, 0, aRow);
             this.txtMeetingNoteTemplate = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             apptTabLayout.Controls.Add(this.txtMeetingNoteTemplate, 1, aRow++);
+            BindHelp("Appointments.MeetingNoteTemplate", lblMeetingNoteTemplate, txtMeetingNoteTemplate);
 
-            apptTabLayout.Controls.Add(new Label { Text = "Appointment Date Format (.NET format string, e.g. yyyy-MM-dd HH:mm):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, aRow);
+            Label lblApptDateFormat = new Label { Text = "Appointment Date Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            apptTabLayout.Controls.Add(lblApptDateFormat, 0, aRow);
             this.txtAppointmentDateFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             apptTabLayout.Controls.Add(this.txtAppointmentDateFormat, 1, aRow++);
+            BindHelp("Appointments.AppointmentDateFormat", lblApptDateFormat, txtAppointmentDateFormat);
 
-            apptTabLayout.Controls.Add(new Label { Text = "Task Creation Mode:", AutoSize = false, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, aRow);
+            Label lblApptTaskCreation = new Label { Text = "Task Creation Mode:", AutoSize = false, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            apptTabLayout.Controls.Add(lblApptTaskCreation, 0, aRow);
             this.cmbAppointmentTaskCreation = new ComboBox
             {
                 DropDownStyle = ComboBoxStyle.DropDownList,
@@ -354,6 +443,7 @@ namespace SlingMD.Outlook.Forms
             };
             this.cmbAppointmentTaskCreation.Items.AddRange(new object[] { "None", "Obsidian", "Outlook", "Both" });
             apptTabLayout.Controls.Add(this.cmbAppointmentTaskCreation, 1, aRow++);
+            BindHelp("Appointments.AppointmentTaskCreation", lblApptTaskCreation, cmbAppointmentTaskCreation);
 
             apptTabLayout.Controls.Add(new Label(), 0, aRow);
             FlowLayoutPanel apptCheckboxPanel = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, Anchor = AnchorStyles.Left };
@@ -366,6 +456,10 @@ namespace SlingMD.Outlook.Forms
             apptCheckboxPanel.Controls.Add(this.chkGroupRecurringMeetings);
             apptCheckboxPanel.Controls.Add(this.chkSaveCancelledAppointments);
             apptTabLayout.Controls.Add(apptCheckboxPanel, 1, aRow++);
+            BindHelpInline("Appointments.AppointmentSaveAttachments", chkAppointmentSaveAttachments);
+            BindHelpInline("Appointments.CreateMeetingNotes", chkCreateMeetingNotes);
+            BindHelpInline("Appointments.GroupRecurringMeetings", chkGroupRecurringMeetings);
+            BindHelpInline("Appointments.SaveCancelledAppointments", chkSaveCancelledAppointments);
 
             apptTabLayout.RowCount = aRow + 1;
             for (int i = 0; i < aRow; i++)
@@ -387,85 +481,51 @@ namespace SlingMD.Outlook.Forms
             contactsTabLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65F));
 
             int cRow = 0;
-            contactsTabLayout.Controls.Add(new Label { Text = "Contacts Folder:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, cRow);
+            Label lblContactsFolder = new Label { Text = "Contacts Folder:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            contactsTabLayout.Controls.Add(lblContactsFolder, 0, cRow);
             this.txtContactsFolder = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             contactsTabLayout.Controls.Add(this.txtContactsFolder, 1, cRow++);
+            BindHelp("Contacts.ContactsFolder", lblContactsFolder, txtContactsFolder);
 
             contactsTabLayout.Controls.Add(new Label(), 0, cRow);
             this.chkEnableContactSaving = new CheckBox { Text = "Enable Contact Saving", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
             this.chkEnableContactSaving.CheckedChanged += chkEnableContactSaving_CheckedChanged;
             contactsTabLayout.Controls.Add(this.chkEnableContactSaving, 1, cRow++);
+            BindHelpInline("Contacts.EnableContactSaving", chkEnableContactSaving);
 
             contactsTabLayout.Controls.Add(new Label(), 0, cRow);
             this.chkSearchEntireVaultForContacts = new CheckBox { Text = "Search entire vault for contacts", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
             contactsTabLayout.Controls.Add(this.chkSearchEntireVaultForContacts, 1, cRow++);
+            BindHelpInline("Contacts.SearchEntireVaultForContacts", chkSearchEntireVaultForContacts);
 
             Label lblContactFilenameFormat = new Label { Text = "Contact Filename Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
             contactsTabLayout.Controls.Add(lblContactFilenameFormat, 0, cRow);
             this.txtContactFilenameFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             contactsTabLayout.Controls.Add(this.txtContactFilenameFormat, 1, cRow++);
-            string contactFilenameTip =
-                "Controls the filename used when SlingMD creates a contact note.\r\n\r\n" +
-                "Tokens:\r\n" +
-                "  {ContactName}       Full display name (e.g. \"John Smith\")\r\n" +
-                "  {ContactShortName}  Filename-safe abbreviation (e.g. \"JohnS\")\r\n\r\n" +
-                "Examples:\r\n" +
-                "  {ContactName}             → \"John Smith.md\"\r\n" +
-                "  {ContactShortName}        → \"JohnS.md\"\r\n" +
-                "  Contact - {ContactName}   → \"Contact - John Smith.md\"";
-            toolTip.SetToolTip(lblContactFilenameFormat, contactFilenameTip);
-            toolTip.SetToolTip(this.txtContactFilenameFormat, contactFilenameTip);
+            BindHelp("Contacts.ContactFilenameFormat", lblContactFilenameFormat, txtContactFilenameFormat);
 
-            contactsTabLayout.Controls.Add(new Label { Text = "Contact Template File:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, cRow);
+            Label lblContactTemplateFile = new Label { Text = "Contact Template File:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            contactsTabLayout.Controls.Add(lblContactTemplateFile, 0, cRow);
             this.txtContactTemplateFile = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             contactsTabLayout.Controls.Add(this.txtContactTemplateFile, 1, cRow++);
+            BindHelp("Contacts.ContactTemplateFile", lblContactTemplateFile, txtContactTemplateFile);
 
             contactsTabLayout.Controls.Add(new Label(), 0, cRow);
             this.chkContactNoteIncludeDetails = new CheckBox { Text = "Include contact details (phone, email, company, etc.)", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
             contactsTabLayout.Controls.Add(this.chkContactNoteIncludeDetails, 1, cRow++);
+            BindHelpInline("Contacts.ContactNoteIncludeDetails", chkContactNoteIncludeDetails);
 
             Label lblContactLinkFormat = new Label { Text = "Contact Link Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
             contactsTabLayout.Controls.Add(lblContactLinkFormat, 0, cRow);
             this.txtContactLinkFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             contactsTabLayout.Controls.Add(this.txtContactLinkFormat, 1, cRow++);
-            string contactLinkTip =
-                "Controls how contacts (from/to/cc/organizer/attendees) render inside exported\r\n" +
-                "emails and appointments. Brackets are not required — anything around the tokens\r\n" +
-                "is emitted literally.\r\n\r\n" +
-                "Tokens:\r\n" +
-                "  {FullName}       Full name (e.g. \"John A. Smith\")\r\n" +
-                "  {FirstName}      Parsed first name\r\n" +
-                "  {LastName}       Parsed last name\r\n" +
-                "  {MiddleName}     Parsed middle name (empty if none)\r\n" +
-                "  {Suffix}         Jr., Sr., III, PhD (empty if none)\r\n" +
-                "  {DisplayName}    Outlook's original display string\r\n" +
-                "  {ShortName}      Semantic short name (first name or full)\r\n" +
-                "  {Email}          SMTP address\r\n" +
-                "  {FirstInitial}   First letter of FirstName\r\n" +
-                "  {LastInitial}    First letter of LastName\r\n\r\n" +
-                "Examples:\r\n" +
-                "  [[{FullName}]]                   → [[John Smith]]   (default wikilink)\r\n" +
-                "  [[{LastName}, {FirstName}]]      → [[Smith, John]]\r\n" +
-                "  [[{FirstInitial}{LastName}]]     → [[JSmith]]\r\n" +
-                "  [[{FullName}|{Email}]]           → [[John Smith|john@acme.com]]  (aliased)\r\n" +
-                "  @{FullName}                      → @John Smith       (no wikilink)\r\n" +
-                "  [{FullName}](mailto:{Email})     → markdown mailto link";
-            toolTip.SetToolTip(lblContactLinkFormat, contactLinkTip);
-            toolTip.SetToolTip(this.txtContactLinkFormat, contactLinkTip);
+            BindHelp("Contacts.ContactLinkFormat", lblContactLinkFormat, txtContactLinkFormat);
 
             Label lblContactDateFormat = new Label { Text = "Contact Date Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
             contactsTabLayout.Controls.Add(lblContactDateFormat, 0, cRow);
             this.txtContactDateFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             contactsTabLayout.Controls.Add(this.txtContactDateFormat, 1, cRow++);
-            string contactDateTip =
-                "Standard .NET DateTime format string used for the \"created\" field on contact notes.\r\n\r\n" +
-                "Common patterns:\r\n" +
-                "  yyyy-MM-dd             → 2026-04-22\r\n" +
-                "  MM/dd/yyyy             → 04/22/2026\r\n" +
-                "  MMMM d, yyyy           → April 22, 2026\r\n" +
-                "  yyyy-MM-dd HH:mm       → 2026-04-22 14:05";
-            toolTip.SetToolTip(lblContactDateFormat, contactDateTip);
-            toolTip.SetToolTip(this.txtContactDateFormat, contactDateTip);
+            BindHelp("Contacts.ContactDateFormat", lblContactDateFormat, txtContactDateFormat);
 
             contactsTabLayout.RowCount = cRow + 1;
             for (int i = 0; i < cRow; i++)
@@ -494,31 +554,43 @@ namespace SlingMD.Outlook.Forms
             taskCheckPanel.Controls.Add(this.chkCreateObsidianTask);
             taskCheckPanel.Controls.Add(this.chkCreateOutlookTask);
             tasksTabLayout.Controls.Add(taskCheckPanel, 1, tRow++);
+            BindHelpInline("Tasks.CreateObsidianTask", chkCreateObsidianTask);
+            BindHelpInline("Tasks.CreateOutlookTask", chkCreateOutlookTask);
 
             tasksTabLayout.Controls.Add(new Label(), 0, tRow);
             this.chkAskForDates = new CheckBox { Text = "Ask for dates and times each time", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
             tasksTabLayout.Controls.Add(this.chkAskForDates, 1, tRow++);
+            BindHelpInline("Tasks.AskForDates", chkAskForDates);
 
-            tasksTabLayout.Controls.Add(new Label { Text = "Due in Days:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, tRow);
+            Label lblDueInDays = new Label { Text = "Due in Days:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            tasksTabLayout.Controls.Add(lblDueInDays, 0, tRow);
             this.numDefaultDueDays = new NumericUpDown { Minimum = 0, Maximum = 30, Anchor = AnchorStyles.Left };
             tasksTabLayout.Controls.Add(this.numDefaultDueDays, 1, tRow++);
+            BindHelp("Tasks.DueInDays", lblDueInDays, numDefaultDueDays);
 
-            tasksTabLayout.Controls.Add(new Label { Text = "Reminder Days:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, tRow);
+            Label lblReminderDays = new Label { Text = "Reminder Days:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            tasksTabLayout.Controls.Add(lblReminderDays, 0, tRow);
             this.numDefaultReminderDays = new NumericUpDown { Minimum = 0, Maximum = 30, Anchor = AnchorStyles.Left };
             tasksTabLayout.Controls.Add(this.numDefaultReminderDays, 1, tRow++);
+            BindHelp("Tasks.ReminderDays", lblReminderDays, numDefaultReminderDays);
 
-            tasksTabLayout.Controls.Add(new Label { Text = "Reminder Hour:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, tRow);
+            Label lblReminderHour = new Label { Text = "Reminder Hour:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            tasksTabLayout.Controls.Add(lblReminderHour, 0, tRow);
             this.numDefaultReminderHour = new NumericUpDown { Minimum = 0, Maximum = 23, Anchor = AnchorStyles.Left };
             tasksTabLayout.Controls.Add(this.numDefaultReminderHour, 1, tRow++);
+            BindHelp("Tasks.ReminderHour", lblReminderHour, numDefaultReminderHour);
 
-            this.lblDefaultTaskTags = new Label { Text = "Default Task Tags (comma-separated, will be rendered as #tags):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            this.lblDefaultTaskTags = new Label { Text = "Default Task Tags:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
             this.txtDefaultTaskTags = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             tasksTabLayout.Controls.Add(this.lblDefaultTaskTags, 0, tRow);
             tasksTabLayout.Controls.Add(this.txtDefaultTaskTags, 1, tRow++);
+            BindHelp("Tasks.DefaultTaskTags", lblDefaultTaskTags, txtDefaultTaskTags);
 
-            tasksTabLayout.Controls.Add(new Label { Text = "Task Template File (inline task line):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, tRow);
+            Label lblTaskTemplate = new Label { Text = "Task Template File:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            tasksTabLayout.Controls.Add(lblTaskTemplate, 0, tRow);
             this.txtTaskTemplateFile = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             tasksTabLayout.Controls.Add(this.txtTaskTemplateFile, 1, tRow++);
+            BindHelp("Tasks.TaskTemplateFile", lblTaskTemplate, txtTaskTemplateFile);
 
             tasksTabLayout.RowCount = tRow + 1;
             for (int i = 0; i < tRow; i++)
@@ -543,14 +615,18 @@ namespace SlingMD.Outlook.Forms
             threadingTabLayout.Controls.Add(new Label(), 0, thRow);
             this.chkGroupEmailThreads = new CheckBox { Text = "Group email threads", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
             threadingTabLayout.Controls.Add(this.chkGroupEmailThreads, 1, thRow++);
+            BindHelpInline("Threading.GroupEmailThreads", chkGroupEmailThreads);
 
             threadingTabLayout.Controls.Add(new Label(), 0, thRow);
             this.chkMoveDateToFrontInThread = new CheckBox { Text = "Move date to front of filename when grouping threads", Anchor = AnchorStyles.Left, AutoSize = true };
             threadingTabLayout.Controls.Add(this.chkMoveDateToFrontInThread, 1, thRow++);
+            BindHelpInline("Threading.MoveDateToFrontInThread", chkMoveDateToFrontInThread);
 
-            threadingTabLayout.Controls.Add(new Label { Text = "Thread Template File:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, thRow);
+            Label lblThreadTemplate = new Label { Text = "Thread Template File:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            threadingTabLayout.Controls.Add(lblThreadTemplate, 0, thRow);
             this.txtThreadTemplateFile = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             threadingTabLayout.Controls.Add(this.txtThreadTemplateFile, 1, thRow++);
+            BindHelp("Threading.ThreadTemplateFile", lblThreadTemplate, txtThreadTemplateFile);
 
             // Add event handler for enabling/disabling move date checkbox
             this.chkNoteTitleIncludeDate.CheckedChanged += (s, e) =>
@@ -596,11 +672,13 @@ namespace SlingMD.Outlook.Forms
             this.cmbAttachmentStorageMode.Items.Add("Centralized folder");
             attachmentLayout.Controls.Add(this.lblAttachmentStorageMode, 0, 0);
             attachmentLayout.Controls.Add(this.cmbAttachmentStorageMode, 1, 0);
+            BindHelp("Attachments.StorageMode", lblAttachmentStorageMode, cmbAttachmentStorageMode);
 
             this.lblAttachmentsFolder = new Label { Text = "Centralized Folder Name:", Anchor = AnchorStyles.Left };
             this.txtAttachmentsFolder = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Width = 320 };
             attachmentLayout.Controls.Add(this.lblAttachmentsFolder, 0, 1);
             attachmentLayout.Controls.Add(this.txtAttachmentsFolder, 1, 1);
+            BindHelp("Attachments.AttachmentsFolder", lblAttachmentsFolder, txtAttachmentsFolder);
 
             FlowLayoutPanel checkboxLayout = new FlowLayoutPanel
             {
@@ -615,6 +693,9 @@ namespace SlingMD.Outlook.Forms
             checkboxLayout.Controls.Add(this.chkSaveAllAttachments);
             checkboxLayout.Controls.Add(this.chkUseObsidianWikilinks);
             attachmentLayout.Controls.Add(checkboxLayout, 1, 2);
+            BindHelpInline("Attachments.SaveInlineImages", chkSaveInlineImages);
+            BindHelpInline("Attachments.SaveAllAttachments", chkSaveAllAttachments);
+            BindHelpInline("Attachments.UseObsidianWikilinks", chkUseObsidianWikilinks);
 
             this.cmbAttachmentStorageMode.SelectedIndexChanged += (s, e) =>
             {
@@ -651,8 +732,10 @@ namespace SlingMD.Outlook.Forms
             autoSlingTabLayout.Controls.Add(new Label(), 0, asRow);
             this.chkEnableAutoSling = new CheckBox { Text = "Enable Auto-Sling", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
             autoSlingTabLayout.Controls.Add(this.chkEnableAutoSling, 1, asRow++);
+            BindHelpInline("AutoSling.EnableAutoSling", chkEnableAutoSling);
 
-            autoSlingTabLayout.Controls.Add(new Label { Text = "Notification Mode:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, asRow);
+            Label lblNotifMode = new Label { Text = "Notification Mode:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            autoSlingTabLayout.Controls.Add(lblNotifMode, 0, asRow);
             this.cmbNotificationMode = new ComboBox
             {
                 DropDownStyle = ComboBoxStyle.DropDownList,
@@ -662,17 +745,23 @@ namespace SlingMD.Outlook.Forms
             this.cmbNotificationMode.Items.Add("Toast");
             this.cmbNotificationMode.Items.Add("Silent");
             autoSlingTabLayout.Controls.Add(this.cmbNotificationMode, 1, asRow++);
+            BindHelp("AutoSling.NotificationMode", lblNotifMode, cmbNotificationMode);
 
             autoSlingTabLayout.Controls.Add(new Label(), 0, asRow);
             this.chkEnableFlagToSling = new CheckBox { Text = "Enable Flag-to-Sling (auto-sling flagged emails)", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
             autoSlingTabLayout.Controls.Add(this.chkEnableFlagToSling, 1, asRow++);
+            BindHelpInline("AutoSling.EnableFlagToSling", chkEnableFlagToSling);
 
-            autoSlingTabLayout.Controls.Add(new Label { Text = "\"Sent to Obsidian\" Category:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, asRow);
+            Label lblSentToObsidianCat = new Label { Text = "\"Sent to Obsidian\" Category:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            autoSlingTabLayout.Controls.Add(lblSentToObsidianCat, 0, asRow);
             this.txtSentToObsidianCategory = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             autoSlingTabLayout.Controls.Add(this.txtSentToObsidianCategory, 1, asRow++);
+            BindHelp("AutoSling.SentToObsidianCategory", lblSentToObsidianCat, txtSentToObsidianCategory);
 
-            autoSlingTabLayout.Controls.Add(new Label { Text = "Auto-Sling Rules:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, asRow);
+            Label lblAutoSlingRules = new Label { Text = "Auto-Sling Rules:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            autoSlingTabLayout.Controls.Add(lblAutoSlingRules, 0, asRow);
             autoSlingTabLayout.Controls.Add(new Label(), 1, asRow++);
+            BindHelp("AutoSling.Rules", lblAutoSlingRules);
 
             this.dgvAutoSlingRules = new DataGridView
             {
@@ -707,8 +796,10 @@ namespace SlingMD.Outlook.Forms
             autoSlingTabLayout.SetColumnSpan(this.dgvAutoSlingRules, 2);
             autoSlingTabLayout.Controls.Add(this.dgvAutoSlingRules, 0, asRow++);
 
-            autoSlingTabLayout.Controls.Add(new Label { Text = "Watched Folders:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, asRow);
+            Label lblWatchedFolders = new Label { Text = "Watched Folders:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            autoSlingTabLayout.Controls.Add(lblWatchedFolders, 0, asRow);
             autoSlingTabLayout.Controls.Add(new Label(), 1, asRow++);
+            BindHelp("AutoSling.WatchedFolders", lblWatchedFolders);
 
             this.dgvWatchedFolders = new DataGridView
             {
@@ -762,6 +853,8 @@ namespace SlingMD.Outlook.Forms
             this.chkShowThreadDebug = new CheckBox { Text = "Show thread debug", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
             devLayout.Controls.Add(this.chkShowDevelopmentSettings);
             devLayout.Controls.Add(this.chkShowThreadDebug);
+            BindHelpInline("Developer.ShowDevelopmentSettings", chkShowDevelopmentSettings);
+            BindHelpInline("Developer.ShowThreadDebug", chkShowThreadDebug);
             this.grpDevelopment.Controls.Add(devLayout);
 
             TableLayoutPanel developerTabLayout = new TableLayoutPanel
@@ -823,8 +916,12 @@ namespace SlingMD.Outlook.Forms
             this.btnSave = new Button { Text = "Save", DialogResult = DialogResult.OK };
             this.btnSave.Click += btnSave_Click;
             this.btnCancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel };
+            Button btnHelp = new Button { Text = "Help", Margin = new Padding(0, 0, 8, 0) };
+            btnHelp.Click += (s, e) => { new HelpForm().Show(this); };
+            toolTip.SetToolTip(btnHelp, "Open the searchable settings reference (Ctrl+F to focus the search box).");
             btnLayout.Controls.Add(this.btnSave);
             btnLayout.Controls.Add(this.btnCancel);
+            btnLayout.Controls.Add(btnHelp);
             footerLayout.Controls.Add(btnLayout, 1, 0);
 
             // Assemble root
