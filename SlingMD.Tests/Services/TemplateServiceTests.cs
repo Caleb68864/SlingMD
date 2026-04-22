@@ -208,6 +208,11 @@ namespace SlingMD.Tests.Services
         [Fact]
         public void RenderContactContent_WithIncludeDetailsFalse_OmitsContactDetails()
         {
+            // IncludeDetails branching only applies when no ContactTemplate file is found.
+            // Point at a name that doesn't exist anywhere on the candidate path so the
+            // built-in default (driven by IncludeDetails) is used.
+            _settings.ContactTemplateFile = "NonExistentContactTemplate-" + System.Guid.NewGuid().ToString("N") + ".md";
+
             ContactTemplateContext context = new ContactTemplateContext
             {
                 Metadata = new Dictionary<string, object>

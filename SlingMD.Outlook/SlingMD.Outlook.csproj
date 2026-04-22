@@ -286,11 +286,26 @@
     <Compile Include="Models\AutoSlingRule.cs" />
     <Compile Include="Models\WatchedFolder.cs" />
     <Compile Include="Models\AttachmentInfo.cs" />
+    <Compile Include="Models\ContactName.cs" />
+    <Compile Include="Models\MailItemSnapshot.cs" />
+    <Compile Include="Models\SlingDecision.cs" />
+    <Compile Include="Models\TaskDueDates.cs" />
+    <Compile Include="Models\TaskDueSettings.cs" />
+    <Compile Include="Infrastructure\IClock.cs" />
+    <Compile Include="Infrastructure\SystemClock.cs" />
     <Compile Include="Services\AppointmentProcessor.cs" />
     <Compile Include="Services\ContactProcessor.cs" />
     <Compile Include="Services\AttachmentService.cs" />
     <Compile Include="Services\ContactService.cs" />
     <Compile Include="Services\EmailProcessor.cs" />
+    <Compile Include="Services\Formatting\ContactLinkFormatter.cs" />
+    <Compile Include="Services\Formatting\ContactNameParser.cs" />
+    <Compile Include="Services\Formatting\DateFormatter.cs" />
+    <Compile Include="Services\Formatting\NoteTitleBuilder.cs" />
+    <Compile Include="Services\Formatting\SubjectCleanerService.cs" />
+    <Compile Include="Services\Formatting\ThreadIdHasher.cs" />
+    <Compile Include="Services\ReminderDueDateCalculator.cs" />
+    <Compile Include="Services\SlingDecisionEngine.cs" />
     <Compile Include="Ribbon\SlingRibbon.cs" />
     <EmbeddedResource Include="Forms\CountdownForm.resx">
       <DependentUpon>CountdownForm.cs</DependentUpon>

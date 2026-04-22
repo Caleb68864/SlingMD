@@ -105,6 +105,14 @@ namespace SlingMD.Outlook.Models
         public bool ContactNoteIncludeDetails { get; set; } = true;
 
         /// <summary>
+        /// Format string for rendering contact mentions ({{to}}, {{from}}, {{cc}}).
+        /// Supported tokens: {FullName}, {FirstName}, {LastName}, {MiddleName}, {Suffix},
+        /// {DisplayName}, {ShortName}, {Email}, {FirstInitial}, {LastInitial}.
+        /// Default: "[[{FullName}]]" which produces wikilinks like [[John Smith]].
+        /// </summary>
+        public string ContactLinkFormat { get; set; } = "[[{FullName}]]";
+
+        /// <summary>
         /// Default tags to apply to the note's frontmatter.
         /// Leave empty to not include any tags.
         /// </summary>
@@ -253,12 +261,23 @@ namespace SlingMD.Outlook.Models
             return new List<string> { "FollowUp" };
         }
 
+        /// <summary>
+        /// The exact legacy broken regex pattern that matches "re-" inside words like "pre-release".
+        /// Used for migration detection only.
+        /// </summary>
+        internal const string LegacyBrokenPrefixPattern = @"(?:(?:Re|Fwd|FW|RE|FWD)[:\s_-])+";
+
+        /// <summary>
+        /// The fixed regex pattern that uses word boundary to avoid matching inside words.
+        /// </summary>
+        internal const string FixedPrefixPattern = @"(?:\b(?:Re|Fwd|FW|RE|FWD)[:\s_-])+";
+
         private static List<string> CreateDefaultSubjectCleanupPatterns()
         {
             return new List<string>
             {
-                @"^(?:(?:Re|Fwd|FW|RE|FWD)[:\s_-])*",
-                @"(?:(?:Re|Fwd|FW|RE|FWD)[:\s_-])+",
+                @"^(?:\b(?:Re|Fwd|FW|RE|FWD)[:\s_-])*",
+                FixedPrefixPattern,
                 @"\[EXTERNAL\]\s*",
                 @"\[Internal\]\s*",
                 @"\[Confidential\]\s*",
@@ -458,7 +477,10 @@ namespace SlingMD.Outlook.Models
             TaskTemplateFile = string.IsNullOrWhiteSpace(TaskTemplateFile) ? "TaskTemplate.md" : TaskTemplateFile;
             ThreadTemplateFile = string.IsNullOrWhiteSpace(ThreadTemplateFile) ? "ThreadNoteTemplate.md" : ThreadTemplateFile;
             ContactFilenameFormat = string.IsNullOrWhiteSpace(ContactFilenameFormat) ? "{ContactName}" : ContactFilenameFormat;
+            ContactLinkFormat = string.IsNullOrWhiteSpace(ContactLinkFormat) ? "[[{FullName}]]" : ContactLinkFormat;
+            ValidateContactLinkFormatTokens();
             SubjectCleanupPatterns = SubjectCleanupPatterns ?? CreateDefaultSubjectCleanupPatterns();
+            MigrateLegacyCleanupPatterns();
             DefaultNoteTags = DefaultNoteTags ?? CreateDefaultNoteTags();
             DefaultTaskTags = DefaultTaskTags ?? CreateDefaultTaskTags();
             NoteTitleFormat = string.IsNullOrWhiteSpace(NoteTitleFormat) ? "{Subject} - {Date}" : NoteTitleFormat;
@@ -488,6 +510,38 @@ namespace SlingMD.Outlook.Models
             AutoSlingRules = AutoSlingRules ?? new List<AutoSlingRule>();
             WatchedFolders = WatchedFolders ?? new List<WatchedFolder>();
             SentToObsidianCategory = string.IsNullOrWhiteSpace(SentToObsidianCategory) ? "Sent to Obsidian" : SentToObsidianCategory;
+        }
+
+        /// <summary>
+        /// Validates tokens in <see cref="ContactLinkFormat"/>. Currently permissive —
+        /// unknown tokens render as empty strings at runtime.
+        /// </summary>
+        private void ValidateContactLinkFormatTokens()
+        {
+            // Permissive: unknown tokens render empty at runtime. Reserved for future
+            // brace-balance warnings.
+        }
+
+        /// <summary>
+        /// Migrates legacy broken subject cleanup patterns to the fixed versions.
+        /// Only rewrites the exact legacy broken pattern string; user-customized patterns are left untouched.
+        /// This is called during Load() and the migration is in-memory only until the next Save().
+        /// </summary>
+        private void MigrateLegacyCleanupPatterns()
+        {
+            if (SubjectCleanupPatterns == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < SubjectCleanupPatterns.Count; i++)
+            {
+                // Only migrate the exact legacy broken pattern - don't touch user modifications
+                if (SubjectCleanupPatterns[i] == LegacyBrokenPrefixPattern)
+                {
+                    SubjectCleanupPatterns[i] = FixedPrefixPattern;
+                }
+            }
         }
 
         private static void ValidateFolderName(string value, string label, char[] invalidChars)

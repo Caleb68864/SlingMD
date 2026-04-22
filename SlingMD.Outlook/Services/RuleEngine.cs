@@ -7,18 +7,18 @@ namespace SlingMD.Outlook.Services
     public class RuleEngine
     {
         /// <summary>
-        /// Evaluates a list of AutoSlingRules against the given email metadata.
-        /// Returns true if any enabled rule matches. First match wins. Case-insensitive.
+        /// Returns the first enabled rule that matches the given email metadata, or null if none.
+        /// First match wins. Case-insensitive.
         /// </summary>
-        public virtual bool ShouldAutoSling(
+        public virtual AutoSlingRule Match(
             string senderEmail,
             string senderDomain,
             string categories,
-            List<AutoSlingRule> rules)
+            IReadOnlyList<AutoSlingRule> rules)
         {
             if (rules == null || rules.Count == 0)
             {
-                return false;
+                return null;
             }
 
             foreach (AutoSlingRule rule in rules)
@@ -38,14 +38,14 @@ namespace SlingMD.Outlook.Services
                     case "Sender":
                         if (string.Equals(senderEmail, rule.Pattern, StringComparison.OrdinalIgnoreCase))
                         {
-                            return true;
+                            return rule;
                         }
                         break;
 
                     case "Domain":
                         if (string.Equals(senderDomain, rule.Pattern, StringComparison.OrdinalIgnoreCase))
                         {
-                            return true;
+                            return rule;
                         }
                         break;
 
@@ -53,13 +53,26 @@ namespace SlingMD.Outlook.Services
                         if (!string.IsNullOrEmpty(categories) &&
                             categories.IndexOf(rule.Pattern, StringComparison.OrdinalIgnoreCase) >= 0)
                         {
-                            return true;
+                            return rule;
                         }
                         break;
                 }
             }
 
-            return false;
+            return null;
+        }
+
+        /// <summary>
+        /// Evaluates a list of AutoSlingRules against the given email metadata.
+        /// Returns true if any enabled rule matches. Thin wrapper over <see cref="Match"/>.
+        /// </summary>
+        public virtual bool ShouldAutoSling(
+            string senderEmail,
+            string senderDomain,
+            string categories,
+            List<AutoSlingRule> rules)
+        {
+            return Match(senderEmail, senderDomain, categories, rules) != null;
         }
     }
 }

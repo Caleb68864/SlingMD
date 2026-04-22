@@ -95,6 +95,7 @@
     <Compile Include="Services\ThreadServiceTests.cs" />
     <Compile Include="Services\FolderMonitorServiceTests.cs" />
     <Compile Include="Services\ThreadCompletionServiceTests.cs" />
+    <Compile Include="Services\Formatting\NoteTitleBuilderTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

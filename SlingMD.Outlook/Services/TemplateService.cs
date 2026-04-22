@@ -42,6 +42,13 @@ namespace SlingMD.Outlook.Services
         public string Birthday { get; set; } = string.Empty;
         public string Notes { get; set; } = string.Empty;
         public bool IncludeDetails { get; set; } = true;
+
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string MiddleName { get; set; } = string.Empty;
+        public string Suffix { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
     }
 
     public class TaskTemplateContext
@@ -235,14 +242,9 @@ namespace SlingMD.Outlook.Services
 
         public string RenderContactContent(ContactTemplateContext context)
         {
-            string templateContent = null;
-
-            // If the user has customized ContactTemplateFile, use their template
-            // for ALL contacts — all 13 fields are available as {{placeholders}}.
-            if (!string.Equals(_settings.ContactTemplateFile, "ContactTemplate.md", StringComparison.OrdinalIgnoreCase))
-            {
-                templateContent = LoadTemplate(_settings.ContactTemplateFile);
-            }
+            // Always try to load the user's configured ContactTemplate file. The previous gate
+            // skipped lookup for the common case where users drop their template in the default filename.
+            string templateContent = LoadTemplate(_settings.ContactTemplateFile);
 
             // Fall back to built-in defaults based on IncludeDetails
             if (string.IsNullOrEmpty(templateContent))
@@ -265,6 +267,12 @@ namespace SlingMD.Outlook.Services
             AddReplacement(replacements, "address", context.Address);
             AddReplacement(replacements, "birthday", context.Birthday);
             AddReplacement(replacements, "notes", context.Notes);
+            AddReplacement(replacements, "firstName", context.FirstName);
+            AddReplacement(replacements, "lastName", context.LastName);
+            AddReplacement(replacements, "middleName", context.MiddleName);
+            AddReplacement(replacements, "suffix", context.Suffix);
+            AddReplacement(replacements, "fullName", context.FullName);
+            AddReplacement(replacements, "displayName", context.DisplayName);
 
             return ProcessTemplate(templateContent, replacements);
         }
