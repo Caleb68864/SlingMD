@@ -7,7 +7,7 @@ namespace SlingMD.Outlook.Services.Formatting
     /// Provides centralized date-to-string conversion for email, contact, and appointment domains.
     /// All date placeholder rendering should go through this service.
     /// </summary>
-    public class DateFormatter
+    internal class DateFormatter
     {
         /// <summary>
         /// Formats a DateTime value using the specified format string.

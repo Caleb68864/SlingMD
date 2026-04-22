@@ -16,7 +16,7 @@ namespace SlingMD.Outlook.Services.Formatting
     /// Duplicates are filtered case-insensitively and original ordering is preserved.
     /// No disk I/O is performed.
     /// </summary>
-    public class TemplatePathResolver
+    internal class TemplatePathResolver
     {
         /// <summary>
         /// Resolves <paramref name="templateName"/> against <paramref name="settings"/> and the

@@ -17,7 +17,7 @@ namespace SlingMD.Outlook.Services.Formatting
     ///
     /// Pure helper — no Outlook or filesystem deps.
     /// </summary>
-    public class FilenameSubjectNormalizer
+    internal class FilenameSubjectNormalizer
     {
         /// <summary>
         /// The shipping defaults — restore these by clearing <see cref="ObsidianSettings.FilenameSubjectPatterns"/>.

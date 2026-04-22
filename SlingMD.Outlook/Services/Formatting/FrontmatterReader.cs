@@ -7,7 +7,7 @@ namespace SlingMD.Outlook.Services.Formatting
     /// YAML frontmatter using string regexes (no YAML parser dependency). Tolerant of
     /// the subset of frontmatter shapes SlingMD itself emits.
     /// </summary>
-    public class FrontmatterReader
+    internal class FrontmatterReader
     {
         private static readonly Regex ThreadIdRegex = new Regex(@"threadId: ""([^""]+)""", RegexOptions.Compiled);
         private static readonly Regex DateRegex = new Regex(@"date: ""?(\d{4}-\d{2}-\d{2} \d{2}:\d{2}(?::\d{2})?)""?", RegexOptions.Compiled);

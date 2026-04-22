@@ -8,7 +8,7 @@ namespace SlingMD.Outlook.Services.Formatting
     /// Builds note titles from format strings with token substitution and length truncation.
     /// Shared by email and appointment title formatting.
     /// </summary>
-    public class NoteTitleBuilder
+    internal class NoteTitleBuilder
     {
         /// <summary>
         /// The ellipsis character used when truncating titles.

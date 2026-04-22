@@ -5,7 +5,7 @@ namespace SlingMD.Outlook.Services.Formatting
     /// domain (after the '@'). Handles null, empty, missing-'@', and trailing-'@' edge
     /// cases by returning empty strings rather than throwing.
     /// </summary>
-    public class EmailAddressParser
+    internal class EmailAddressParser
     {
         /// <summary>
         /// Returns the substring after the first '@' in <paramref name="email"/>.

@@ -8,7 +8,7 @@ namespace SlingMD.Outlook.Services.Formatting
     /// name is found or <see cref="MaxAttempts"/> is exhausted. Pure helper — file existence
     /// is checked through an injected predicate so tests can supply a fake.
     /// </summary>
-    public class UniqueFilenameResolver
+    internal class UniqueFilenameResolver
     {
         /// <summary>
         /// Maximum number of "_N" suffixes to try before giving up. Matches the prior inline

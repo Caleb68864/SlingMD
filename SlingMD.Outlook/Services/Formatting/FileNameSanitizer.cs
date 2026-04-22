@@ -9,7 +9,7 @@ namespace SlingMD.Outlook.Services.Formatting
     /// Applies the post-subject-cleanup normalization (invalid char stripping, prefix removal,
     /// separator collapse) without any disk I/O or settings dependencies.
     /// </summary>
-    public class FileNameSanitizer
+    internal class FileNameSanitizer
     {
         private static readonly Regex LeadingPrefixRegex = new Regex(@"^(?:RE_|FWD_|FW_|Re_|Fwd_)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex SeparatorRunRegex = new Regex(@"[-_]{2,}", RegexOptions.Compiled);

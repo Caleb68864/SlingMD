@@ -9,7 +9,7 @@ namespace SlingMD.Outlook.Services.Formatting
     /// Uses MD5 hashing of the normalized subject to match the historical hash shape used by
     /// ThreadService, ensuring existing thread IDs remain unchanged.
     /// </summary>
-    public class ThreadIdHasher
+    internal class ThreadIdHasher
     {
         private readonly SubjectCleanerService _cleaner;
 

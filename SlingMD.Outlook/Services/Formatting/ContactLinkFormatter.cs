@@ -10,7 +10,7 @@ namespace SlingMD.Outlook.Services.Formatting
     /// Supports tokens: {FullName}, {FirstName}, {LastName}, {MiddleName}, {Suffix},
     /// {DisplayName}, {ShortName}, {Email}, {FirstInitial}, {LastInitial}.
     /// </summary>
-    public class ContactLinkFormatter
+    internal class ContactLinkFormatter
     {
         /// <summary>
         /// Known tokens that can be used in format strings.

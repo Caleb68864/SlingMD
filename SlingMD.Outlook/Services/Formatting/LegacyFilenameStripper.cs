@@ -11,7 +11,7 @@ namespace SlingMD.Outlook.Services.Formatting
     /// </list>
     /// Order matters — trailing markers are removed first so the leading-date sweep sees a clean tail.
     /// </summary>
-    public class LegacyFilenameStripper
+    internal class LegacyFilenameStripper
     {
         private static readonly Regex EmailIdSuffixRegex = new Regex(@"-eid[0-9A-Za-z]+$", RegexOptions.Compiled);
         private static readonly Regex NumericSuffixRegex = new Regex(@"-\d{3}$", RegexOptions.Compiled);

@@ -10,7 +10,7 @@ namespace SlingMD.Outlook.Services.Formatting
     /// Removes Re:/Fwd: prefixes, [EXTERNAL] tags, and other noise patterns while
     /// preserving words like "pre-release" that contain "re-" as part of the word.
     /// </summary>
-    public class SubjectCleanerService
+    internal class SubjectCleanerService
     {
         private readonly ObsidianSettings _settings;
 

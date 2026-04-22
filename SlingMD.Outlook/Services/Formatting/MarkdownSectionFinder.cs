@@ -7,7 +7,7 @@ namespace SlingMD.Outlook.Services.Formatting
     /// document content. Matching is anchored to start-of-line, multiline, and the
     /// heading text is regex-escaped so headings containing regex metacharacters work.
     /// </summary>
-    public class MarkdownSectionFinder
+    internal class MarkdownSectionFinder
     {
         /// <summary>
         /// Returns the character index of the line that begins with <paramref name="heading"/>,

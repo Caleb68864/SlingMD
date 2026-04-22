@@ -9,7 +9,7 @@ namespace SlingMD.Outlook.Services.Formatting
     /// Parses display names into structured <see cref="ContactName"/> parts.
     /// Pure helper with no Outlook Interop dependencies.
     /// </summary>
-    public class ContactNameParser
+    internal class ContactNameParser
     {
         /// <summary>
         /// Common name suffixes that should be parsed separately.
