@@ -48,6 +48,13 @@ namespace SlingMD.Outlook.Forms
             this.StartPosition = FormStartPosition.CenterParent;
             this.MinimumSize = new Size(600, 400);
 
+            System.IO.Stream iconStream = System.Reflection.Assembly.GetExecutingAssembly()
+                .GetManifestResourceStream("SlingMD.Outlook.Resources.SlingMD.ico");
+            if (iconStream != null)
+            {
+                this.Icon = new System.Drawing.Icon(iconStream);
+            }
+
             TableLayoutPanel root = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
