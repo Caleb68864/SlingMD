@@ -617,7 +617,7 @@ namespace SlingMD.Outlook
                 try
                 {
                     inbox = Application.Session.GetDefaultFolder(OlDefaultFolders.olFolderInbox);
-                    missingEmails = completionService.FindMissingEmails(conversationId, inbox);
+                    missingEmails = completionService.FindMissingEmails(conversationId, inbox, threadService.GetConversationId);
                 }
                 finally
                 {

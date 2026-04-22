@@ -32,18 +32,26 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         /// <param name="conversationId">The conversation ID computed by ThreadService.GetConversationId.</param>
         /// <param name="searchFolder">The folder to search (typically Inbox).</param>
-        /// <returns>List of MailItems not yet present in the vault.</returns>
-        public List<MailItem> FindMissingEmails(string conversationId, MAPIFolder searchFolder)
+        /// <param name="getConversationId">Delegate that returns the conversation ID for a given mail item.
+        /// Must produce IDs comparable to <paramref name="conversationId"/> — normally
+        /// <c>ThreadService.GetConversationId</c>.</param>
+        /// <returns>List of MailItems in the same thread that are not yet present in the vault.</returns>
+        public List<MailItem> FindMissingEmails(
+            string conversationId,
+            MAPIFolder searchFolder,
+            Func<MailItem, string> getConversationId)
         {
+            if (getConversationId == null) throw new ArgumentNullException(nameof(getConversationId));
+
             HashSet<string> existingEntryIds = GetExistingEntryIds(conversationId);
             List<MailItem> missingEmails = new List<MailItem>();
 
-            CollectMissingFromFolder(searchFolder, existingEntryIds, missingEmails);
+            CollectMissingFromFolder(searchFolder, conversationId, existingEntryIds, missingEmails, getConversationId);
 
             try
             {
                 MAPIFolder sentItems = searchFolder.Session.GetDefaultFolder(OlDefaultFolders.olFolderSentMail);
-                CollectMissingFromFolder(sentItems, existingEntryIds, missingEmails);
+                CollectMissingFromFolder(sentItems, conversationId, existingEntryIds, missingEmails, getConversationId);
             }
             catch (System.Exception)
             {
@@ -54,10 +62,16 @@ namespace SlingMD.Outlook.Services
         }
 
         /// <summary>
-        /// Collects emails from a folder whose ConversationTopic matches and whose EntryID
-        /// is not already present in the vault.
+        /// Collects emails from a folder whose conversation ID matches and whose EntryID
+        /// is not already present in the vault. Items whose conversation ID differs from
+        /// <paramref name="conversationId"/> are skipped — this is the per-item thread filter.
         /// </summary>
-        private void CollectMissingFromFolder(MAPIFolder folder, HashSet<string> existingEntryIds, List<MailItem> results)
+        private void CollectMissingFromFolder(
+            MAPIFolder folder,
+            string conversationId,
+            HashSet<string> existingEntryIds,
+            List<MailItem> results,
+            Func<MailItem, string> getConversationId)
         {
             if (folder == null)
             {
@@ -71,6 +85,22 @@ namespace SlingMD.Outlook.Services
                 {
                     MailItem mail = item as MailItem;
                     if (mail == null)
+                    {
+                        continue;
+                    }
+
+                    string itemConversationId;
+                    try
+                    {
+                        itemConversationId = getConversationId(mail);
+                    }
+                    catch (System.Exception)
+                    {
+                        // Skip items whose conversation ID can't be computed
+                        continue;
+                    }
+
+                    if (!string.Equals(itemConversationId, conversationId, StringComparison.Ordinal))
                     {
                         continue;
                     }

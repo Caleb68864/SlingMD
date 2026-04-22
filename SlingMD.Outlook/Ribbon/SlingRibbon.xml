@@ -12,7 +12,7 @@
           <button id="CompleteThreadButton"
                   label="Complete Thread"
                   size="large"
-                  imageMso="ConversationSettings"
+                  imageMso="TaskMarkComplete"
                   onAction="OnCompleteThreadClick"
                   supertip="Find and sling missing emails from the current email's thread"/>
         </group>
