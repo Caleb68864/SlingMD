@@ -11,7 +11,7 @@ namespace SlingMD.Outlook.Services
         private readonly ObsidianSettings _settings;
         private readonly EmailProcessor _emailProcessor;
         private readonly NotificationService _notificationService;
-        private readonly RuleEngine _ruleEngine;
+        private readonly SlingDecisionEngine _slingDecisionEngine;
         private readonly BoundedHashSet _processedEntryIds = new BoundedHashSet();
 
         private Application _outlookApp;
@@ -26,7 +26,7 @@ namespace SlingMD.Outlook.Services
             _settings = settings;
             _emailProcessor = emailProcessor;
             _notificationService = notificationService;
-            _ruleEngine = new RuleEngine();
+            _slingDecisionEngine = new SlingDecisionEngine();
         }
 
         public void Start(Application outlookApp)
@@ -142,7 +142,14 @@ namespace SlingMD.Outlook.Services
                     string.Empty);
 
                 List<AutoSlingRule> rules = _settings.AutoSlingRules ?? new List<AutoSlingRule>();
-                if (!_ruleEngine.ShouldAutoSling(senderEmail, senderDomain, categories, rules))
+                MailItemSnapshot snapshot = new MailItemSnapshot
+                {
+                    SenderEmail = senderEmail ?? string.Empty,
+                    SenderDomain = senderDomain ?? string.Empty,
+                    Categories = categories ?? string.Empty
+                };
+                SlingDecision decision = _slingDecisionEngine.Decide(snapshot, rules);
+                if (!decision.ShouldSling)
                 {
                     return;
                 }
@@ -152,7 +159,8 @@ namespace SlingMD.Outlook.Services
                 await _emailProcessor.ProcessEmail(mail);
 
                 string subject = SafeComAction.Execute(() => mail.Subject, "AutoSlingService.ProcessSingleEmail: Subject", "Unknown");
-                _notificationService.Notify($"Auto-slung email: {subject}");
+                string ruleLabel = decision.MatchedRule != null ? $" [{decision.MatchedRule.Type}:{decision.MatchedRule.Pattern}]" : string.Empty;
+                _notificationService.Notify($"Auto-slung email: {subject}{ruleLabel}");
             }
             catch (System.Exception ex)
             {
