@@ -2,6 +2,64 @@
 
 All notable changes to SlingMD are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+#### Customization settings (user-facing)
+- **`ContactLinkFormat`** — format string that controls how `{{to}}`, `{{from}}`, `{{cc}}` recipients and appointment organizer/attendees are rendered. Default `"[[{FullName}]]"` preserves today's wikilink output; users can switch to `"@{FirstName}{LastName}"` for `@JohnSmith` At-People plugin mentions, `"@{FirstInitial}{LastInitial}"` for initials, etc. Tokens supported: `{FullName}`, `{FirstName}`, `{LastName}`, `{MiddleName}`, `{Suffix}`, `{DisplayName}`, `{ShortName}`, `{Email}`, `{FirstInitial}`, `{LastInitial}`.
+- **`EmailDateFormat`** — .NET format string for `{{timestamp}}` and the email `date` frontmatter field. Default `"yyyy-MM-dd HH:mm:ss"`.
+- **`ContactDateFormat`** — .NET format string for the `{{created}}` placeholder in contact notes. Default `"yyyy-MM-dd"`.
+- **`AppointmentDateFormat`** — .NET format string for appointment `{{startDateTime}}`/`{{endDateTime}}` metadata and the body `**Start:**`/`**End:**` lines. Default `"yyyy-MM-dd HH:mm"`.
+- **`FilenameSubjectPatterns`** — ordered list of regex find/replace rules applied after subject cleanup to canonicalize filenames (e.g. `"Re: Re: foo"` → `"Re_foo"`). Ships with the 11 rules SlingMD has always used; clearing the list restores the built-in defaults so users can't accidentally regress baseline behavior.
+- **Settings UI** — new textboxes in the Contacts, Email, and Appointments tabs of the Settings dialog for `ContactLinkFormat`, `ContactDateFormat`, `EmailDateFormat`, and `AppointmentDateFormat`.
+
+#### New contact template placeholders (SS-05)
+- `{{firstName}}`, `{{lastName}}`, `{{middleName}}`, `{{suffix}}`, `{{fullName}}`, `{{displayName}}` now populate from a parsed `ContactName` so contact templates can render name parts individually.
+
+#### Auto-sling, thread completion, date-range appointments (earlier in the branch)
+- Folder-watching auto-sling with rule engine (sender / domain / category matchers) and a watched-folder list.
+- Manual **Complete Thread** command that backfills missing emails in a conversation from the current folder and Sent Items.
+- Custom **Save Date Range** dialog for exporting appointments in an arbitrary window alongside the existing "Save Today's Appointments".
+- `Sent to Obsidian` Outlook category auto-applied to slung emails for visual tracking.
+
+### Fixed
+- `TemplateService.RenderContactContent` previously skipped the user's `ContactTemplate.md` when `_settings.ContactTemplateFile` equaled the default filename — the gate was inverted. Removed. The bundled `Templates/ContactTemplate.md` is updated to match the rich in-memory default so existing-default users see no visible change.
+- `TemplateService.BuildFrontMatter` produced unquoted, seconds-less `date: 2026-04-21 14:05` for any `DateTime` frontmatter value (bypassing YAML escaping and the rest of the customization story). Now routes through `DateFormatter` with `EmailDateFormat`, properly quoted and escaped.
+- `Helpers/FileHelper.cs` — deleted. It was a dead static helper with its own divergent `CleanFileName` (used `-` instead of `_`) that had no call sites anywhere in the codebase; risked confusion if anyone re-wired it.
+
+### Changed — testability refactor
+Thirteen pure, unit-testable helpers were extracted from the Outlook-coupled services so formatting and decision logic can be exercised without Outlook installed. Every orchestrator now delegates through these helpers:
+
+| Helper (`Services/Formatting/` unless noted) | Replaces inline logic in | Tests |
+|---|---|---|
+| `DateFormatter` | `EmailProcessor`, `AppointmentProcessor`, `ContactService`, `TemplateService` | 8 |
+| `SubjectCleanerService` | `EmailProcessor.CleanSubject`, `AppointmentProcessor.CleanSubject`, subject-cleanup legacy-pattern migration | 16 |
+| `ContactNameParser` | New — drives `ContactLinkFormat` token resolution | 12 |
+| `ContactLinkFormatter` | `ContactService.BuildLinkedNames` (×2), `EmailProcessor` sender link, `AppointmentProcessor` organizer/attendees | 15 |
+| `NoteTitleBuilder` | Inline title-format construction in `EmailProcessor` and `AppointmentProcessor` | 17 |
+| `ThreadIdHasher` | `ThreadService.GetConversationId` two MD5 branches | 14 (incl. 5 golden-hash pins locking historical thread IDs) |
+| `FrontmatterReader` | 5 inline regex parses in `ThreadService.FindExistingThread` and `ThreadCompletionService` | 10 |
+| `FileNameSanitizer` | `FileService.CleanFileName` post-cleanup pass (invalid chars, prefix strip, separator collapse) | 15 |
+| `FilenameSubjectNormalizer` | Duplicated 15-line Re_/Fw_ collapse + ColonSpace block in both processors | 12 |
+| `TemplatePathResolver` | `TemplateService.BuildTemplateCandidatePaths` (4-location search) | 9 |
+| `EmailAddressParser` | `AutoSlingService.ExtractDomain` + `ContactNameParser.ExtractLocalPart` | 13 |
+| `MarkdownSectionFinder` | `ContactService.FindSectionStart` | 11 |
+| `UniqueFilenameResolver` | Duplicated `while (File.Exists) { _N++ }` loop in `AttachmentService` and `AppointmentProcessor` | 10 |
+| `LegacyFilenameStripper` | 3 inline regexes in `ThreadService.ResuffixThreadNotes` | 13 |
+| `ReminderDueDateCalculator` (`Services/`) | `TaskService` due/reminder math, `AppointmentProcessor` appointment-task reminder | 8 + 5 clock-injected integration tests |
+| `SlingDecisionEngine` (`Services/`) | `AutoSlingService` (swapped direct `RuleEngine.ShouldAutoSling` for matched-rule-returning helper) | 10 |
+| `IClock` / `SystemClock` (`Infrastructure/`) | `DateTime.Now` in `TaskService` and `AppointmentProcessor` — now mockable via `FakeClock` | — |
+
+#### Supporting infrastructure
+- `ObsidianSettings.FilenameSubjectPatterns` default list is mirrored in `FilenameSubjectNormalizer.BuiltInDefaults`, with a pin test asserting the two stay in sync.
+- `RuleEngine` gained `Match(...)` that returns the matched rule; `ShouldAutoSling` is now a thin wrapper over `Match(...) != null`.
+- New DTOs under `Models/`: `ContactName`, `MailItemSnapshot`, `SlingDecision`, `TaskDueDates`, `TaskDueSettings`, `FilenameSubjectRule`.
+
+#### Test coverage
+- Total unit-test count grew from 163 → **356** (+193) across 15 new test files.
+- All existing orchestrator tests (`EmailProcessorTests`, `ContactProcessorTests`, `AppointmentProcessorTests`, `TaskServiceTests`, `ThreadServiceTests`, `FlagMonitorServiceTests`, `FolderMonitorServiceTests`) continue to pass without modification.
+
 ## [1.1.0.1] - 2026-03-13
 
 ### Added
