@@ -141,6 +141,34 @@ namespace SlingMD.Tests.Services
         /// the list shape (YAML block sequence) is preserved.
         /// </summary>
         [Fact]
+        public void BuildFrontMatter_DateTimeValue_UsesDefaultEmailDateFormat()
+        {
+            Dictionary<string, object> metadata = new Dictionary<string, object>
+            {
+                { "date", new System.DateTime(2026, 4, 21, 14, 5, 9) }
+            };
+
+            string frontmatter = _templateService.BuildFrontMatter(metadata);
+
+            Assert.Contains("date: \"2026-04-21 14:05:09\"", frontmatter);
+        }
+
+        [Fact]
+        public void BuildFrontMatter_DateTimeValue_HonorsEmailDateFormatOverride()
+        {
+            _settings.EmailDateFormat = "yyyy-MM-dd";
+            Dictionary<string, object> metadata = new Dictionary<string, object>
+            {
+                { "date", new System.DateTime(2026, 4, 21, 14, 5, 9) }
+            };
+
+            string frontmatter = _templateService.BuildFrontMatter(metadata);
+
+            Assert.Contains("date: \"2026-04-21\"", frontmatter);
+            Assert.DoesNotContain("14:05:09", frontmatter);
+        }
+
+        [Fact]
         public void BuildFrontMatter_EscapesListValuesWithoutChangingListShape()
         {
             Dictionary<string, object> metadata = new Dictionary<string, object>

@@ -108,12 +108,14 @@ namespace SlingMD.Outlook.Services
     {
         private readonly FileService _fileService;
         private readonly ObsidianSettings _settings;
+        private readonly SlingMD.Outlook.Services.Formatting.DateFormatter _dateFormatter;
 
         public TemplateService(FileService fileService)
         {
             _fileService = fileService;
             _settings = fileService.GetSettings();
             _templatePathResolver = new SlingMD.Outlook.Services.Formatting.TemplatePathResolver();
+            _dateFormatter = new SlingMD.Outlook.Services.Formatting.DateFormatter();
         }
 
         private readonly SlingMD.Outlook.Services.Formatting.TemplatePathResolver _templatePathResolver;
@@ -200,7 +202,13 @@ namespace SlingMD.Outlook.Services
                 }
                 else if (item.Value is DateTime dateTimeValue)
                 {
-                    frontMatter.AppendLine($"{item.Key}: {dateTimeValue:yyyy-MM-dd HH:mm}");
+                    // Respect EmailDateFormat setting (matches the {{date}} / {{timestamp}} contract).
+                    string format = _settings?.EmailDateFormat;
+                    if (string.IsNullOrWhiteSpace(format))
+                    {
+                        format = "yyyy-MM-dd HH:mm:ss";
+                    }
+                    frontMatter.AppendLine($"{item.Key}: \"{EscapeYamlDoubleQuotedScalar(_dateFormatter.Format(dateTimeValue, format))}\"");
                 }
                 else if (stringEnumerable != null && !(item.Value is string))
                 {
@@ -762,7 +770,14 @@ for (const email of emails) {
                 }
                 else if (item.Value is DateTime dateTimeValue)
                 {
-                    replacements[item.Key] = dateTimeValue.ToString("yyyy-MM-dd HH:mm:ss");
+                    // Respect EmailDateFormat setting when rendering DateTime frontmatter values
+                    // (the same format used for {{timestamp}} and the email "date" metadata field).
+                    string format = _settings?.EmailDateFormat;
+                    if (string.IsNullOrWhiteSpace(format))
+                    {
+                        format = "yyyy-MM-dd HH:mm:ss";
+                    }
+                    replacements[item.Key] = _dateFormatter.Format(dateTimeValue, format);
                 }
                 else
                 {
