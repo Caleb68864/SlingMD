@@ -113,6 +113,21 @@ namespace SlingMD.Outlook.Models
         public string ContactLinkFormat { get; set; } = "[[{FullName}]]";
 
         /// <summary>
+        /// .NET format string for email received dates in exported notes. Default: "yyyy-MM-dd HH:mm:ss".
+        /// </summary>
+        public string EmailDateFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";
+
+        /// <summary>
+        /// .NET format string for the "{{created}}" placeholder in contact notes. Default: "yyyy-MM-dd".
+        /// </summary>
+        public string ContactDateFormat { get; set; } = "yyyy-MM-dd";
+
+        /// <summary>
+        /// .NET format string for appointment dates/times in exported notes. Default: "yyyy-MM-dd HH:mm".
+        /// </summary>
+        public string AppointmentDateFormat { get; set; } = "yyyy-MM-dd HH:mm";
+
+        /// <summary>
         /// Default tags to apply to the note's frontmatter.
         /// Leave empty to not include any tags.
         /// </summary>
@@ -478,6 +493,9 @@ namespace SlingMD.Outlook.Models
             ThreadTemplateFile = string.IsNullOrWhiteSpace(ThreadTemplateFile) ? "ThreadNoteTemplate.md" : ThreadTemplateFile;
             ContactFilenameFormat = string.IsNullOrWhiteSpace(ContactFilenameFormat) ? "{ContactName}" : ContactFilenameFormat;
             ContactLinkFormat = string.IsNullOrWhiteSpace(ContactLinkFormat) ? "[[{FullName}]]" : ContactLinkFormat;
+            EmailDateFormat = string.IsNullOrWhiteSpace(EmailDateFormat) ? "yyyy-MM-dd HH:mm:ss" : EmailDateFormat;
+            ContactDateFormat = string.IsNullOrWhiteSpace(ContactDateFormat) ? "yyyy-MM-dd" : ContactDateFormat;
+            AppointmentDateFormat = string.IsNullOrWhiteSpace(AppointmentDateFormat) ? "yyyy-MM-dd HH:mm" : AppointmentDateFormat;
             ValidateContactLinkFormatTokens();
             SubjectCleanupPatterns = SubjectCleanupPatterns ?? CreateDefaultSubjectCleanupPatterns();
             MigrateLegacyCleanupPatterns();

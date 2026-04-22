@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using SlingMD.Outlook.Helpers;
 using Logger = SlingMD.Outlook.Helpers.Logger;
+using SlingMD.Outlook.Services.Formatting;
 
 namespace SlingMD.Outlook.Services
 {
@@ -52,6 +53,9 @@ namespace SlingMD.Outlook.Services
         private readonly TaskService _taskService;
         private readonly ContactService _contactService;
         private readonly AttachmentService _attachmentService;
+        private readonly DateFormatter _dateFormatter;
+        private readonly ContactNameParser _contactNameParser;
+        private readonly ContactLinkFormatter _contactLinkFormatter;
 
         public EmailProcessor(ObsidianSettings settings)
         {
@@ -62,6 +66,16 @@ namespace SlingMD.Outlook.Services
             _taskService = new TaskService(settings, _templateService);
             _contactService = new ContactService(_fileService, _templateService);
             _attachmentService = new AttachmentService(settings, _fileService);
+            _dateFormatter = new DateFormatter();
+            _contactNameParser = new ContactNameParser();
+            _contactLinkFormatter = new ContactLinkFormatter();
+        }
+
+        private string FormatSenderLink(string senderName, string senderEmail)
+        {
+            ContactName parsed = _contactNameParser.Parse(senderName, senderEmail);
+            string formatted = _contactLinkFormatter.Format(parsed, _settings.ContactLinkFormat);
+            return string.IsNullOrEmpty(formatted) ? $"[[{senderName}]]" : formatted;
         }
 
         /// <summary>
@@ -730,7 +744,7 @@ namespace SlingMD.Outlook.Services
                 SenderShortName = senderClean,
                 SenderEmail = _contactService.GetSenderEmail(mail),
                 Date = mail.ReceivedTime.ToString("yyyy-MM-dd"),
-                Timestamp = mail.ReceivedTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                Timestamp = _dateFormatter.Format(mail.ReceivedTime, _settings.EmailDateFormat),
                 Body = mail.Body ?? string.Empty,
                 TaskBlock = taskBlock,
                 FileName = fileNameNoExt + ".md",
@@ -833,12 +847,12 @@ namespace SlingMD.Outlook.Services
             {
                 { "title", noteTitle },
                 { "type", "email" },
-                { "from", $"[[{senderName}]]" },
+                { "from", FormatSenderLink(senderName, senderEmail) },
                 { "fromEmail", senderEmail },
                 { "to", toLinked },
                 { "toEmail", toEmails },
                 { "threadId", conversationId },
-                { "date", receivedTime.ToString("yyyy-MM-dd HH:mm:ss") },
+                { "date", _dateFormatter.Format(receivedTime, _settings.EmailDateFormat) },
                 { "internetMessageId", realInternetMessageId },
                 { "entryId", realEntryId }
             };

@@ -61,6 +61,10 @@ namespace SlingMD.Outlook.Forms
         private TextBox txtContactFilenameFormat;
         private TextBox txtContactTemplateFile;
         private CheckBox chkContactNoteIncludeDetails;
+        private TextBox txtContactLinkFormat;
+        private TextBox txtContactDateFormat;
+        private TextBox txtEmailDateFormat;
+        private TextBox txtAppointmentDateFormat;
 
         // Tasks tab controls
         private CheckBox chkCreateObsidianTask;
@@ -284,6 +288,10 @@ namespace SlingMD.Outlook.Forms
             this.txtEmailTemplateFile = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             emailTabLayout.Controls.Add(this.txtEmailTemplateFile, 1, eRow++);
 
+            emailTabLayout.Controls.Add(new Label { Text = "Email Date Format (.NET format string, e.g. yyyy-MM-dd HH:mm:ss):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, eRow);
+            this.txtEmailDateFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
+            emailTabLayout.Controls.Add(this.txtEmailDateFormat, 1, eRow++);
+
             emailTabLayout.RowCount = eRow + 1;
             for (int i = 0; i < eRow; i++)
                 emailTabLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -327,6 +335,10 @@ namespace SlingMD.Outlook.Forms
             apptTabLayout.Controls.Add(new Label { Text = "Meeting Note Template:", AutoSize = false, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, aRow);
             this.txtMeetingNoteTemplate = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             apptTabLayout.Controls.Add(this.txtMeetingNoteTemplate, 1, aRow++);
+
+            apptTabLayout.Controls.Add(new Label { Text = "Appointment Date Format (.NET format string, e.g. yyyy-MM-dd HH:mm):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, aRow);
+            this.txtAppointmentDateFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
+            apptTabLayout.Controls.Add(this.txtAppointmentDateFormat, 1, aRow++);
 
             apptTabLayout.Controls.Add(new Label { Text = "Task Creation Mode:", AutoSize = false, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, aRow);
             this.cmbAppointmentTaskCreation = new ComboBox
@@ -393,6 +405,14 @@ namespace SlingMD.Outlook.Forms
             contactsTabLayout.Controls.Add(new Label(), 0, cRow);
             this.chkContactNoteIncludeDetails = new CheckBox { Text = "Include contact details (phone, email, company, etc.)", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
             contactsTabLayout.Controls.Add(this.chkContactNoteIncludeDetails, 1, cRow++);
+
+            contactsTabLayout.Controls.Add(new Label { Text = "Contact Link Format (tokens: {FullName}, {FirstName}, {LastName}, {Email}, {FirstInitial}, {LastInitial}):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, cRow);
+            this.txtContactLinkFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
+            contactsTabLayout.Controls.Add(this.txtContactLinkFormat, 1, cRow++);
+
+            contactsTabLayout.Controls.Add(new Label { Text = "Contact Date Format (.NET format string, e.g. yyyy-MM-dd):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, cRow);
+            this.txtContactDateFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
+            contactsTabLayout.Controls.Add(this.txtContactDateFormat, 1, cRow++);
 
             contactsTabLayout.RowCount = cRow + 1;
             for (int i = 0; i < cRow; i++)
@@ -830,6 +850,10 @@ namespace SlingMD.Outlook.Forms
             txtContactFilenameFormat.Text = _settings.ContactFilenameFormat ?? "{ContactName}";
             txtContactTemplateFile.Text = _settings.ContactTemplateFile ?? "ContactTemplate.md";
             chkContactNoteIncludeDetails.Checked = _settings.ContactNoteIncludeDetails;
+            txtContactLinkFormat.Text = _settings.ContactLinkFormat ?? "[[{FullName}]]";
+            txtContactDateFormat.Text = _settings.ContactDateFormat ?? "yyyy-MM-dd";
+            txtEmailDateFormat.Text = _settings.EmailDateFormat ?? "yyyy-MM-dd HH:mm:ss";
+            txtAppointmentDateFormat.Text = _settings.AppointmentDateFormat ?? "yyyy-MM-dd HH:mm";
 
             // Tasks tab
             chkCreateObsidianTask.Checked = _settings.CreateObsidianTask;
@@ -946,6 +970,10 @@ namespace SlingMD.Outlook.Forms
             _settings.ContactFilenameFormat = txtContactFilenameFormat.Text.Trim();
             _settings.ContactTemplateFile = txtContactTemplateFile.Text.Trim();
             _settings.ContactNoteIncludeDetails = chkContactNoteIncludeDetails.Checked;
+            _settings.ContactLinkFormat = txtContactLinkFormat.Text.Trim();
+            _settings.ContactDateFormat = txtContactDateFormat.Text.Trim();
+            _settings.EmailDateFormat = txtEmailDateFormat.Text.Trim();
+            _settings.AppointmentDateFormat = txtAppointmentDateFormat.Text.Trim();
 
             // Tasks tab
             _settings.CreateObsidianTask = chkCreateObsidianTask.Checked;

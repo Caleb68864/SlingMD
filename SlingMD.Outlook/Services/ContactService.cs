@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using Microsoft.Office.Interop.Outlook;
 using SlingMD.Outlook.Models;
+using SlingMD.Outlook.Services.Formatting;
 
 namespace SlingMD.Outlook.Services
 {
@@ -20,12 +21,43 @@ namespace SlingMD.Outlook.Services
         private readonly FileService _fileService;
         private readonly TemplateService _templateService;
         private readonly ObsidianSettings _settings;
+        private readonly ContactNameParser _contactNameParser;
+        private readonly ContactLinkFormatter _contactLinkFormatter;
+        private readonly DateFormatter _dateFormatter;
 
         public ContactService(FileService fileService, TemplateService templateService)
         {
             _fileService = fileService;
             _templateService = templateService;
             _settings = fileService.GetSettings();
+            _contactNameParser = new ContactNameParser();
+            _contactLinkFormatter = new ContactLinkFormatter();
+            _dateFormatter = new DateFormatter();
+        }
+
+        /// <summary>
+        /// Populates the new ContactName fields (FirstName/LastName/etc.) on the given context
+        /// by parsing the ContactName + Email through ContactNameParser. Idempotent.
+        /// </summary>
+        private void PopulateNameParts(ContactTemplateContext context)
+        {
+            ContactName parsed = _contactNameParser.Parse(context.ContactName, context.Email);
+            context.FirstName = parsed.FirstName ?? string.Empty;
+            context.LastName = parsed.LastName ?? string.Empty;
+            context.MiddleName = parsed.MiddleName ?? string.Empty;
+            context.Suffix = parsed.Suffix ?? string.Empty;
+            context.FullName = parsed.FullName ?? string.Empty;
+            context.DisplayName = parsed.DisplayName ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Formats a display name as a contact link using the configured <see cref="ObsidianSettings.ContactLinkFormat"/>.
+        /// </summary>
+        private string FormatContactLink(string displayName, string email)
+        {
+            ContactName parsed = _contactNameParser.Parse(displayName, email);
+            string formatted = _contactLinkFormatter.Format(parsed, _settings.ContactLinkFormat);
+            return string.IsNullOrEmpty(formatted) ? $"[[{displayName}]]" : formatted;
         }
 
         /// <summary>
@@ -87,7 +119,9 @@ namespace SlingMD.Outlook.Services
                 {
                     if (recipient.Type == (int)type)
                     {
-                        names.Add($"[[{recipient.Name}]]");
+                        string email = null;
+                        try { email = GetSMTPEmailAddress(recipient); } catch { }
+                        names.Add(FormatContactLink(recipient.Name, email));
                     }
                 }
                 finally
@@ -183,7 +217,9 @@ namespace SlingMD.Outlook.Services
                         string name = recipient.Name;
                         if (!string.IsNullOrEmpty(name))
                         {
-                            linkedNames.Add($"[[{name}]]");
+                            string email = null;
+                            try { email = GetSMTPEmailAddress(recipient); } catch { }
+                            linkedNames.Add(FormatContactLink(name, email));
                         }
                     }
                 }
@@ -378,22 +414,24 @@ namespace SlingMD.Outlook.Services
             string filePath = GetManagedContactNotePath(contactName);
             string fileNameNoExtension = Path.GetFileNameWithoutExtension(filePath);
 
+            string created = _dateFormatter.Format(DateTime.Now, _settings.ContactDateFormat);
             ContactTemplateContext context = new ContactTemplateContext
             {
                 Metadata = new Dictionary<string, object>
                 {
                     { "title", contactName },
                     { "type", "contact" },
-                    { "created", DateTime.Now.ToString("yyyy-MM-dd HH:mm") },
+                    { "created", created },
                     { "tags", new List<string> { "contact" } }
                 },
                 ContactName = contactName,
                 ContactShortName = GetShortName(contactName),
-                Created = DateTime.Now.ToString("yyyy-MM-dd HH:mm"),
+                Created = created,
                 FileName = fileNameNoExtension + ".md",
                 FileNameWithoutExtension = fileNameNoExtension,
                 IncludeDetails = false
             };
+            PopulateNameParts(context);
 
             CreateContactNote(context);
         }
@@ -557,11 +595,12 @@ namespace SlingMD.Outlook.Services
             string cleanName = _fileService.CleanFileName(fullName);
             string fileNameNoExtension = _fileService.CleanFileName(fullName);
 
+            string created = _dateFormatter.Format(DateTime.Now, _settings.ContactDateFormat);
             Dictionary<string, object> metadata = new Dictionary<string, object>
             {
                 { "title", fullName },
                 { "type", "contact" },
-                { "created", DateTime.Now.ToString("yyyy-MM-dd HH:mm") },
+                { "created", created },
                 { "tags", new List<string> { "contact" } }
             };
 
@@ -575,12 +614,12 @@ namespace SlingMD.Outlook.Services
                 metadata["email"] = email;
             }
 
-            return new ContactTemplateContext
+            ContactTemplateContext result = new ContactTemplateContext
             {
                 Metadata = metadata,
                 ContactName = fullName,
                 ContactShortName = GetShortName(fullName),
-                Created = DateTime.Now.ToString("yyyy-MM-dd HH:mm"),
+                Created = created,
                 FileName = fileNameNoExtension + ".md",
                 FileNameWithoutExtension = fileNameNoExtension,
                 Phone = phone,
@@ -592,6 +631,8 @@ namespace SlingMD.Outlook.Services
                 Notes = notes,
                 IncludeDetails = true
             };
+            PopulateNameParts(result);
+            return result;
         }
 
 

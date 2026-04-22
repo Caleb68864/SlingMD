@@ -14,6 +14,7 @@ using SlingMD.Outlook.Forms;
 using SlingMD.Outlook.Helpers;
 using SlingMD.Outlook.Models;
 using Logger = SlingMD.Outlook.Helpers.Logger;
+using SlingMD.Outlook.Services.Formatting;
 
 namespace SlingMD.Outlook.Services
 {
@@ -61,6 +62,9 @@ namespace SlingMD.Outlook.Services
         private readonly TaskService _taskService;
         private readonly ContactService _contactService;
         private readonly AttachmentService _attachmentService;
+        private readonly DateFormatter _dateFormatter;
+        private readonly ContactNameParser _contactNameParser;
+        private readonly ContactLinkFormatter _contactLinkFormatter;
 
         private List<string> _bulkErrors = new List<string>();
 
@@ -80,6 +84,20 @@ namespace SlingMD.Outlook.Services
             _taskService = new TaskService(settings, _templateService);
             _contactService = new ContactService(_fileService, _templateService);
             _attachmentService = new AttachmentService(settings, _fileService);
+            _dateFormatter = new DateFormatter();
+            _contactNameParser = new ContactNameParser();
+            _contactLinkFormatter = new ContactLinkFormatter();
+        }
+
+        private string FormatPersonLink(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return string.Empty;
+            }
+            ContactName parsed = _contactNameParser.Parse(name, null);
+            string formatted = _contactLinkFormatter.Format(parsed, _settings.ContactLinkFormat);
+            return string.IsNullOrEmpty(formatted) ? $"[[{name}]]" : formatted;
         }
 
         /// <summary>
@@ -949,11 +967,11 @@ namespace SlingMD.Outlook.Services
             {
                 { "title", noteTitle },
                 { "type", "Appointment" },
-                { "organizer", string.IsNullOrWhiteSpace(organizerName) ? string.Empty : $"[[{organizerName}]]" },
+                { "organizer", FormatPersonLink(organizerName) },
                 { "organizerEmail", organizerEmail ?? string.Empty },
                 { "location", location ?? string.Empty },
-                { "startDateTime", startTime.ToString("yyyy-MM-dd HH:mm:ss") },
-                { "endDateTime", endTime.ToString("yyyy-MM-dd HH:mm:ss") },
+                { "startDateTime", _dateFormatter.Format(startTime, _settings.AppointmentDateFormat) },
+                { "endDateTime", _dateFormatter.Format(endTime, _settings.AppointmentDateFormat) },
                 { "recurrence", recurrenceState.ToString() },
                 { "globalAppointmentId", globalAppointmentId ?? string.Empty }
             };
@@ -967,7 +985,7 @@ namespace SlingMD.Outlook.Services
             if (requiredAttendees != null && requiredAttendees.Count > 0)
             {
                 List<string> linkedRequired = requiredAttendees
-                    .Select(name => $"[[{name}]]")
+                    .Select(name => FormatPersonLink(name))
                     .ToList();
                 metadata.Add("attendees", linkedRequired);
             }
@@ -975,7 +993,7 @@ namespace SlingMD.Outlook.Services
             if (optionalAttendees != null && optionalAttendees.Count > 0)
             {
                 List<string> linkedOptional = optionalAttendees
-                    .Select(name => $"[[{name}]]")
+                    .Select(name => FormatPersonLink(name))
                     .ToList();
                 metadata.Add("optionalAttendees", linkedOptional);
             }
@@ -983,7 +1001,7 @@ namespace SlingMD.Outlook.Services
             if (resourceAttendees != null && resourceAttendees.Count > 0)
             {
                 List<string> linkedResources = resourceAttendees
-                    .Select(name => $"[[{name}]]")
+                    .Select(name => FormatPersonLink(name))
                     .ToList();
                 metadata.Add("resources", linkedResources);
             }
@@ -1039,13 +1057,13 @@ namespace SlingMD.Outlook.Services
                 content.AppendLine();
             }
 
-            content.AppendLine($"**Start:** {startTime:yyyy-MM-dd HH:mm}");
-            content.AppendLine($"**End:** {endTime:yyyy-MM-dd HH:mm}");
+            content.AppendLine($"**Start:** {_dateFormatter.Format(startTime, _settings.AppointmentDateFormat)}");
+            content.AppendLine($"**End:** {_dateFormatter.Format(endTime, _settings.AppointmentDateFormat)}");
             content.AppendLine();
 
             if (!string.IsNullOrWhiteSpace(organizerName))
             {
-                content.AppendLine($"**Organizer:** [[{organizerName}]]");
+                content.AppendLine($"**Organizer:** {FormatPersonLink(organizerName)}");
                 content.AppendLine();
             }
 
