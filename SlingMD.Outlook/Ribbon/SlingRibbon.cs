@@ -15,12 +15,14 @@ namespace SlingMD.Outlook.Ribbon
         private Office.IRibbonUI _ribbon;
         private readonly ThisAddIn _addIn;
         private Bitmap _slingLogo;
+        private Bitmap _completeThreadIcon;
         private string _slingButtonLabel = "Sling";
 
         public SlingRibbon(ThisAddIn addIn)
         {
             _addIn = addIn;
             LoadSlingLogo();
+            BuildCompleteThreadIcon();
         }
 
         private void LoadSlingLogo()
@@ -40,6 +42,64 @@ namespace SlingMD.Outlook.Ribbon
             {
                 // If loading fails, we'll fall back to the default Office icon
                 _slingLogo = null;
+            }
+        }
+
+        /// <summary>
+        /// Builds the Complete Thread button image: the Sling logo with a green check
+        /// badge composited in the bottom-right corner. Cached once at construction.
+        /// Falls back to the unmodified Sling logo if compositing fails.
+        /// </summary>
+        private void BuildCompleteThreadIcon()
+        {
+            if (_slingLogo == null) return;
+
+            try
+            {
+                Bitmap composed = new Bitmap(_slingLogo.Width, _slingLogo.Height);
+                using (Graphics g = Graphics.FromImage(composed))
+                {
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                    g.DrawImage(_slingLogo, 0, 0, _slingLogo.Width, _slingLogo.Height);
+
+                    // Green check badge, ~40% of the icon, positioned bottom-right.
+                    int badgeSize = (int)(Math.Min(composed.Width, composed.Height) * 0.55);
+                    int padding = Math.Max(1, composed.Width / 32);
+                    int x = composed.Width - badgeSize - padding;
+                    int y = composed.Height - badgeSize - padding;
+
+                    // White halo so the badge stays legible against dark sling shapes.
+                    using (var halo = new SolidBrush(Color.White))
+                    {
+                        g.FillEllipse(halo, x - 1, y - 1, badgeSize + 2, badgeSize + 2);
+                    }
+
+                    // Filled green disc.
+                    using (var fill = new SolidBrush(Color.FromArgb(46, 160, 67)))
+                    {
+                        g.FillEllipse(fill, x, y, badgeSize, badgeSize);
+                    }
+
+                    // Checkmark: two-segment polyline centered in the disc.
+                    using (var pen = new Pen(Color.White, Math.Max(1f, badgeSize / 8f))
+                    {
+                        StartCap = System.Drawing.Drawing2D.LineCap.Round,
+                        EndCap = System.Drawing.Drawing2D.LineCap.Round,
+                        LineJoin = System.Drawing.Drawing2D.LineJoin.Round
+                    })
+                    {
+                        PointF p1 = new PointF(x + badgeSize * 0.25f, y + badgeSize * 0.53f);
+                        PointF p2 = new PointF(x + badgeSize * 0.44f, y + badgeSize * 0.72f);
+                        PointF p3 = new PointF(x + badgeSize * 0.76f, y + badgeSize * 0.32f);
+                        g.DrawLines(pen, new[] { p1, p2, p3 });
+                    }
+                }
+                _completeThreadIcon = composed;
+            }
+            catch (Exception)
+            {
+                _completeThreadIcon = _slingLogo;
             }
         }
 
@@ -185,6 +245,11 @@ namespace SlingMD.Outlook.Ribbon
             return _slingLogo;
         }
 
+        public Bitmap GetCompleteThreadImage(Office.IRibbonControl control)
+        {
+            return _completeThreadIcon ?? _slingLogo;
+        }
+
         #endregion
 
         #region Helpers
@@ -204,6 +269,7 @@ namespace SlingMD.Outlook.Ribbon
             if (disposing)
             {
                 _slingLogo?.Dispose();
+                _completeThreadIcon?.Dispose();
             }
         }
 
