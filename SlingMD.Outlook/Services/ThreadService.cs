@@ -24,6 +24,7 @@ namespace SlingMD.Outlook.Services
         private readonly ObsidianSettings _settings;
         private readonly ThreadIdHasher _threadIdHasher;
         private readonly FrontmatterReader _frontmatter;
+        private readonly LegacyFilenameStripper _legacyFilenameStripper;
 
         public ThreadService(FileService fileService, TemplateService templateService, ObsidianSettings settings)
         {
@@ -34,6 +35,7 @@ namespace SlingMD.Outlook.Services
             // is preserved (exceptions only surface when methods are actually called).
             _threadIdHasher = new ThreadIdHasher(new SubjectCleanerService(settings ?? new ObsidianSettings()));
             _frontmatter = new FrontmatterReader();
+            _legacyFilenameStripper = new LegacyFilenameStripper();
         }
 
         /// <summary>
@@ -446,12 +448,9 @@ namespace SlingMD.Outlook.Services
                 string nameNoExt = Path.GetFileNameWithoutExtension(fd.file);
                 string ext = Path.GetExtension(fd.file);
 
-                // Remove any email id suffix ( -eid{ID} ) or old numeric suffix ( -001 )
-                nameNoExt = Regex.Replace(nameNoExt, "-eid[0-9A-Za-z]+$", "");
-                nameNoExt = Regex.Replace(nameNoExt, "-\\d{3}$", "");
-
-                // Remove any existing date prefix formats (yyyy-MM-dd_HHmmss, yyyy-MM-dd-HHmm, yyyy-MM-dd_HHmm)
-                nameNoExt = Regex.Replace(nameNoExt, "^\\d{4}-\\d{2}-\\d{2}[_-]\\d{4,6}_?", "");
+                // Strip SlingMD's legacy filename decorations (eid suffix, -NNN suffix, leading
+                // date prefix) — unit-tested helper.
+                nameNoExt = _legacyFilenameStripper.Strip(nameNoExt);
 
                 // Include seconds in date prefix to reduce collision probability
                 string datePrefix = fd.date.ToString("yyyy-MM-dd_HHmmss");

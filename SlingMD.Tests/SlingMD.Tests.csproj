@@ -106,6 +106,7 @@
     <Compile Include="Services\Formatting\FilenameSubjectNormalizerTests.cs" />
     <Compile Include="Services\Formatting\FrontmatterReaderTests.cs" />
     <Compile Include="Services\Formatting\MarkdownSectionFinderTests.cs" />
+    <Compile Include="Services\Formatting\LegacyFilenameStripperTests.cs" />
     <Compile Include="Services\Formatting\TemplatePathResolverTests.cs" />
     <Compile Include="Services\Formatting\UniqueFilenameResolverTests.cs" />
     <Compile Include="Services\ReminderDueDateCalculatorTests.cs" />
