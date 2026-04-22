@@ -46,15 +46,42 @@ namespace SlingMD.Outlook.Services
         private readonly IClock _clock;
 
         public EmailProcessor(ObsidianSettings settings, IClock clock = null)
+            : this(
+                settings,
+                clock ?? new SystemClock(),
+                fileService: null,
+                templateService: null,
+                threadService: null,
+                taskService: null,
+                contactService: null,
+                attachmentService: null)
+        {
+        }
+
+        /// <summary>
+        /// Full-injection constructor for tests. Any argument passed as <c>null</c> falls back
+        /// to the default production wiring. Production callers should use the single-arg
+        /// constructor — this overload is only intended for unit tests that need to substitute
+        /// collaborators (e.g. a fake FileService or an in-memory TemplateService).
+        /// </summary>
+        internal EmailProcessor(
+            ObsidianSettings settings,
+            IClock clock,
+            FileService fileService,
+            TemplateService templateService,
+            ThreadService threadService,
+            TaskService taskService,
+            ContactService contactService,
+            AttachmentService attachmentService)
         {
             _settings = settings;
             _clock = clock ?? new SystemClock();
-            _fileService = new FileService(settings);
-            _templateService = new TemplateService(_fileService);
-            _threadService = new ThreadService(_fileService, _templateService, settings);
-            _taskService = new TaskService(settings, _templateService, _clock);
-            _contactService = new ContactService(_fileService, _templateService, _clock);
-            _attachmentService = new AttachmentService(settings, _fileService, _clock);
+            _fileService = fileService ?? new FileService(settings);
+            _templateService = templateService ?? new TemplateService(_fileService);
+            _threadService = threadService ?? new ThreadService(_fileService, _templateService, settings);
+            _taskService = taskService ?? new TaskService(settings, _templateService, _clock);
+            _contactService = contactService ?? new ContactService(_fileService, _templateService, _clock);
+            _attachmentService = attachmentService ?? new AttachmentService(settings, _fileService, _clock);
             _dateFormatter = new DateFormatter();
             _contactNameParser = new ContactNameParser();
             _contactLinkFormatter = new ContactLinkFormatter();

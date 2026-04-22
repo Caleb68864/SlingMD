@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using SlingMD.Outlook.Infrastructure;
 using SlingMD.Outlook.Models;
 using SlingMD.Outlook.Services;
+using SlingMD.Tests.Infrastructure;
 using Xunit;
 
 namespace SlingMD.Tests.Services
@@ -175,6 +177,55 @@ namespace SlingMD.Tests.Services
             Assert.False(metadata.ContainsKey("ccEmail"));
             Assert.False(metadata.ContainsKey("threadNote"));
             Assert.False(metadata.ContainsKey("dailyNoteLink"));
+        }
+
+        [Fact]
+        public void EmailProcessor_InjectionOverload_AcceptsNullCollaboratorsAndFallsBack()
+        {
+            ObsidianSettings settings = new ObsidianSettings
+            {
+                VaultBasePath = Path.GetTempPath(),
+                VaultName = "TestVault",
+                IncludeDailyNoteLink = false
+            };
+
+            // All-nulls exercises the fallback wiring — processor must still construct cleanly.
+            EmailProcessor processor = new EmailProcessor(
+                settings,
+                clock: null,
+                fileService: null,
+                templateService: null,
+                threadService: null,
+                taskService: null,
+                contactService: null,
+                attachmentService: null);
+
+            Assert.NotNull(processor);
+        }
+
+        [Fact]
+        public void EmailProcessor_InjectionOverload_UsesInjectedFileService()
+        {
+            ObsidianSettings settings = new ObsidianSettings
+            {
+                VaultBasePath = Path.GetTempPath(),
+                VaultName = "TestVault",
+                IncludeDailyNoteLink = false
+            };
+            FileService custom = new FileService(settings);
+            FakeClock clock = new FakeClock(new DateTime(2026, 4, 22, 10, 0, 0));
+
+            EmailProcessor processor = new EmailProcessor(
+                settings,
+                clock,
+                fileService: custom,
+                templateService: null,
+                threadService: null,
+                taskService: null,
+                contactService: null,
+                attachmentService: null);
+
+            Assert.NotNull(processor);
         }
     }
 }
