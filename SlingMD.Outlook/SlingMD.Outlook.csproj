@@ -302,6 +302,7 @@
     <Compile Include="Services\Formatting\ContactNameParser.cs" />
     <Compile Include="Services\Formatting\DateFormatter.cs" />
     <Compile Include="Services\Formatting\FileNameSanitizer.cs" />
+    <Compile Include="Services\Formatting\FilenameSubjectNormalizer.cs" />
     <Compile Include="Services\Formatting\FrontmatterReader.cs" />
     <Compile Include="Services\Formatting\NoteTitleBuilder.cs" />
     <Compile Include="Services\Formatting\SubjectCleanerService.cs" />

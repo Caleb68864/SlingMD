@@ -31,20 +31,8 @@ namespace SlingMD.Outlook.Services
         private static DateTime _cacheLastBuilt = DateTime.MinValue;
         private static readonly object _cacheBuildLock = new object();
 
-        // Compiled regex patterns for performance (used in CleanSubject and title formatting)
-        private static readonly Regex WhitespaceRegex = new Regex(@"\s+", RegexOptions.Compiled);
+        // Compiled regex patterns still used inline after the FilenameSubjectNormalizer extraction.
         private static readonly Regex TrailingDashSpaceRegex = new Regex(@"[-\s]+$", RegexOptions.Compiled);
-        private static readonly Regex ColonSpaceRegex = new Regex(@":\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ReplyPrefixRegex1 = new Regex(@"(?:Re_\s*)+(?:RE_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ReplyPrefixRegex2 = new Regex(@"(?:RE_\s*)+(?:Re_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ReplyPrefixRegex3 = new Regex(@"(?:Re_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ReplyPrefixRegex4 = new Regex(@"(?:RE_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardPrefixRegex1 = new Regex(@"(?:Fw_\s*)+(?:FW_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardPrefixRegex2 = new Regex(@"(?:FW_\s*)+(?:Fw_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardPrefixRegex3 = new Regex(@"(?:Fw_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardPrefixRegex4 = new Regex(@"(?:FW_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ReplySpaceRegex = new Regex(@"Re_\s+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardSpaceRegex = new Regex(@"Fw_\s+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         private readonly ObsidianSettings _settings;
         private readonly FileService _fileService;
@@ -58,6 +46,7 @@ namespace SlingMD.Outlook.Services
         private readonly ContactLinkFormatter _contactLinkFormatter;
         private readonly SubjectCleanerService _subjectCleaner;
         private readonly NoteTitleBuilder _noteTitleBuilder;
+        private readonly FilenameSubjectNormalizer _filenameSubjectNormalizer;
 
         public EmailProcessor(ObsidianSettings settings)
         {
@@ -73,6 +62,7 @@ namespace SlingMD.Outlook.Services
             _contactLinkFormatter = new ContactLinkFormatter();
             _subjectCleaner = new SubjectCleanerService(settings ?? new ObsidianSettings());
             _noteTitleBuilder = new NoteTitleBuilder();
+            _filenameSubjectNormalizer = new FilenameSubjectNormalizer();
         }
 
         private string FormatSenderLink(string senderName, string senderEmail)
@@ -574,26 +564,8 @@ namespace SlingMD.Outlook.Services
             // Settings-driven cleanup patterns are delegated to SubjectCleanerService (unit-tested).
             string cleaned = _subjectCleaner.Clean(subject);
 
-            // Replace colons (with or without spaces) with underscores (using compiled regex)
-            cleaned = ColonSpaceRegex.Replace(cleaned, "_");
-
-            // Handle Re_ (Reply) prefixes (using compiled regex)
-            // Remove redundant Re_ RE_ prefixes - keep only one "Re_"
-            cleaned = ReplyPrefixRegex1.Replace(cleaned, "Re_");
-            cleaned = ReplyPrefixRegex2.Replace(cleaned, "Re_");
-            cleaned = ReplyPrefixRegex3.Replace(cleaned, "Re_");
-            cleaned = ReplyPrefixRegex4.Replace(cleaned, "Re_");
-
-            // Handle Fw_ (Forward) prefixes (using compiled regex)
-            // Remove redundant Fw_ FW_ prefixes - keep only one "Fw_"
-            cleaned = ForwardPrefixRegex1.Replace(cleaned, "Fw_");
-            cleaned = ForwardPrefixRegex2.Replace(cleaned, "Fw_");
-            cleaned = ForwardPrefixRegex3.Replace(cleaned, "Fw_");
-            cleaned = ForwardPrefixRegex4.Replace(cleaned, "Fw_");
-
-            // Ensure there are no spaces after prefixes (using compiled regex)
-            cleaned = ReplySpaceRegex.Replace(cleaned, "Re_");
-            cleaned = ForwardSpaceRegex.Replace(cleaned, "Fw_");
+            // Filename-specific normalization (colon→underscore, prefix collapse) — unit-tested.
+            cleaned = _filenameSubjectNormalizer.Normalize(cleaned);
 
             return _fileService.CleanFileName(cleaned.Trim());
         }
