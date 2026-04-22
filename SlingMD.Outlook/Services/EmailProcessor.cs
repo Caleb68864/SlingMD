@@ -56,6 +56,8 @@ namespace SlingMD.Outlook.Services
         private readonly DateFormatter _dateFormatter;
         private readonly ContactNameParser _contactNameParser;
         private readonly ContactLinkFormatter _contactLinkFormatter;
+        private readonly SubjectCleanerService _subjectCleaner;
+        private readonly NoteTitleBuilder _noteTitleBuilder;
 
         public EmailProcessor(ObsidianSettings settings)
         {
@@ -69,6 +71,8 @@ namespace SlingMD.Outlook.Services
             _dateFormatter = new DateFormatter();
             _contactNameParser = new ContactNameParser();
             _contactLinkFormatter = new ContactLinkFormatter();
+            _subjectCleaner = new SubjectCleanerService(settings ?? new ObsidianSettings());
+            _noteTitleBuilder = new NoteTitleBuilder();
         }
 
         private string FormatSenderLink(string senderName, string senderEmail)
@@ -182,23 +186,22 @@ namespace SlingMD.Outlook.Services
                     string dateStr = mail.ReceivedTime.ToString("yyyy-MM-dd");
                     string subjectClean = CleanSubject(mail.Subject ?? "No Subject");
 
-                    // Use settings for title format
+                    // Use settings for title format; delegate token substitution + truncation
+                    // to NoteTitleBuilder (unit-tested), then post-process to strip a trailing
+                    // separator if {Date} rendered empty.
                     string titleFormat = _settings.NoteTitleFormat ?? "{Subject} - {Date}";
                     bool includeDate = _settings.NoteTitleIncludeDate;
                     int maxLength = _settings.NoteTitleMaxLength > 0 ? _settings.NoteTitleMaxLength : 50;
 
-                    // Prepare replacements
-                    string formattedTitle = titleFormat
-                        .Replace("{Subject}", subjectClean)
-                        .Replace("{Sender}", senderClean)
-                        .Replace("{Date}", includeDate ? dateStr : "");
-                    // Remove double spaces and trim (using compiled regex)
-                    formattedTitle = WhitespaceRegex.Replace(formattedTitle, " ").Trim();
-                    // Remove trailing dash if date is omitted (using compiled regex)
+                    Dictionary<string, string> titleTokens = new Dictionary<string, string>
+                    {
+                        { "Subject", subjectClean },
+                        { "Sender", senderClean },
+                        { "Date", includeDate ? dateStr : string.Empty }
+                    };
+                    string formattedTitle = _noteTitleBuilder.Build(titleFormat, titleTokens, maxLength);
+                    // Remove trailing dash/space if {Date} rendered empty.
                     formattedTitle = TrailingDashSpaceRegex.Replace(formattedTitle, "").Trim();
-                    // Trim to max length
-                    if (formattedTitle.Length > maxLength)
-                        formattedTitle = formattedTitle.Substring(0, maxLength - 3) + "...";
                     noteTitle = formattedTitle;
 
                     // Email threading logic moved to its own method
@@ -568,14 +571,9 @@ namespace SlingMD.Outlook.Services
             if (string.IsNullOrEmpty(subject))
                 return string.Empty;
 
-            string cleaned = subject;
+            // Settings-driven cleanup patterns are delegated to SubjectCleanerService (unit-tested).
+            string cleaned = _subjectCleaner.Clean(subject);
 
-            // Apply all cleanup patterns from settings
-            foreach (var pattern in _settings.SubjectCleanupPatterns)
-            {
-                cleaned = Regex.Replace(cleaned, pattern, "", RegexOptions.IgnoreCase);
-            }
-            
             // Replace colons (with or without spaces) with underscores (using compiled regex)
             cleaned = ColonSpaceRegex.Replace(cleaned, "_");
 

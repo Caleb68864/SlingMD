@@ -65,6 +65,8 @@ namespace SlingMD.Outlook.Services
         private readonly DateFormatter _dateFormatter;
         private readonly ContactNameParser _contactNameParser;
         private readonly ContactLinkFormatter _contactLinkFormatter;
+        private readonly SubjectCleanerService _subjectCleaner;
+        private readonly NoteTitleBuilder _noteTitleBuilder;
 
         private List<string> _bulkErrors = new List<string>();
 
@@ -87,6 +89,8 @@ namespace SlingMD.Outlook.Services
             _dateFormatter = new DateFormatter();
             _contactNameParser = new ContactNameParser();
             _contactLinkFormatter = new ContactLinkFormatter();
+            _subjectCleaner = new SubjectCleanerService(settings ?? new ObsidianSettings());
+            _noteTitleBuilder = new NoteTitleBuilder();
         }
 
         private string FormatPersonLink(string name)
@@ -369,18 +373,14 @@ namespace SlingMD.Outlook.Services
             string titleFormat = _settings.AppointmentNoteTitleFormat ?? "{Date} - {Subject}";
             int maxLength = _settings.AppointmentNoteTitleMaxLength > 0 ? _settings.AppointmentNoteTitleMaxLength : 50;
 
-            string noteTitle = titleFormat
-                .Replace("{Date}", dateStr)
-                .Replace("{Subject}", subjectClean)
-                .Replace("{Sender}", organizerShortName);
-
-            noteTitle = WhitespaceRegex.Replace(noteTitle, " ").Trim();
-            noteTitle = TrailingDashSpaceRegex.Replace(noteTitle, "").Trim();
-
-            if (noteTitle.Length > maxLength)
+            Dictionary<string, string> titleTokens = new Dictionary<string, string>
             {
-                noteTitle = noteTitle.Substring(0, maxLength - 3) + "...";
-            }
+                { "Date", dateStr },
+                { "Subject", subjectClean },
+                { "Sender", organizerShortName }
+            };
+            string noteTitle = _noteTitleBuilder.Build(titleFormat, titleTokens, maxLength);
+            noteTitle = TrailingDashSpaceRegex.Replace(noteTitle, "").Trim();
 
             string fileNameNoExt = _fileService.CleanFileName(noteTitle);
             if (string.IsNullOrWhiteSpace(fileNameNoExt))
@@ -924,12 +924,8 @@ namespace SlingMD.Outlook.Services
                 return string.Empty;
             }
 
-            string cleaned = subject;
-
-            foreach (string pattern in _settings.SubjectCleanupPatterns)
-            {
-                cleaned = Regex.Replace(cleaned, pattern, "", RegexOptions.IgnoreCase);
-            }
+            // Settings-driven cleanup patterns are delegated to SubjectCleanerService (unit-tested).
+            string cleaned = _subjectCleaner.Clean(subject);
 
             cleaned = ColonSpaceRegex.Replace(cleaned, "_");
 
