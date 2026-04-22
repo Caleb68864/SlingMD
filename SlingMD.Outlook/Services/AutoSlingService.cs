@@ -7,6 +7,29 @@ using SlingMD.Outlook.Services.Formatting;
 
 namespace SlingMD.Outlook.Services
 {
+    /// <summary>
+    /// Possible outcomes from evaluating whether a new mail item should be auto-slung.
+    /// </summary>
+    public enum AutoSlingEligibility
+    {
+        Disabled,
+        AlreadyProcessed,
+        ShuttingDown,
+        SelfSend,
+        NoMatch,
+        Sling
+    }
+
+    /// <summary>
+    /// Result of <see cref="AutoSlingService.EvaluateEligibility"/>. MatchedRule is only populated
+    /// when Outcome is <see cref="AutoSlingEligibility.Sling"/>.
+    /// </summary>
+    public class AutoSlingEligibilityResult
+    {
+        public AutoSlingEligibility Outcome { get; set; }
+        public AutoSlingRule MatchedRule { get; set; }
+    }
+
     public class AutoSlingService
     {
         private readonly ObsidianSettings _settings;
@@ -151,8 +174,16 @@ namespace SlingMD.Outlook.Services
                     SenderDomain = senderDomain ?? string.Empty,
                     Categories = categories ?? string.Empty
                 };
-                SlingDecision decision = _slingDecisionEngine.Decide(snapshot, rules);
-                if (!decision.ShouldSling)
+                AutoSlingEligibilityResult eligibility = EvaluateEligibility(
+                    enableAutoSling: _settings.EnableAutoSling,
+                    isShuttingDown: _shuttingDown,
+                    isAlreadyProcessed: false, // already checked above; re-check here is redundant
+                    currentUserAddress: currentUserAddress,
+                    snapshot: snapshot,
+                    rules: rules,
+                    decisionEngine: _slingDecisionEngine);
+
+                if (eligibility.Outcome != AutoSlingEligibility.Sling)
                 {
                     return;
                 }
@@ -162,7 +193,7 @@ namespace SlingMD.Outlook.Services
                 await _emailProcessor.ProcessEmail(mail);
 
                 string subject = SafeComAction.Execute(() => mail.Subject, "AutoSlingService.ProcessSingleEmail: Subject", "Unknown");
-                string ruleLabel = decision.MatchedRule != null ? $" [{decision.MatchedRule.Type}:{decision.MatchedRule.Pattern}]" : string.Empty;
+                string ruleLabel = eligibility.MatchedRule != null ? $" [{eligibility.MatchedRule.Type}:{eligibility.MatchedRule.Pattern}]" : string.Empty;
                 _notificationService.Notify($"Auto-slung email: {subject}{ruleLabel}");
             }
             catch (System.Exception ex)
@@ -171,5 +202,55 @@ namespace SlingMD.Outlook.Services
             }
         }
 
+        /// <summary>
+        /// Pure-logic eligibility check. Given the current state (flags, current-user address,
+        /// already-processed status) and a mail snapshot + rules, returns the outcome.
+        /// No Outlook COM dependencies — designed for unit testing.
+        /// </summary>
+        public static AutoSlingEligibilityResult EvaluateEligibility(
+            bool enableAutoSling,
+            bool isShuttingDown,
+            bool isAlreadyProcessed,
+            string currentUserAddress,
+            MailItemSnapshot snapshot,
+            IReadOnlyList<AutoSlingRule> rules,
+            SlingDecisionEngine decisionEngine = null)
+        {
+            if (!enableAutoSling)
+            {
+                return new AutoSlingEligibilityResult { Outcome = AutoSlingEligibility.Disabled };
+            }
+
+            if (isAlreadyProcessed)
+            {
+                return new AutoSlingEligibilityResult { Outcome = AutoSlingEligibility.AlreadyProcessed };
+            }
+
+            if (isShuttingDown)
+            {
+                return new AutoSlingEligibilityResult { Outcome = AutoSlingEligibility.ShuttingDown };
+            }
+
+            if (snapshot != null
+                && !string.IsNullOrEmpty(currentUserAddress)
+                && string.Equals(snapshot.SenderEmail, currentUserAddress, StringComparison.OrdinalIgnoreCase))
+            {
+                return new AutoSlingEligibilityResult { Outcome = AutoSlingEligibility.SelfSend };
+            }
+
+            SlingDecisionEngine engine = decisionEngine ?? new SlingDecisionEngine();
+            SlingDecision decision = engine.Decide(snapshot, rules);
+
+            if (decision == null || !decision.ShouldSling)
+            {
+                return new AutoSlingEligibilityResult { Outcome = AutoSlingEligibility.NoMatch };
+            }
+
+            return new AutoSlingEligibilityResult
+            {
+                Outcome = AutoSlingEligibility.Sling,
+                MatchedRule = decision.MatchedRule
+            };
+        }
     }
 }
