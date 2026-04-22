@@ -97,6 +97,7 @@
     <Compile Include="Services\ThreadCompletionServiceTests.cs" />
     <Compile Include="Services\Formatting\NoteTitleBuilderTests.cs" />
     <Compile Include="Services\Formatting\DateFormatterTests.cs" />
+    <Compile Include="Services\Formatting\EmailAddressParserTests.cs" />
     <Compile Include="Services\Formatting\ContactNameParserTests.cs" />
     <Compile Include="Services\Formatting\ContactLinkFormatterTests.cs" />
     <Compile Include="Services\Formatting\SubjectCleanerServiceTests.cs" />

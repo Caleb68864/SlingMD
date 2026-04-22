@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.Office.Interop.Outlook;
 using SlingMD.Outlook.Helpers;
 using SlingMD.Outlook.Models;
+using SlingMD.Outlook.Services.Formatting;
 
 namespace SlingMD.Outlook.Services
 {
@@ -12,6 +13,7 @@ namespace SlingMD.Outlook.Services
         private readonly EmailProcessor _emailProcessor;
         private readonly NotificationService _notificationService;
         private readonly SlingDecisionEngine _slingDecisionEngine;
+        private readonly EmailAddressParser _emailAddressParser;
         private readonly BoundedHashSet _processedEntryIds = new BoundedHashSet();
 
         private Application _outlookApp;
@@ -27,6 +29,7 @@ namespace SlingMD.Outlook.Services
             _emailProcessor = emailProcessor;
             _notificationService = notificationService;
             _slingDecisionEngine = new SlingDecisionEngine();
+            _emailAddressParser = new EmailAddressParser();
         }
 
         public void Start(Application outlookApp)
@@ -135,7 +138,7 @@ namespace SlingMD.Outlook.Services
                 }
 
                 string senderEmail = senderEmailAddress;
-                string senderDomain = ExtractDomain(senderEmail);
+                string senderDomain = _emailAddressParser.Domain(senderEmail);
                 string categories = SafeComAction.Execute(
                     () => mail.Categories,
                     "AutoSlingService.ProcessSingleEmail: Categories",
@@ -168,20 +171,5 @@ namespace SlingMD.Outlook.Services
             }
         }
 
-        private static string ExtractDomain(string email)
-        {
-            if (string.IsNullOrEmpty(email))
-            {
-                return string.Empty;
-            }
-
-            int atIndex = email.IndexOf('@');
-            if (atIndex < 0 || atIndex == email.Length - 1)
-            {
-                return string.Empty;
-            }
-
-            return email.Substring(atIndex + 1);
-        }
     }
 }

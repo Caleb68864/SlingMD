@@ -20,6 +20,8 @@ namespace SlingMD.Outlook.Services.Formatting
             "Esq.", "Esq", "PhD", "Ph.D.", "MD", "M.D.", "DDS", "D.D.S."
         };
 
+        private static readonly EmailAddressParser EmailParser = new EmailAddressParser();
+
         /// <summary>
         /// Parses a display name into structured <see cref="ContactName"/> parts.
         /// </summary>
@@ -75,23 +77,9 @@ namespace SlingMD.Outlook.Services.Formatting
             return result;
         }
 
-        /// <summary>
-        /// Extracts the local part (before @) from an email address.
-        /// </summary>
         private string ExtractLocalPart(string email)
         {
-            if (string.IsNullOrWhiteSpace(email))
-            {
-                return string.Empty;
-            }
-
-            int atIndex = email.IndexOf('@');
-            if (atIndex > 0)
-            {
-                return email.Substring(0, atIndex);
-            }
-
-            return email;
+            return EmailParser.LocalPart(email);
         }
 
         /// <summary>

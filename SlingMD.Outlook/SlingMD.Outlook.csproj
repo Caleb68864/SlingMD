@@ -300,6 +300,7 @@
     <Compile Include="Services\Formatting\ContactLinkFormatter.cs" />
     <Compile Include="Services\Formatting\ContactNameParser.cs" />
     <Compile Include="Services\Formatting\DateFormatter.cs" />
+    <Compile Include="Services\Formatting\EmailAddressParser.cs" />
     <Compile Include="Services\Formatting\FileNameSanitizer.cs" />
     <Compile Include="Services\Formatting\FilenameSubjectNormalizer.cs" />
     <Compile Include="Services\Formatting\FrontmatterReader.cs" />
