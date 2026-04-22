@@ -103,6 +103,8 @@
     <Compile Include="Services\Formatting\ThreadIdHasherTests.cs" />
     <Compile Include="Services\ReminderDueDateCalculatorTests.cs" />
     <Compile Include="Services\SlingDecisionEngineTests.cs" />
+    <Compile Include="Services\TaskServiceClockTests.cs" />
+    <Compile Include="Infrastructure\FakeClock.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
