@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using SlingMD.Outlook.Helpers;
 using Logger = SlingMD.Outlook.Helpers.Logger;
+using SlingMD.Outlook.Infrastructure;
 using SlingMD.Outlook.Services.Formatting;
 
 namespace SlingMD.Outlook.Services
@@ -47,16 +48,18 @@ namespace SlingMD.Outlook.Services
         private readonly SubjectCleanerService _subjectCleaner;
         private readonly NoteTitleBuilder _noteTitleBuilder;
         private readonly FilenameSubjectNormalizer _filenameSubjectNormalizer;
+        private readonly IClock _clock;
 
-        public EmailProcessor(ObsidianSettings settings)
+        public EmailProcessor(ObsidianSettings settings, IClock clock = null)
         {
             _settings = settings;
+            _clock = clock ?? new SystemClock();
             _fileService = new FileService(settings);
             _templateService = new TemplateService(_fileService);
             _threadService = new ThreadService(_fileService, _templateService, settings);
-            _taskService = new TaskService(settings, _templateService);
-            _contactService = new ContactService(_fileService, _templateService);
-            _attachmentService = new AttachmentService(settings, _fileService);
+            _taskService = new TaskService(settings, _templateService, _clock);
+            _contactService = new ContactService(_fileService, _templateService, _clock);
+            _attachmentService = new AttachmentService(settings, _fileService, _clock);
             _dateFormatter = new DateFormatter();
             _contactNameParser = new ContactNameParser();
             _contactLinkFormatter = new ContactLinkFormatter();
@@ -862,7 +865,7 @@ namespace SlingMD.Outlook.Services
         {
             // Only rebuild cache if it's older than 5 minutes (to allow for external changes)
             // or if it's never been built
-            if ((DateTime.Now - _cacheLastBuilt).TotalMinutes < 5 && _processedEmailIds.Count > 0)
+            if ((_clock.Now - _cacheLastBuilt).TotalMinutes < 5 && _processedEmailIds.Count > 0)
             {
                 return;
             }
@@ -870,7 +873,7 @@ namespace SlingMD.Outlook.Services
             lock (_cacheBuildLock)
             {
                 // Double-check after acquiring lock
-                if ((DateTime.Now - _cacheLastBuilt).TotalMinutes < 5 && _processedEmailIds.Count > 0)
+                if ((_clock.Now - _cacheLastBuilt).TotalMinutes < 5 && _processedEmailIds.Count > 0)
                 {
                     return;
                 }
@@ -881,7 +884,7 @@ namespace SlingMD.Outlook.Services
                 {
                     // Inbox folder does not yet exist (first run or vault not yet created).
                     // Treat as an empty cache – no files to scan.
-                    _cacheLastBuilt = DateTime.Now;
+                    _cacheLastBuilt = _clock.Now;
                     return;
                 }
 
@@ -927,7 +930,7 @@ namespace SlingMD.Outlook.Services
                     }
                 }
 
-                _cacheLastBuilt = DateTime.Now;
+                _cacheLastBuilt = _clock.Now;
             }
         }
 

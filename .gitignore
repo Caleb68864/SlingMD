@@ -13,3 +13,7 @@ docs/
 vault/
 .forge-factory/
 .claude-terminal/sessions.json
+
+# Signing keys — VSTO temp keys must never be committed.
+# If you need to sign locally, regenerate via VS > Project > Signing.
+*.pfx

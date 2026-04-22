@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Microsoft.Office.Interop.Outlook;
+using SlingMD.Outlook.Infrastructure;
 using SlingMD.Outlook.Models;
 using SlingMD.Outlook.Helpers;
 using SlingMD.Outlook.Services.Formatting;
@@ -16,12 +17,14 @@ namespace SlingMD.Outlook.Services
     {
         private readonly ObsidianSettings _settings;
         private readonly FileService _fileService;
+        private readonly IClock _clock;
         private readonly UniqueFilenameResolver _uniqueFilenameResolver = new UniqueFilenameResolver();
 
-        public AttachmentService(ObsidianSettings settings, FileService fileService)
+        public AttachmentService(ObsidianSettings settings, FileService fileService, IClock clock = null)
         {
             _settings = settings;
             _fileService = fileService;
+            _clock = clock ?? new SystemClock();
         }
 
         /// <summary>
@@ -254,7 +257,7 @@ namespace SlingMD.Outlook.Services
                     // Use centralized attachments folder with year-month subfolders
                     string vaultPath = _settings.GetFullVaultPath();
                     string attachmentsFolder = _settings.AttachmentsFolder ?? "Attachments";
-                    string yearMonth = DateTime.Now.ToString("yyyy-MM");
+                    string yearMonth = _clock.Now.ToString("yyyy-MM");
                     return Path.Combine(vaultPath, attachmentsFolder, yearMonth);
 
                 case AttachmentStorageMode.SameAsNote:

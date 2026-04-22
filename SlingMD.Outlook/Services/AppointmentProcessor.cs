@@ -190,8 +190,8 @@ namespace SlingMD.Outlook.Services
             string subject = string.Empty;
             string body = string.Empty;
             string location = string.Empty;
-            DateTime startTime = DateTime.Now;
-            DateTime endTime = DateTime.Now;
+            DateTime startTime = _clock.Now;
+            DateTime endTime = _clock.Now;
             string organizerName = string.Empty;
             string organizerEmail = string.Empty;
             string globalAppointmentId = string.Empty;

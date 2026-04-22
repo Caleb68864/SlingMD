@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using Microsoft.Office.Interop.Outlook;
+using SlingMD.Outlook.Infrastructure;
 using SlingMD.Outlook.Models;
 using SlingMD.Outlook.Services.Formatting;
 
@@ -24,9 +25,10 @@ namespace SlingMD.Outlook.Services
         private readonly ContactNameParser _contactNameParser;
         private readonly ContactLinkFormatter _contactLinkFormatter;
         private readonly DateFormatter _dateFormatter;
+        private readonly IClock _clock;
         private static readonly MarkdownSectionFinder SectionFinder = new MarkdownSectionFinder();
 
-        public ContactService(FileService fileService, TemplateService templateService)
+        public ContactService(FileService fileService, TemplateService templateService, IClock clock = null)
         {
             _fileService = fileService;
             _templateService = templateService;
@@ -34,6 +36,7 @@ namespace SlingMD.Outlook.Services
             _contactNameParser = new ContactNameParser();
             _contactLinkFormatter = new ContactLinkFormatter();
             _dateFormatter = new DateFormatter();
+            _clock = clock ?? new SystemClock();
         }
 
         /// <summary>
@@ -415,7 +418,7 @@ namespace SlingMD.Outlook.Services
             string filePath = GetManagedContactNotePath(contactName);
             string fileNameNoExtension = Path.GetFileNameWithoutExtension(filePath);
 
-            string created = _dateFormatter.Format(DateTime.Now, _settings.ContactDateFormat);
+            string created = _dateFormatter.Format(_clock.Now, _settings.ContactDateFormat);
             ContactTemplateContext context = new ContactTemplateContext
             {
                 Metadata = new Dictionary<string, object>
@@ -596,7 +599,7 @@ namespace SlingMD.Outlook.Services
             string cleanName = _fileService.CleanFileName(fullName);
             string fileNameNoExtension = _fileService.CleanFileName(fullName);
 
-            string created = _dateFormatter.Format(DateTime.Now, _settings.ContactDateFormat);
+            string created = _dateFormatter.Format(_clock.Now, _settings.ContactDateFormat);
             Dictionary<string, object> metadata = new Dictionary<string, object>
             {
                 { "title", fullName },
