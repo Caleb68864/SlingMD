@@ -96,6 +96,13 @@
     <Compile Include="Services\FolderMonitorServiceTests.cs" />
     <Compile Include="Services\ThreadCompletionServiceTests.cs" />
     <Compile Include="Services\Formatting\NoteTitleBuilderTests.cs" />
+    <Compile Include="Services\Formatting\DateFormatterTests.cs" />
+    <Compile Include="Services\Formatting\ContactNameParserTests.cs" />
+    <Compile Include="Services\Formatting\ContactLinkFormatterTests.cs" />
+    <Compile Include="Services\Formatting\SubjectCleanerServiceTests.cs" />
+    <Compile Include="Services\Formatting\ThreadIdHasherTests.cs" />
+    <Compile Include="Services\ReminderDueDateCalculatorTests.cs" />
+    <Compile Include="Services\SlingDecisionEngineTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
