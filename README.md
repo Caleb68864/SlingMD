@@ -126,6 +126,62 @@ Before using SlingMD, you'll need to configure your Obsidian vault settings:
 
 Note: Make sure your Vault Base Path points to an existing Obsidian vault directory. If you haven't created a vault yet, please set one up in Obsidian first.
 
+### Customization
+
+SlingMD exposes several format strings so you can tailor the output to your vault or mention-plugin setup.
+
+#### `EmailDateFormat`, `ContactDateFormat`, `AppointmentDateFormat`
+
+Controls how `{{date}}` (and related date placeholders) render in exported notes. Uses the standard .NET `DateTime` format syntax.
+
+- Default: `"yyyy-MM-dd HH:mm:ss"` — e.g., `2026-04-21 09:30:00`
+
+Each domain has its own setting so you can keep email timestamps precise while rendering appointments as date-only.
+
+**Examples (non-default):**
+
+```
+EmailDateFormat = "yyyy-MM-dd"
+```
+Produces: `2026-04-21`
+
+```
+ContactDateFormat = "MMMM d, yyyy"
+```
+Produces: `April 21, 2026`
+
+```
+AppointmentDateFormat = "dddd, MMMM d, yyyy h:mm tt"
+```
+Produces: `Tuesday, April 21, 2026 9:30 AM`
+
+#### `ContactLinkFormat`
+
+Controls how `{{to}}`, `{{from}}`, and `{{cc}}` render recipients in email and appointment notes. Supports tokens: `{FullName}`, `{FirstName}`, `{LastName}`, `{MiddleName}`, `{Suffix}`, `{DisplayName}`, `{ShortName}`, `{Email}`, `{FirstInitial}`, `{LastInitial}`.
+
+- Default: `"[[{FullName}]]"` — produces `[[John Smith]]`
+
+**Examples (non-default):**
+
+```
+ContactLinkFormat = "@{FirstName}{LastName}"
+```
+Produces: `@JohnSmith` — compatible with the At People plugin for inline mentions.
+
+```
+ContactLinkFormat = "[[{LastName}]]"
+```
+Produces: `[[Smith]]`
+
+```
+ContactLinkFormat = "@{FirstInitial}{LastInitial}"
+```
+Produces: `@JS`
+
+#### Subject cleanup
+
+The default subject-cleanup patterns now correctly preserve words that contain `re-` (like `pre-release`). If you upgraded from a previous version, SlingMD silently migrates the broken default pattern on first load — your custom patterns are never touched.
+
 ## Task Creation
 
 When task creation is enabled, SlingMD can create follow-up tasks in two locations:
@@ -211,6 +267,8 @@ SlingMD uses `{{placeholder}}` templates to generate markdown notes. You can cus
 4. Your template is used for all notes of that type going forward
 
 If no custom template is configured, SlingMD uses sensible built-in defaults.
+
+> **Note:** If you drop a `ContactTemplate.md` into your vault's Templates folder, SlingMD will load and use it automatically. (Earlier versions only honored the file when the template filename was changed to a non-default name — this is now fixed.)
 
 ### Template Types and Settings
 
