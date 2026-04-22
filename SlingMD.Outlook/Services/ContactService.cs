@@ -24,6 +24,7 @@ namespace SlingMD.Outlook.Services
         private readonly ContactNameParser _contactNameParser;
         private readonly ContactLinkFormatter _contactLinkFormatter;
         private readonly DateFormatter _dateFormatter;
+        private static readonly MarkdownSectionFinder SectionFinder = new MarkdownSectionFinder();
 
         public ContactService(FileService fileService, TemplateService templateService)
         {
@@ -706,13 +707,7 @@ namespace SlingMD.Outlook.Services
 
         private static int FindSectionStart(string content, string heading, int startIndex = 0)
         {
-            if (string.IsNullOrEmpty(content) || startIndex >= content.Length)
-            {
-                return -1;
-            }
-
-            Match match = Regex.Match(content.Substring(startIndex), $"^{Regex.Escape(heading)}\\s*$", RegexOptions.Multiline);
-            return match.Success ? startIndex + match.Index : -1;
+            return SectionFinder.FindSectionStart(content, heading, startIndex);
         }
 
         private static string ExtractManagedCommunicationHistorySection(string content)

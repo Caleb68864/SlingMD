@@ -304,6 +304,7 @@
     <Compile Include="Services\Formatting\FileNameSanitizer.cs" />
     <Compile Include="Services\Formatting\FilenameSubjectNormalizer.cs" />
     <Compile Include="Services\Formatting\FrontmatterReader.cs" />
+    <Compile Include="Services\Formatting\MarkdownSectionFinder.cs" />
     <Compile Include="Services\Formatting\NoteTitleBuilder.cs" />
     <Compile Include="Services\Formatting\SubjectCleanerService.cs" />
     <Compile Include="Services\Formatting\TemplatePathResolver.cs" />
