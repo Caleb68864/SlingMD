@@ -291,6 +291,7 @@
     <Compile Include="Models\TaskDueSettings.cs" />
     <Compile Include="Models\FilenameSubjectRule.cs" />
     <Compile Include="Infrastructure\IClock.cs" />
+    <Compile Include="Infrastructure\MapiPropertyTags.cs" />
     <Compile Include="Infrastructure\SystemClock.cs" />
     <Compile Include="Services\AppointmentProcessor.cs" />
     <Compile Include="Services\ContactProcessor.cs" />

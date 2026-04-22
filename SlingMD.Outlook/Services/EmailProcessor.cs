@@ -652,7 +652,7 @@ namespace SlingMD.Outlook.Services
             try
             {
                 // Try to get InternetMessageID via PropertyAccessor (works for most accounts)
-                internetMessageId = mail.PropertyAccessor.GetProperty("http://schemas.microsoft.com/mapi/proptag/0x1035001E") as string;
+                internetMessageId = mail.PropertyAccessor.GetProperty(MapiPropertyTags.PrInternetMessageId) as string;
             }
             catch (System.Exception ex)
             {

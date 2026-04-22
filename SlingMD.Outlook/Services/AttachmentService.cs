@@ -108,9 +108,8 @@ namespace SlingMD.Outlook.Services
         {
             try
             {
-                // Check for ContentID (PR_ATTACH_CONTENT_ID)
-                const string PR_ATTACH_CONTENT_ID = "http://schemas.microsoft.com/mapi/proptag/0x3712001F";
-                object contentId = attachment.PropertyAccessor.GetProperty(PR_ATTACH_CONTENT_ID);
+                // Non-empty ContentID indicates the attachment is referenced inline from the HTML body.
+                object contentId = attachment.PropertyAccessor.GetProperty(MapiPropertyTags.PrAttachContentId);
 
                 if (contentId != null && !string.IsNullOrEmpty(contentId.ToString()))
                 {

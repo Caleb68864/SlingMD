@@ -7,6 +7,7 @@ using Microsoft.Office.Interop.Outlook;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using SlingMD.Outlook.Infrastructure;
 using SlingMD.Outlook.Models;
 using SlingMD.Outlook.Services.Formatting;
 
@@ -59,8 +60,7 @@ namespace SlingMD.Outlook.Services
                 // Strategy 2: PR_CONVERSATION_INDEX — Exchange-native thread bytes. Different hash shape
                 // than ThreadIdHasher; preserved as a separate strategy because its ID is not derived
                 // from the subject line.
-                const string PR_CONVERSATION_INDEX = "http://schemas.microsoft.com/mapi/proptag/0x0071001F";
-                byte[] conversationIndex = (byte[])mail.PropertyAccessor.GetProperty(PR_CONVERSATION_INDEX);
+                byte[] conversationIndex = (byte[])mail.PropertyAccessor.GetProperty(MapiPropertyTags.PrConversationIndex);
 
                 if (conversationIndex != null && conversationIndex.Length >= 22)
                 {

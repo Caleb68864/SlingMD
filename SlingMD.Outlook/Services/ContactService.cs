@@ -103,8 +103,7 @@ namespace SlingMD.Outlook.Services
         {
             try
             {
-                const string PrSmtpAddress = "http://schemas.microsoft.com/mapi/proptag/0x39FE001E";
-                return mail.PropertyAccessor.GetProperty(PrSmtpAddress);
+                return mail.PropertyAccessor.GetProperty(MapiPropertyTags.PrSmtpAddress);
             }
             catch
             {
@@ -162,8 +161,7 @@ namespace SlingMD.Outlook.Services
                     {
                         try
                         {
-                            const string PrSmtpAddress = "http://schemas.microsoft.com/mapi/proptag/0x39FE001E";
-                            string email = recipient.PropertyAccessor.GetProperty(PrSmtpAddress);
+                            string email = recipient.PropertyAccessor.GetProperty(MapiPropertyTags.PrSmtpAddress);
                             if (!string.IsNullOrEmpty(email))
                             {
                                 emails.Add(email);
@@ -198,8 +196,7 @@ namespace SlingMD.Outlook.Services
         {
             try
             {
-                const string PrSmtpAddress = "http://schemas.microsoft.com/mapi/proptag/0x39FE001E";
-                return recipient.PropertyAccessor.GetProperty(PrSmtpAddress) as string ?? recipient.Address;
+                return recipient.PropertyAccessor.GetProperty(MapiPropertyTags.PrSmtpAddress) as string ?? recipient.Address;
             }
             catch
             {
@@ -274,8 +271,7 @@ namespace SlingMD.Outlook.Services
                     {
                         try
                         {
-                            const string PrSmtpAddress = "http://schemas.microsoft.com/mapi/proptag/0x39FE001E";
-                            string email = recipient.PropertyAccessor.GetProperty(PrSmtpAddress) as string;
+                            string email = recipient.PropertyAccessor.GetProperty(MapiPropertyTags.PrSmtpAddress) as string;
                             if (!string.IsNullOrEmpty(email))
                             {
                                 emails.Add(email);
