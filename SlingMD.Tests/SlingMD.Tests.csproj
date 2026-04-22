@@ -102,6 +102,7 @@
     <Compile Include="Services\Formatting\SubjectCleanerServiceTests.cs" />
     <Compile Include="Services\Formatting\ThreadIdHasherTests.cs" />
     <Compile Include="Services\Formatting\FileNameSanitizerTests.cs" />
+    <Compile Include="Services\Formatting\FrontmatterReaderTests.cs" />
     <Compile Include="Services\ReminderDueDateCalculatorTests.cs" />
     <Compile Include="Services\SlingDecisionEngineTests.cs" />
     <Compile Include="Services\TaskServiceClockTests.cs" />

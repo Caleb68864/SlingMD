@@ -23,6 +23,7 @@ namespace SlingMD.Outlook.Services
         private readonly TemplateService _templateService;
         private readonly ObsidianSettings _settings;
         private readonly ThreadIdHasher _threadIdHasher;
+        private readonly FrontmatterReader _frontmatter;
 
         public ThreadService(FileService fileService, TemplateService templateService, ObsidianSettings settings)
         {
@@ -32,6 +33,7 @@ namespace SlingMD.Outlook.Services
             // Use a fallback settings instance when null so "store-only" constructor pattern
             // is preserved (exceptions only surface when methods are actually called).
             _threadIdHasher = new ThreadIdHasher(new SubjectCleanerService(settings ?? new ObsidianSettings()));
+            _frontmatter = new FrontmatterReader();
         }
 
         /// <summary>
@@ -286,28 +288,26 @@ namespace SlingMD.Outlook.Services
                     try
                     {
                         string emailContent = File.ReadAllText(file);
-                        var threadIdMatch = Regex.Match(emailContent, @"threadId: ""([^""]+)""");
-                        
+                        string fileThreadId = _frontmatter.ExtractThreadId(emailContent);
+
                         // If this file belongs to the conversation thread
-                        if (threadIdMatch.Success && threadIdMatch.Groups[1].Value == conversationId)
+                        if (fileThreadId == conversationId)
                         {
                             hasExistingThread = true;
                             emailCount++; // Increment email count for each matching email
                             matchingFiles.Add(file); // Add to our debugging list
 
                             // Parse the date to find the earliest email.
-                            // Accept the currently written quoted "yyyy-MM-dd HH:mm:ss" format first,
-                            // then fall back to legacy minute-precision values for backward compatibility.
-                            var dateMatch = Regex.Match(emailContent, @"date: ""?(\d{4}-\d{2}-\d{2} \d{2}:\d{2}(?::\d{2})?)""?");
-                            if (dateMatch.Success)
+                            string rawDate = _frontmatter.ExtractRawDate(emailContent);
+                            if (rawDate != null)
                             {
                                 DateTime emailDate;
-                                if (TryParseThreadDate(dateMatch.Groups[1].Value, out emailDate))
+                                if (TryParseThreadDate(rawDate, out emailDate))
                                 {
                                     if (!earliestEmailDate.HasValue || emailDate < earliestEmailDate.Value)
                                     {
                                         earliestEmailDate = emailDate;
-                                        
+
                                         // Check if this email is in a thread folder
                                         string directory = Path.GetDirectoryName(file);
                                         if (directory != inboxPath)
@@ -316,20 +316,18 @@ namespace SlingMD.Outlook.Services
                                         }
                                         else
                                         {
-                                            // Try to extract thread name components from frontmatter
-                                            var subjectMatch = Regex.Match(emailContent, @"title: ""([^""]+)""");
-                                            var fromMatch = Regex.Match(emailContent, @"from: ""[^""]*\[\[([^""]+)\]\]""");
-                                            var toMatch = Regex.Match(emailContent, @"to:.*?\n\s*- ""[^""]*\[\[([^""]+)\]\]""", RegexOptions.Singleline);
-                                            
-                                            if (subjectMatch.Success && fromMatch.Success && toMatch.Success)
+                                            // Reconstruct a thread name from the frontmatter title/from/to fields.
+                                            string title = _frontmatter.ExtractTitle(emailContent);
+                                            string sender = _frontmatter.ExtractFromName(emailContent);
+                                            string recipient = _frontmatter.ExtractFirstToName(emailContent);
+
+                                            if (title != null && sender != null && recipient != null)
                                             {
-                                                string subject = _fileService.CleanFileName(subjectMatch.Groups[1].Value);
+                                                string subject = _fileService.CleanFileName(title);
                                                 if (subject.Length > 50)
                                                 {
                                                     subject = subject.Substring(0, 47) + "...";
                                                 }
-                                                string sender = fromMatch.Groups[1].Value;
-                                                string recipient = toMatch.Groups[1].Value;
                                                 earliestEmailThreadName = $"{subject}-{sender}-{recipient}";
                                             }
                                         }
