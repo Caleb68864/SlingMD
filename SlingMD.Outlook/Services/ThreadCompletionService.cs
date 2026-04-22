@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using Microsoft.Office.Interop.Outlook;
 using SlingMD.Outlook.Models;
+using SlingMD.Outlook.Services.Formatting;
 
 namespace SlingMD.Outlook.Services
 {
@@ -15,11 +16,13 @@ namespace SlingMD.Outlook.Services
     {
         private readonly FileService _fileService;
         private readonly ObsidianSettings _settings;
+        private readonly FrontmatterReader _frontmatter;
 
         public ThreadCompletionService(FileService fileService, ObsidianSettings settings)
         {
             _fileService = fileService;
             _settings = settings;
+            _frontmatter = new FrontmatterReader();
         }
 
         /// <summary>
@@ -105,20 +108,16 @@ namespace SlingMD.Outlook.Services
                 try
                 {
                     string content = File.ReadAllText(file);
-                    System.Text.RegularExpressions.Match threadIdMatch =
-                        Regex.Match(content, @"threadId: ""([^""]+)""");
-
-                    if (!threadIdMatch.Success || threadIdMatch.Groups[1].Value != conversationId)
+                    string fileThreadId = _frontmatter.ExtractThreadId(content);
+                    if (fileThreadId != conversationId)
                     {
                         continue;
                     }
 
-                    System.Text.RegularExpressions.Match entryIdMatch =
-                        Regex.Match(content, @"entryId: ""([^""]+)""");
-
-                    if (entryIdMatch.Success)
+                    string entryId = _frontmatter.ExtractEntryId(content);
+                    if (!string.IsNullOrEmpty(entryId))
                     {
-                        entryIds.Add(entryIdMatch.Groups[1].Value);
+                        entryIds.Add(entryId);
                     }
                 }
                 catch (System.Exception)

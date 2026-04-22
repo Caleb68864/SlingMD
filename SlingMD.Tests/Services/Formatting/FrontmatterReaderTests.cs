@@ -88,5 +88,33 @@ namespace SlingMD.Tests.Services.Formatting
             string content = "to:\n  - \"[[A]]\"\n  - \"[[B]]\"\n  - \"[[C]]\"\n";
             Assert.Equal("A", _reader.ExtractFirstToName(content));
         }
+
+        [Fact]
+        public void ExtractInternetMessageId_ReturnsValue()
+        {
+            string content = "internetMessageId: \"<msg-1@example.com>\"\nthreadId: \"abc\"\n";
+            Assert.Equal("<msg-1@example.com>", _reader.ExtractInternetMessageId(content));
+        }
+
+        [Fact]
+        public void ExtractInternetMessageId_Missing_ReturnsNull()
+        {
+            string content = "title: \"x\"\n";
+            Assert.Null(_reader.ExtractInternetMessageId(content));
+        }
+
+        [Fact]
+        public void ExtractEntryId_ReturnsValue()
+        {
+            string content = "entryId: \"00000000abc123def456\"\n";
+            Assert.Equal("00000000abc123def456", _reader.ExtractEntryId(content));
+        }
+
+        [Fact]
+        public void ExtractEntryId_Missing_ReturnsNull()
+        {
+            string content = "title: \"x\"\n";
+            Assert.Null(_reader.ExtractEntryId(content));
+        }
     }
 }

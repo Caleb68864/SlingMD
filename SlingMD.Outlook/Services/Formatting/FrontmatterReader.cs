@@ -14,6 +14,8 @@ namespace SlingMD.Outlook.Services.Formatting
         private static readonly Regex TitleRegex = new Regex(@"title: ""([^""]+)""", RegexOptions.Compiled);
         private static readonly Regex FromRegex = new Regex(@"from: ""[^""]*\[\[([^""]+)\]\]""", RegexOptions.Compiled);
         private static readonly Regex ToRegex = new Regex(@"to:.*?\n\s*- ""[^""]*\[\[([^""]+)\]\]""", RegexOptions.Compiled | RegexOptions.Singleline);
+        private static readonly Regex InternetMessageIdRegex = new Regex(@"internetMessageId: ""([^""]+)""", RegexOptions.Compiled);
+        private static readonly Regex EntryIdRegex = new Regex(@"entryId: ""([^""]+)""", RegexOptions.Compiled);
 
         /// <summary>
         /// Returns the threadId frontmatter value, or null if not present.
@@ -21,6 +23,22 @@ namespace SlingMD.Outlook.Services.Formatting
         public string ExtractThreadId(string content)
         {
             return ExtractFirst(content, ThreadIdRegex);
+        }
+
+        /// <summary>
+        /// Returns the internetMessageId frontmatter value, or null if not present.
+        /// </summary>
+        public string ExtractInternetMessageId(string content)
+        {
+            return ExtractFirst(content, InternetMessageIdRegex);
+        }
+
+        /// <summary>
+        /// Returns the entryId frontmatter value, or null if not present.
+        /// </summary>
+        public string ExtractEntryId(string content)
+        {
+            return ExtractFirst(content, EntryIdRegex);
         }
 
         /// <summary>
