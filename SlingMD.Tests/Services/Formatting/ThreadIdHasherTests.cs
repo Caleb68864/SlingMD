@@ -78,5 +78,21 @@ namespace SlingMD.Tests.Services.Formatting
             ThreadIdHasher hasher = Hasher();
             Assert.NotEqual(hasher.Hash("pre-release notes"), hasher.Hash("release notes"));
         }
+
+        // ---- Golden-hash pin tests ----
+        // These lock the hash output to exact values so the ThreadService refactor
+        // cannot silently change historical thread IDs. If these break, existing
+        // threads in users' vaults will no longer match newly processed emails.
+
+        [Theory]
+        [InlineData("Quarterly review", "AF6350AAEA21DDC93136")]
+        [InlineData("Re: Quarterly review", "AF6350AAEA21DDC93136")]
+        [InlineData("[EXTERNAL] Re: Quarterly review", "AF6350AAEA21DDC93136")]
+        [InlineData("Status update", "227E801F4C5AF845896D")]
+        [InlineData("pre-release notes", "0DE945BCFDB14657F4BD")]
+        public void Hash_GoldenValues_LockHistoricalThreadIds(string subject, string expected)
+        {
+            Assert.Equal(expected, Hasher().Hash(subject));
+        }
     }
 }

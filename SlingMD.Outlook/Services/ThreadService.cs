@@ -8,12 +8,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using SlingMD.Outlook.Models;
+using SlingMD.Outlook.Services.Formatting;
 
 namespace SlingMD.Outlook.Services
 {
     /// <summary>
-    /// Provides helper routines for detecting email conversation threads, generating folder/note names, 
-    /// manipulating files that belong to a thread and updating the thread summary note.  
+    /// Provides helper routines for detecting email conversation threads, generating folder/note names,
+    /// manipulating files that belong to a thread and updating the thread summary note.
     /// All publicly exposed members are safe for unit-testing and are free of any Outlook UI dependencies.
     /// </summary>
     public class ThreadService
@@ -21,12 +22,16 @@ namespace SlingMD.Outlook.Services
         private readonly FileService _fileService;
         private readonly TemplateService _templateService;
         private readonly ObsidianSettings _settings;
+        private readonly ThreadIdHasher _threadIdHasher;
 
         public ThreadService(FileService fileService, TemplateService templateService, ObsidianSettings settings)
         {
             _fileService = fileService;
             _templateService = templateService;
             _settings = settings;
+            // Use a fallback settings instance when null so "store-only" constructor pattern
+            // is preserved (exceptions only surface when methods are actually called).
+            _threadIdHasher = new ThreadIdHasher(new SubjectCleanerService(settings ?? new ObsidianSettings()));
         }
 
         /// <summary>
@@ -41,38 +46,26 @@ namespace SlingMD.Outlook.Services
         {
             try
             {
-                // Try to get the conversation topic first as it's most reliable for threading
+                // Strategy 1: Hash the conversation topic (most reliable for threading).
                 if (!string.IsNullOrEmpty(mail.ConversationTopic))
                 {
-                    string normalizedSubject = mail.ConversationTopic;
-                    // Remove all variations of Re, Fwd, etc. and [EXTERNAL] tags
-                    normalizedSubject = Regex.Replace(normalizedSubject, @"^(?:(?:Re|Fwd|FW|RE|FWD)[- :]|\[EXTERNAL\]|\s)+", "", RegexOptions.IgnoreCase);
-                    // Also remove any "Re:" that might appear after [EXTERNAL]
-                    normalizedSubject = Regex.Replace(normalizedSubject, @"^Re:\s+", "", RegexOptions.IgnoreCase);
-                    return BitConverter.ToString(MD5.Create()
-                        .ComputeHash(Encoding.UTF8.GetBytes(normalizedSubject)))
-                        .Replace("-", "").Substring(0, 20);
+                    return _threadIdHasher.Hash(mail.ConversationTopic);
                 }
 
-                // Try to get the conversation index using PR_CONVERSATION_INDEX property
+                // Strategy 2: PR_CONVERSATION_INDEX — Exchange-native thread bytes. Different hash shape
+                // than ThreadIdHasher; preserved as a separate strategy because its ID is not derived
+                // from the subject line.
                 const string PR_CONVERSATION_INDEX = "http://schemas.microsoft.com/mapi/proptag/0x0071001F";
                 byte[] conversationIndex = (byte[])mail.PropertyAccessor.GetProperty(PR_CONVERSATION_INDEX);
 
                 if (conversationIndex != null && conversationIndex.Length >= 22)
                 {
-                    // The first 22 bytes of the conversation index identify the thread
-                    // Use 20 characters for better uniqueness
                     return BitConverter.ToString(conversationIndex.Take(22).ToArray())
                         .Replace("-", "").Substring(0, 20);
                 }
 
-                // If both methods fail, use the normalized subject as last resort
-                string subject = mail.Subject;
-                subject = Regex.Replace(subject, @"^(?:(?:Re|Fwd|FW|RE|FWD)[- :]|\[EXTERNAL\]|\s)+", "", RegexOptions.IgnoreCase);
-                subject = Regex.Replace(subject, @"^Re:\s+", "", RegexOptions.IgnoreCase);
-                return BitConverter.ToString(MD5.Create()
-                    .ComputeHash(Encoding.UTF8.GetBytes(subject)))
-                    .Replace("-", "").Substring(0, 20);
+                // Strategy 3: Fall back to hashing the subject line.
+                return _threadIdHasher.Hash(mail.Subject ?? string.Empty);
             }
             catch
             {
