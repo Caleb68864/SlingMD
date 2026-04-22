@@ -910,6 +910,7 @@ namespace SlingMD.Outlook.Forms
             {
                 FlowDirection = FlowDirection.RightToLeft,
                 AutoSize = true,
+                WrapContents = false,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Margin = new Padding(12, 0, 0, 0)
             };
