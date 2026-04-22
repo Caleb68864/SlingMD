@@ -14,6 +14,7 @@ using SlingMD.Outlook.Forms;
 using SlingMD.Outlook.Helpers;
 using SlingMD.Outlook.Models;
 using Logger = SlingMD.Outlook.Helpers.Logger;
+using SlingMD.Outlook.Infrastructure;
 using SlingMD.Outlook.Services.Formatting;
 
 namespace SlingMD.Outlook.Services
@@ -56,6 +57,8 @@ namespace SlingMD.Outlook.Services
         private readonly SubjectCleanerService _subjectCleaner;
         private readonly NoteTitleBuilder _noteTitleBuilder;
         private readonly FilenameSubjectNormalizer _filenameSubjectNormalizer;
+        private readonly IClock _clock;
+        private readonly ReminderDueDateCalculator _reminderCalculator;
 
         private List<string> _bulkErrors = new List<string>();
 
@@ -66,13 +69,14 @@ namespace SlingMD.Outlook.Services
             return errors;
         }
 
-        public AppointmentProcessor(ObsidianSettings settings)
+        public AppointmentProcessor(ObsidianSettings settings, IClock clock = null)
         {
             _settings = settings;
             _fileService = new FileService(settings);
             _templateService = new TemplateService(_fileService);
             _threadService = new ThreadService(_fileService, _templateService, settings);
-            _taskService = new TaskService(settings, _templateService);
+            _clock = clock ?? new SystemClock();
+            _taskService = new TaskService(settings, _templateService, _clock);
             _contactService = new ContactService(_fileService, _templateService);
             _attachmentService = new AttachmentService(settings, _fileService);
             _dateFormatter = new DateFormatter();
@@ -81,6 +85,7 @@ namespace SlingMD.Outlook.Services
             _subjectCleaner = new SubjectCleanerService(settings ?? new ObsidianSettings());
             _noteTitleBuilder = new NoteTitleBuilder();
             _filenameSubjectNormalizer = new FilenameSubjectNormalizer();
+            _reminderCalculator = new ReminderDueDateCalculator();
         }
 
         private string FormatPersonLink(string name)
@@ -688,37 +693,17 @@ namespace SlingMD.Outlook.Services
                                   + $"Date: {startTime:yyyy-MM-dd HH:mm}\n"
                                   + $"Location: {location}";
 
-                        int dueDays = _settings.DefaultDueDays;
-                        int reminderDays = _settings.DefaultReminderDays;
-                        int reminderHour = _settings.DefaultReminderHour;
+                        TaskDueDates dates = _reminderCalculator.Calculate(_clock.Now, new TaskDueSettings
+                        {
+                            DefaultDueDays = _settings.DefaultDueDays,
+                            UseRelativeReminder = _settings.UseRelativeReminder,
+                            DefaultReminderDays = _settings.DefaultReminderDays,
+                            DefaultReminderHour = _settings.DefaultReminderHour
+                        });
 
-                        DateTime dueDate = DateTime.Now.Date.AddDays(dueDays);
-                        task.DueDate = dueDate;
+                        task.DueDate = dates.DueDate;
                         task.ReminderSet = true;
-
-                        DateTime reminderTime;
-                        if (_settings.UseRelativeReminder)
-                        {
-                            reminderTime = dueDate.AddDays(-reminderDays).Date.AddHours(reminderHour);
-                        }
-                        else
-                        {
-                            reminderTime = DateTime.Now.Date.AddDays(reminderDays).Date.AddHours(reminderHour);
-                        }
-
-                        if (reminderTime < DateTime.Now)
-                        {
-                            if (reminderTime.Date == DateTime.Now.Date)
-                            {
-                                reminderTime = DateTime.Now.AddHours(1);
-                            }
-                            else
-                            {
-                                reminderTime = DateTime.Now.Date.AddDays(1).AddHours(reminderHour);
-                            }
-                        }
-
-                        task.ReminderTime = reminderTime;
+                        task.ReminderTime = dates.ReminderDateTime;
                         task.Save();
                     }
                 }
