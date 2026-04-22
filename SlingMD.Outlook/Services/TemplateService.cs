@@ -110,6 +110,18 @@ namespace SlingMD.Outlook.Services
         private readonly ObsidianSettings _settings;
         private readonly SlingMD.Outlook.Services.Formatting.DateFormatter _dateFormatter;
 
+        // Cache template contents by path. Keyed on (path, lastWriteTimeUtc) so edits to a template
+        // file — by the user or by an update — invalidate automatically.
+        private readonly Dictionary<string, CachedTemplate> _templateCache =
+            new Dictionary<string, CachedTemplate>(StringComparer.OrdinalIgnoreCase);
+        private readonly object _templateCacheLock = new object();
+
+        private struct CachedTemplate
+        {
+            public DateTime LastWriteTimeUtc;
+            public string Content;
+        }
+
         public TemplateService(FileService fileService)
         {
             _fileService = fileService;
@@ -123,6 +135,7 @@ namespace SlingMD.Outlook.Services
         /// <summary>
         /// Attempts to locate <paramref name="templateName"/> in the configured template folder, the vault,
         /// and the application deployment folders. The first hit is returned as raw text.
+        /// Results are cached per-file and invalidated on <see cref="File.GetLastWriteTimeUtc"/> change.
         /// </summary>
         public string LoadTemplate(string templateName)
         {
@@ -133,7 +146,7 @@ namespace SlingMD.Outlook.Services
 
             if (Path.IsPathRooted(templateName) && File.Exists(templateName))
             {
-                return File.ReadAllText(templateName);
+                return ReadTemplateCached(templateName);
             }
 
             List<string> candidatePaths = BuildTemplateCandidatePaths(templateName);
@@ -141,11 +154,51 @@ namespace SlingMD.Outlook.Services
             {
                 if (File.Exists(path))
                 {
-                    return File.ReadAllText(path);
+                    return ReadTemplateCached(path);
                 }
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Reads a template file, returning cached content when the file's last-write timestamp
+        /// matches the cache entry. Any I/O error falls through to a fresh read.
+        /// </summary>
+        private string ReadTemplateCached(string path)
+        {
+            DateTime currentMtime;
+            try
+            {
+                currentMtime = File.GetLastWriteTimeUtc(path);
+            }
+            catch (System.Exception)
+            {
+                // If we can't stat the file, bypass the cache and let ReadAllText surface the real error.
+                return File.ReadAllText(path);
+            }
+
+            lock (_templateCacheLock)
+            {
+                if (_templateCache.TryGetValue(path, out CachedTemplate cached)
+                    && cached.LastWriteTimeUtc == currentMtime)
+                {
+                    return cached.Content;
+                }
+            }
+
+            string content = File.ReadAllText(path);
+
+            lock (_templateCacheLock)
+            {
+                _templateCache[path] = new CachedTemplate
+                {
+                    LastWriteTimeUtc = currentMtime,
+                    Content = content
+                };
+            }
+
+            return content;
         }
 
         /// <summary>

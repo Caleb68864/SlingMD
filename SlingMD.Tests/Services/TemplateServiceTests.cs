@@ -297,6 +297,43 @@ namespace SlingMD.Tests.Services
             Assert.Contains("## Contact Details", content);
         }
 
+        [Fact]
+        public void LoadTemplate_CachesContentUntilFileMtimeChanges()
+        {
+            string templatePath = Path.Combine(_templatesDir, "EmailTemplate.md");
+            File.WriteAllText(templatePath, "original");
+
+            // First load: reads from disk and caches.
+            string first = _templateService.LoadTemplate("EmailTemplate.md");
+            Assert.Equal("original", first);
+
+            // Overwrite the file but force the mtime back to the original value. The cache
+            // keys on mtime — with no change detected, the stale cached content is returned.
+            DateTime originalMtime = File.GetLastWriteTimeUtc(templatePath);
+            File.WriteAllText(templatePath, "edited");
+            File.SetLastWriteTimeUtc(templatePath, originalMtime);
+
+            string cached = _templateService.LoadTemplate("EmailTemplate.md");
+            Assert.Equal("original", cached);
+        }
+
+        [Fact]
+        public void LoadTemplate_InvalidatesCacheWhenMtimeChanges()
+        {
+            string templatePath = Path.Combine(_templatesDir, "EmailTemplate.md");
+            File.WriteAllText(templatePath, "original");
+
+            string first = _templateService.LoadTemplate("EmailTemplate.md");
+            Assert.Equal("original", first);
+
+            // Overwrite and bump the mtime so the cache is forced to refresh.
+            File.WriteAllText(templatePath, "edited");
+            File.SetLastWriteTimeUtc(templatePath, DateTime.UtcNow.AddMinutes(1));
+
+            string refreshed = _templateService.LoadTemplate("EmailTemplate.md");
+            Assert.Equal("edited", refreshed);
+        }
+
         public void Dispose()
         {
             if (Directory.Exists(_testDir))
