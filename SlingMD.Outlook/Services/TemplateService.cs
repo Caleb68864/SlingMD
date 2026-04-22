@@ -113,7 +113,10 @@ namespace SlingMD.Outlook.Services
         {
             _fileService = fileService;
             _settings = fileService.GetSettings();
+            _templatePathResolver = new SlingMD.Outlook.Services.Formatting.TemplatePathResolver();
         }
+
+        private readonly SlingMD.Outlook.Services.Formatting.TemplatePathResolver _templatePathResolver;
 
         /// <summary>
         /// Attempts to locate <paramref name="templateName"/> in the configured template folder, the vault,
@@ -711,37 +714,16 @@ for (const email of emails) {
 
         private List<string> BuildTemplateCandidatePaths(string templateName)
         {
-            HashSet<string> directories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            AddDirectoryIfValid(directories, _settings.GetTemplatesPath());
-            if (!Path.IsPathRooted(_settings.TemplatesFolder))
+            // Pure path-resolution logic lives in TemplatePathResolver; we just supply the
+            // environment-bound base directories.
+            List<string> baseDirectories = new List<string>
             {
-                AddDirectoryIfValid(directories, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, _settings.TemplatesFolder));
-                AddDirectoryIfValid(directories, Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), _settings.TemplatesFolder));
-                AddDirectoryIfValid(directories, Path.Combine(Directory.GetCurrentDirectory(), _settings.TemplatesFolder));
-                AddDirectoryIfValid(directories, Path.Combine(Environment.CurrentDirectory, _settings.TemplatesFolder));
-            }
-
-            AddDirectoryIfValid(directories, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Templates"));
-            AddDirectoryIfValid(directories, Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Templates"));
-            AddDirectoryIfValid(directories, Path.Combine(Directory.GetCurrentDirectory(), "Templates"));
-            AddDirectoryIfValid(directories, Path.Combine(Environment.CurrentDirectory, "Templates"));
-
-            List<string> candidatePaths = new List<string>();
-            foreach (string directory in directories)
-            {
-                candidatePaths.Add(Path.Combine(directory, templateName));
-            }
-
-            return candidatePaths;
-        }
-
-        private static void AddDirectoryIfValid(ISet<string> directories, string path)
-        {
-            if (!string.IsNullOrWhiteSpace(path))
-            {
-                directories.Add(path);
-            }
+                AppDomain.CurrentDomain.BaseDirectory,
+                Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),
+                Directory.GetCurrentDirectory(),
+                Environment.CurrentDirectory
+            };
+            return _templatePathResolver.Resolve(templateName, _settings, baseDirectories);
         }
 
         private static void AddReplacement(Dictionary<string, string> replacements, string key, string value)
