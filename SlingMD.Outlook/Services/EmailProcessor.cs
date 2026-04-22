@@ -62,7 +62,7 @@ namespace SlingMD.Outlook.Services
             _contactLinkFormatter = new ContactLinkFormatter();
             _subjectCleaner = new SubjectCleanerService(settings ?? new ObsidianSettings());
             _noteTitleBuilder = new NoteTitleBuilder();
-            _filenameSubjectNormalizer = new FilenameSubjectNormalizer();
+            _filenameSubjectNormalizer = new FilenameSubjectNormalizer(settings);
         }
 
         private string FormatSenderLink(string senderName, string senderEmail)

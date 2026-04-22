@@ -1,35 +1,58 @@
+using System;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using SlingMD.Outlook.Models;
 
 namespace SlingMD.Outlook.Services.Formatting
 {
     /// <summary>
-    /// Normalizes a subject line into a filename-safe stem by replacing colons with
-    /// underscores and collapsing repeated Re_/Fw_ prefixes (in either case) into a
-    /// single canonical "Re_"/"Fw_". Pure helper — no Outlook or filesystem deps.
+    /// Normalizes a subject line into a filename-safe stem by applying an ordered list of
+    /// regex find/replace rules — by default the same set SlingMD has always shipped with
+    /// (collapse repeated "Re_"/"Fw_" runs, convert "colon + optional space" to "_").
+    ///
+    /// Rules come from <see cref="ObsidianSettings.FilenameSubjectPatterns"/> when settings is
+    /// supplied, falling back to <see cref="BuiltInDefaults"/> when the settings list is null
+    /// or empty. The built-in defaults are the canonical source of "what works" — preserved
+    /// here so a future settings change can never silently regress baseline behavior.
+    ///
+    /// Pure helper — no Outlook or filesystem deps.
     /// </summary>
     public class FilenameSubjectNormalizer
     {
-        private static readonly Regex ColonSpaceRegex = new Regex(@":\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        /// <summary>
+        /// The shipping defaults — restore these by clearing <see cref="ObsidianSettings.FilenameSubjectPatterns"/>.
+        /// </summary>
+        public static IReadOnlyList<FilenameSubjectRule> BuiltInDefaults { get; } = new List<FilenameSubjectRule>
+        {
+            new FilenameSubjectRule { Pattern = @":\s*",                         Replacement = "_"    },
+            new FilenameSubjectRule { Pattern = @"(?:Re_\s*)+(?:RE_\s*)+",       Replacement = "Re_"  },
+            new FilenameSubjectRule { Pattern = @"(?:RE_\s*)+(?:Re_\s*)+",       Replacement = "Re_"  },
+            new FilenameSubjectRule { Pattern = @"(?:Re_\s*){2,}",               Replacement = "Re_"  },
+            new FilenameSubjectRule { Pattern = @"(?:RE_\s*){2,}",               Replacement = "Re_"  },
+            new FilenameSubjectRule { Pattern = @"(?:Fw_\s*)+(?:FW_\s*)+",       Replacement = "Fw_"  },
+            new FilenameSubjectRule { Pattern = @"(?:FW_\s*)+(?:Fw_\s*)+",       Replacement = "Fw_"  },
+            new FilenameSubjectRule { Pattern = @"(?:Fw_\s*){2,}",               Replacement = "Fw_"  },
+            new FilenameSubjectRule { Pattern = @"(?:FW_\s*){2,}",               Replacement = "Fw_"  },
+            new FilenameSubjectRule { Pattern = @"Re_\s+",                       Replacement = "Re_"  },
+            new FilenameSubjectRule { Pattern = @"Fw_\s+",                       Replacement = "Fw_"  }
+        };
 
-        private static readonly Regex ReplyPrefixRegex1 = new Regex(@"(?:Re_\s*)+(?:RE_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ReplyPrefixRegex2 = new Regex(@"(?:RE_\s*)+(?:Re_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ReplyPrefixRegex3 = new Regex(@"(?:Re_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ReplyPrefixRegex4 = new Regex(@"(?:RE_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private readonly ObsidianSettings _settings;
 
-        private static readonly Regex ForwardPrefixRegex1 = new Regex(@"(?:Fw_\s*)+(?:FW_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardPrefixRegex2 = new Regex(@"(?:FW_\s*)+(?:Fw_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardPrefixRegex3 = new Regex(@"(?:Fw_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardPrefixRegex4 = new Regex(@"(?:FW_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-        private static readonly Regex ReplySpaceRegex = new Regex(@"Re_\s+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardSpaceRegex = new Regex(@"Fw_\s+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        /// <summary>Constructs a normalizer that always uses the built-in defaults.</summary>
+        public FilenameSubjectNormalizer() : this(null) { }
 
         /// <summary>
-        /// Normalizes <paramref name="subject"/> for filename use:
-        /// 1. Convert "colon + optional space" to a single underscore.
-        /// 2. Collapse repeated Re_/RE_ runs into a single "Re_".
-        /// 3. Collapse repeated Fw_/FW_ runs into a single "Fw_".
-        /// 4. Drop the trailing space after a "Re_" or "Fw_" stub.
+        /// Constructs a normalizer that reads rules from <paramref name="settings"/>.
+        /// Passing null is acceptable — the built-in defaults will be used.
+        /// </summary>
+        public FilenameSubjectNormalizer(ObsidianSettings settings)
+        {
+            _settings = settings;
+        }
+
+        /// <summary>
+        /// Applies the configured (or default) ordered rule list to <paramref name="subject"/>.
         /// </summary>
         public string Normalize(string subject)
         {
@@ -38,22 +61,37 @@ namespace SlingMD.Outlook.Services.Formatting
                 return string.Empty;
             }
 
-            string cleaned = ColonSpaceRegex.Replace(subject, "_");
+            IReadOnlyList<FilenameSubjectRule> rules = ResolveRules();
+            string cleaned = subject;
 
-            cleaned = ReplyPrefixRegex1.Replace(cleaned, "Re_");
-            cleaned = ReplyPrefixRegex2.Replace(cleaned, "Re_");
-            cleaned = ReplyPrefixRegex3.Replace(cleaned, "Re_");
-            cleaned = ReplyPrefixRegex4.Replace(cleaned, "Re_");
+            foreach (FilenameSubjectRule rule in rules)
+            {
+                if (rule == null || string.IsNullOrEmpty(rule.Pattern))
+                {
+                    continue;
+                }
 
-            cleaned = ForwardPrefixRegex1.Replace(cleaned, "Fw_");
-            cleaned = ForwardPrefixRegex2.Replace(cleaned, "Fw_");
-            cleaned = ForwardPrefixRegex3.Replace(cleaned, "Fw_");
-            cleaned = ForwardPrefixRegex4.Replace(cleaned, "Fw_");
-
-            cleaned = ReplySpaceRegex.Replace(cleaned, "Re_");
-            cleaned = ForwardSpaceRegex.Replace(cleaned, "Fw_");
+                try
+                {
+                    cleaned = Regex.Replace(cleaned, rule.Pattern, rule.Replacement ?? string.Empty, RegexOptions.IgnoreCase);
+                }
+                catch (ArgumentException)
+                {
+                    // Skip an invalid user-supplied pattern silently rather than blow up the whole sling.
+                }
+            }
 
             return cleaned;
+        }
+
+        private IReadOnlyList<FilenameSubjectRule> ResolveRules()
+        {
+            List<FilenameSubjectRule> configured = _settings?.FilenameSubjectPatterns;
+            if (configured != null && configured.Count > 0)
+            {
+                return configured;
+            }
+            return BuiltInDefaults;
         }
     }
 }

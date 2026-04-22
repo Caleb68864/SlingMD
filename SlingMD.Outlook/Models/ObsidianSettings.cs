@@ -266,6 +266,32 @@ namespace SlingMD.Outlook.Models
 
         public List<string> SubjectCleanupPatterns { get; set; } = CreateDefaultSubjectCleanupPatterns();
 
+        /// <summary>
+        /// Ordered find/replace rules applied to the subject after <see cref="SubjectCleanupPatterns"/>
+        /// to canonicalize it for filename use (e.g. "Re: Re: foo" → "Re_foo"). Each rule runs in order.
+        /// If null or empty, <see cref="Services.Formatting.FilenameSubjectNormalizer"/> falls back to
+        /// its built-in defaults — the same regex set SlingMD shipped with before these rules existed.
+        /// </summary>
+        public List<FilenameSubjectRule> FilenameSubjectPatterns { get; set; } = CreateDefaultFilenameSubjectPatterns();
+
+        internal static List<FilenameSubjectRule> CreateDefaultFilenameSubjectPatterns()
+        {
+            return new List<FilenameSubjectRule>
+            {
+                new FilenameSubjectRule { Pattern = @":\s*",                         Replacement = "_"    },
+                new FilenameSubjectRule { Pattern = @"(?:Re_\s*)+(?:RE_\s*)+",       Replacement = "Re_"  },
+                new FilenameSubjectRule { Pattern = @"(?:RE_\s*)+(?:Re_\s*)+",       Replacement = "Re_"  },
+                new FilenameSubjectRule { Pattern = @"(?:Re_\s*){2,}",               Replacement = "Re_"  },
+                new FilenameSubjectRule { Pattern = @"(?:RE_\s*){2,}",               Replacement = "Re_"  },
+                new FilenameSubjectRule { Pattern = @"(?:Fw_\s*)+(?:FW_\s*)+",       Replacement = "Fw_"  },
+                new FilenameSubjectRule { Pattern = @"(?:FW_\s*)+(?:Fw_\s*)+",       Replacement = "Fw_"  },
+                new FilenameSubjectRule { Pattern = @"(?:Fw_\s*){2,}",               Replacement = "Fw_"  },
+                new FilenameSubjectRule { Pattern = @"(?:FW_\s*){2,}",               Replacement = "Fw_"  },
+                new FilenameSubjectRule { Pattern = @"Re_\s+",                       Replacement = "Re_"  },
+                new FilenameSubjectRule { Pattern = @"Fw_\s+",                       Replacement = "Fw_"  }
+            };
+        }
+
         private static List<string> CreateDefaultNoteTags()
         {
             return new List<string> { "FollowUp" };
@@ -498,6 +524,9 @@ namespace SlingMD.Outlook.Models
             AppointmentDateFormat = string.IsNullOrWhiteSpace(AppointmentDateFormat) ? "yyyy-MM-dd HH:mm" : AppointmentDateFormat;
             ValidateContactLinkFormatTokens();
             SubjectCleanupPatterns = SubjectCleanupPatterns ?? CreateDefaultSubjectCleanupPatterns();
+            FilenameSubjectPatterns = (FilenameSubjectPatterns != null && FilenameSubjectPatterns.Count > 0)
+                ? FilenameSubjectPatterns
+                : CreateDefaultFilenameSubjectPatterns();
             MigrateLegacyCleanupPatterns();
             DefaultNoteTags = DefaultNoteTags ?? CreateDefaultNoteTags();
             DefaultTaskTags = DefaultTaskTags ?? CreateDefaultTaskTags();
