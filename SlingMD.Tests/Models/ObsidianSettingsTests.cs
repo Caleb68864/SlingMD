@@ -488,6 +488,64 @@ namespace SlingMD.Tests.Models
         }
 
         [Fact]
+        public void CustomizationSettings_SavedAndLoaded_Correctly()
+        {
+            ObsidianSettingsTestable settings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath,
+                ContactLinkFormat = "[[{LastName}, {FirstName}]]",
+                EmailDateFormat = "MM/dd/yyyy HH:mm",
+                ContactDateFormat = "yyyy.MM.dd",
+                AppointmentDateFormat = "dd MMM yyyy HH:mm"
+            };
+            settings.Save();
+
+            ObsidianSettingsTestable loaded = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath
+            };
+
+            // Sanity: before load the defaults must differ from the values we just saved,
+            // otherwise the test would pass trivially.
+            Assert.Equal("[[{FullName}]]", loaded.ContactLinkFormat);
+            Assert.Equal("yyyy-MM-dd HH:mm:ss", loaded.EmailDateFormat);
+            Assert.Equal("yyyy-MM-dd", loaded.ContactDateFormat);
+            Assert.Equal("yyyy-MM-dd HH:mm", loaded.AppointmentDateFormat);
+
+            loaded.Load();
+
+            Assert.Equal("[[{LastName}, {FirstName}]]", loaded.ContactLinkFormat);
+            Assert.Equal("MM/dd/yyyy HH:mm", loaded.EmailDateFormat);
+            Assert.Equal("yyyy.MM.dd", loaded.ContactDateFormat);
+            Assert.Equal("dd MMM yyyy HH:mm", loaded.AppointmentDateFormat);
+        }
+
+        [Fact]
+        public void CustomizationSettings_NormalizeLoadedSettings_BlankValuesRestoreDefaults()
+        {
+            string json = @"{
+  ""VaultName"": ""V"",
+  ""VaultBasePath"": ""C:\\V"",
+  ""ContactLinkFormat"": """",
+  ""EmailDateFormat"": """",
+  ""ContactDateFormat"": """",
+  ""AppointmentDateFormat"": """"
+}";
+            File.WriteAllText(_testSettingsPath, json);
+
+            ObsidianSettingsTestable loaded = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath
+            };
+            loaded.Load();
+
+            Assert.Equal("[[{FullName}]]", loaded.ContactLinkFormat);
+            Assert.Equal("yyyy-MM-dd HH:mm:ss", loaded.EmailDateFormat);
+            Assert.Equal("yyyy-MM-dd", loaded.ContactDateFormat);
+            Assert.Equal("yyyy-MM-dd HH:mm", loaded.AppointmentDateFormat);
+        }
+
+        [Fact]
         public void NormalizeLoadedSettings_MissingAutoSlingFields_UsesDefaults()
         {
             string legacyJson = @"{
