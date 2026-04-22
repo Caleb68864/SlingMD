@@ -57,6 +57,7 @@ namespace SlingMD.Outlook.Services
         private readonly SubjectCleanerService _subjectCleaner;
         private readonly NoteTitleBuilder _noteTitleBuilder;
         private readonly FilenameSubjectNormalizer _filenameSubjectNormalizer;
+        private readonly UniqueFilenameResolver _uniqueFilenameResolver = new UniqueFilenameResolver();
         private readonly IClock _clock;
         private readonly ReminderDueDateCalculator _reminderCalculator;
 
@@ -1098,17 +1099,13 @@ namespace SlingMD.Outlook.Services
                                 : $"attachment-{i}{originalExt}";
                         }
 
-                        string fullPath = Path.Combine(targetFolder, safeFilename);
-                        int counter = 1;
-                        string nameWithoutExt = Path.GetFileNameWithoutExtension(safeFilename);
-                        string ext = Path.GetExtension(safeFilename);
-
-                        while (File.Exists(fullPath) && counter <= 10)
+                        string fullPath = _uniqueFilenameResolver.Resolve(targetFolder, safeFilename, File.Exists);
+                        if (fullPath == null)
                         {
-                            safeFilename = $"{nameWithoutExt}_{counter}{ext}";
-                            fullPath = Path.Combine(targetFolder, safeFilename);
-                            counter++;
+                            Logger.Instance.Warning($"Failed to find unique filename for appointment attachment: {attachmentFileName}");
+                            continue;
                         }
+                        safeFilename = Path.GetFileName(fullPath);
 
                         try
                         {

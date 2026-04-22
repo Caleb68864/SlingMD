@@ -4,6 +4,7 @@ using System.IO;
 using Microsoft.Office.Interop.Outlook;
 using SlingMD.Outlook.Models;
 using SlingMD.Outlook.Helpers;
+using SlingMD.Outlook.Services.Formatting;
 
 namespace SlingMD.Outlook.Services
 {
@@ -15,6 +16,7 @@ namespace SlingMD.Outlook.Services
     {
         private readonly ObsidianSettings _settings;
         private readonly FileService _fileService;
+        private readonly UniqueFilenameResolver _uniqueFilenameResolver = new UniqueFilenameResolver();
 
         public AttachmentService(ObsidianSettings settings, FileService fileService)
         {
@@ -174,23 +176,15 @@ namespace SlingMD.Outlook.Services
                     Logger.Instance.Warning($"Truncated attachment filename to {safeFilename} due to path length constraints.");
                 }
 
-                // Handle filename conflicts by appending numbers
-                string fullPath = Path.Combine(targetFolder, safeFilename);
-                int counter = 1;
-                const int maxRetries = 10;
-
-                while (File.Exists(fullPath) && counter <= maxRetries)
+                // Handle filename conflicts by appending numbers (unit-tested helper).
+                string fullPath = _uniqueFilenameResolver.Resolve(targetFolder, safeFilename, File.Exists);
+                if (fullPath == null)
                 {
-                    safeFilename = $"{nameWithoutExt}_{counter}{extension}";
-                    fullPath = Path.Combine(targetFolder, safeFilename);
-                    counter++;
-                }
-
-                if (counter > maxRetries)
-                {
-                    Logger.Instance.Error($"Failed to find unique filename for attachment after {maxRetries} attempts: {originalFilename}");
+                    Logger.Instance.Error($"Failed to find unique filename for attachment after {UniqueFilenameResolver.MaxAttempts} attempts: {originalFilename}");
                     return null;
                 }
+                safeFilename = Path.GetFileName(fullPath);
+                const int maxRetries = 10;
 
                 // Save the attachment with retry logic to handle race conditions
                 bool saved = false;
@@ -204,17 +198,23 @@ namespace SlingMD.Outlook.Services
                     }
                     catch (System.IO.IOException ex) when (ex.Message.Contains("already exists") || ex.HResult == -2147024816)
                     {
-                        // File was created between check and save (race condition)
-                        // Try with incremented counter
+                        // File was created between check and save (race condition).
+                        // Re-resolve from the current candidate so the resolver can find
+                        // the next free name without us hand-tracking a counter.
                         saveAttempt++;
                         if (saveAttempt >= maxRetries)
                         {
                             Logger.Instance.Error($"Failed to save attachment after {maxRetries} attempts due to race condition: {originalFilename}");
                             return null;
                         }
-                        safeFilename = $"{nameWithoutExt}_{counter}{extension}";
-                        fullPath = Path.Combine(targetFolder, safeFilename);
-                        counter++;
+                        string raceResolved = _uniqueFilenameResolver.Resolve(targetFolder, safeFilename, File.Exists);
+                        if (raceResolved == null)
+                        {
+                            Logger.Instance.Error($"Failed to find unique filename during race-recovery for attachment: {originalFilename}");
+                            return null;
+                        }
+                        fullPath = raceResolved;
+                        safeFilename = Path.GetFileName(fullPath);
                     }
                 }
 

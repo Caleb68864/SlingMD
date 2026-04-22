@@ -107,6 +107,7 @@
     <Compile Include="Services\Formatting\FrontmatterReaderTests.cs" />
     <Compile Include="Services\Formatting\MarkdownSectionFinderTests.cs" />
     <Compile Include="Services\Formatting\TemplatePathResolverTests.cs" />
+    <Compile Include="Services\Formatting\UniqueFilenameResolverTests.cs" />
     <Compile Include="Services\ReminderDueDateCalculatorTests.cs" />
     <Compile Include="Services\SlingDecisionEngineTests.cs" />
     <Compile Include="Services\TaskServiceClockTests.cs" />
