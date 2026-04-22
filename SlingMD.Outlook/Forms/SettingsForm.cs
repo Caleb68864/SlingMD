@@ -917,7 +917,7 @@ namespace SlingMD.Outlook.Forms
             this.btnSave = new Button { Text = "Save", DialogResult = DialogResult.OK };
             this.btnSave.Click += btnSave_Click;
             this.btnCancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel };
-            Button btnHelp = new Button { Text = "Help", Margin = new Padding(0, 0, 8, 0) };
+            Button btnHelp = new Button { Text = "Help", Margin = new Padding(3, 3, 11, 3) };
             btnHelp.Click += (s, e) => { new HelpForm().Show(this); };
             toolTip.SetToolTip(btnHelp, "Open the searchable settings reference (Ctrl+F to focus the search box).");
             btnLayout.Controls.Add(this.btnSave);
