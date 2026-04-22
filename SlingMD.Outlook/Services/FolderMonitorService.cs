@@ -7,7 +7,7 @@ using SlingMD.Outlook.Models;
 
 namespace SlingMD.Outlook.Services
 {
-    public class FolderMonitorService
+    public class FolderMonitorService : IDisposable
     {
         private readonly ObsidianSettings _settings;
         private readonly EmailProcessor _emailProcessor;
@@ -117,6 +117,20 @@ namespace SlingMD.Outlook.Services
             _watchedFolderObjects.Clear();
             _watchedFolderItems = null;
             _watchedFolderObjects = null;
+        }
+
+        /// <summary>
+        /// Releases the Outlook COM handles held by this service. Equivalent to calling
+        /// <see cref="StopWatching"/>; implemented so the service can participate in <c>using</c>
+        /// blocks and signal ownership of unmanaged Outlook handles to static analyzers.
+        /// Safe to call if watching has already stopped.
+        /// </summary>
+        public void Dispose()
+        {
+            if (_watchedFolderItems != null || _watchedFolderObjects != null)
+            {
+                StopWatching();
+            }
         }
 
         private async void OnItemAdded(object item)

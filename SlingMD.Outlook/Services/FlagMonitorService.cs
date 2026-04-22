@@ -7,7 +7,7 @@ using SlingMD.Outlook.Models;
 
 namespace SlingMD.Outlook.Services
 {
-    public class FlagMonitorService
+    public class FlagMonitorService : IDisposable
     {
         private readonly ObsidianSettings _settings;
         private readonly EmailProcessor _emailProcessor;
@@ -69,6 +69,16 @@ namespace SlingMD.Outlook.Services
             {
                 Logger.Instance.Error($"FlagMonitorService.Stop failed: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Releases the Outlook COM handles held by this service. Equivalent to calling
+        /// <see cref="Stop"/>; implemented so the service can participate in <c>using</c> blocks
+        /// and signal ownership of unmanaged Outlook handles to static analyzers.
+        /// </summary>
+        public void Dispose()
+        {
+            Stop();
         }
 
         /// <summary>
