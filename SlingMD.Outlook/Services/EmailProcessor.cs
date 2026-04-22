@@ -22,6 +22,15 @@ namespace SlingMD.Outlook.Services
     /// </summary>
     public class EmailProcessor
     {
+        // Rebuild the processed-id cache at most every N minutes. Fresh cache on every sling would
+        // re-scan the whole inbox; a cache that lives forever would miss external edits.
+        private const int CacheTtlMinutes = 5;
+
+        // Exponential-backoff parameters for WaitForFileAvailability.
+        // 5 attempts × starting at 50 ms doubles to ~1550 ms total wait worst-case.
+        private const int MaxFileWaitAttempts = 5;
+        private const int InitialFileWaitDelayMs = 50;
+
         // Static lock dictionary to prevent race conditions when multiple emails target the same thread folder
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.SemaphoreSlim> _threadFolderLocks
             = new System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.SemaphoreSlim>(StringComparer.OrdinalIgnoreCase);
@@ -620,17 +629,16 @@ namespace SlingMD.Outlook.Services
 
         /// <summary>
         /// Waits for a file to become available by checking its existence and attempting to open it.
-        /// Uses exponential backoff retry logic with a maximum of 5 attempts over approximately 1 second.
-        /// This replaces hard-coded delays and ensures file system operations have completed.
+        /// Uses exponential backoff retry logic (see <see cref="MaxFileWaitAttempts"/> and
+        /// <see cref="InitialFileWaitDelayMs"/>). Replaces hard-coded delays.
         /// </summary>
         /// <param name="filePath">The full path to the file to wait for.</param>
         private async Task WaitForFileAvailability(string filePath)
         {
-            const int maxAttempts = 5;
             int attempt = 0;
-            int delayMs = 50; // Start with 50ms
+            int delayMs = InitialFileWaitDelayMs;
 
-            while (attempt < maxAttempts)
+            while (attempt < MaxFileWaitAttempts)
             {
                 try
                 {
@@ -655,9 +663,9 @@ namespace SlingMD.Outlook.Services
                     return;
                 }
 
-                // Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms
+                // Exponential backoff: InitialFileWaitDelayMs doubled on each retry.
                 attempt++;
-                if (attempt < maxAttempts)
+                if (attempt < MaxFileWaitAttempts)
                 {
                     await Task.Delay(delayMs);
                     delayMs *= 2;
@@ -871,17 +879,17 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         private void EnsureEmailCacheIsBuilt(string inboxPath)
         {
-            // Only rebuild cache if it's older than 5 minutes (to allow for external changes)
-            // or if it's never been built
-            if ((_clock.Now - _cacheLastBuilt).TotalMinutes < 5 && _processedEmailIds.Count > 0)
+            // Only rebuild cache when it's older than CacheTtlMinutes (to pick up external changes)
+            // or when it's never been built.
+            if ((_clock.Now - _cacheLastBuilt).TotalMinutes < CacheTtlMinutes && _processedEmailIds.Count > 0)
             {
                 return;
             }
 
             lock (_cacheBuildLock)
             {
-                // Double-check after acquiring lock
-                if ((_clock.Now - _cacheLastBuilt).TotalMinutes < 5 && _processedEmailIds.Count > 0)
+                // Double-check after acquiring lock.
+                if ((_clock.Now - _cacheLastBuilt).TotalMinutes < CacheTtlMinutes && _processedEmailIds.Count > 0)
                 {
                     return;
                 }
