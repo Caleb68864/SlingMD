@@ -87,6 +87,49 @@ namespace SlingMD.Tests.Services.Formatting
         }
 
         [Fact]
+        public void BuildTrimmed_StripsTrailingDashFromMissingToken()
+        {
+            string format = "{Subject} - {MissingToken}";
+            Dictionary<string, string> tokens = new Dictionary<string, string>
+            {
+                { "Subject", "Hello" }
+            };
+
+            string result = _builder.BuildTrimmed(format, tokens, 50);
+
+            Assert.Equal("Hello", result);
+        }
+
+        [Fact]
+        public void BuildTrimmed_PreservesDashWhenBothTokensPresent()
+        {
+            string format = "{Subject} - {Date}";
+            Dictionary<string, string> tokens = new Dictionary<string, string>
+            {
+                { "Subject", "Hello" },
+                { "Date", "2026-04-22" }
+            };
+
+            string result = _builder.BuildTrimmed(format, tokens, 50);
+
+            Assert.Equal("Hello - 2026-04-22", result);
+        }
+
+        [Fact]
+        public void BuildTrimmed_StripsMultipleTrailingSeparators()
+        {
+            string format = "{Subject} - {A} - {B}";
+            Dictionary<string, string> tokens = new Dictionary<string, string>
+            {
+                { "Subject", "Hello" }
+            };
+
+            string result = _builder.BuildTrimmed(format, tokens, 50);
+
+            Assert.Equal("Hello", result);
+        }
+
+        [Fact]
         public void Build_WithNullTokenValue_RendersAsEmpty()
         {
             // Arrange

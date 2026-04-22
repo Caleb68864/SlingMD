@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -41,9 +40,6 @@ namespace SlingMD.Outlook.Services
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> _recurringFolderLocks
             = new ConcurrentDictionary<string, SemaphoreSlim>(StringComparer.OrdinalIgnoreCase);
 
-        // Compiled regex patterns still used inline after the FilenameSubjectNormalizer extraction.
-        private static readonly Regex TrailingDashSpaceRegex = new Regex(@"[-\s]+$", RegexOptions.Compiled);
-
         private readonly ObsidianSettings _settings;
         private readonly FileService _fileService;
         private readonly TemplateService _templateService;
@@ -54,9 +50,8 @@ namespace SlingMD.Outlook.Services
         private readonly DateFormatter _dateFormatter;
         private readonly ContactNameParser _contactNameParser;
         private readonly ContactLinkFormatter _contactLinkFormatter;
-        private readonly SubjectCleanerService _subjectCleaner;
+        private readonly SubjectFilenameCleaner _subjectFilenameCleaner;
         private readonly NoteTitleBuilder _noteTitleBuilder;
-        private readonly FilenameSubjectNormalizer _filenameSubjectNormalizer;
         private readonly UniqueFilenameResolver _uniqueFilenameResolver = new UniqueFilenameResolver();
         private readonly IClock _clock;
         private readonly ReminderDueDateCalculator _reminderCalculator;
@@ -83,9 +78,8 @@ namespace SlingMD.Outlook.Services
             _dateFormatter = new DateFormatter();
             _contactNameParser = new ContactNameParser();
             _contactLinkFormatter = new ContactLinkFormatter();
-            _subjectCleaner = new SubjectCleanerService(settings ?? new ObsidianSettings());
+            _subjectFilenameCleaner = new SubjectFilenameCleaner(settings, _fileService);
             _noteTitleBuilder = new NoteTitleBuilder();
-            _filenameSubjectNormalizer = new FilenameSubjectNormalizer(settings);
             _reminderCalculator = new ReminderDueDateCalculator();
         }
 
@@ -375,8 +369,7 @@ namespace SlingMD.Outlook.Services
                 { "Subject", subjectClean },
                 { "Sender", organizerShortName }
             };
-            string noteTitle = _noteTitleBuilder.Build(titleFormat, titleTokens, maxLength);
-            noteTitle = TrailingDashSpaceRegex.Replace(noteTitle, "").Trim();
+            string noteTitle = _noteTitleBuilder.BuildTrimmed(titleFormat, titleTokens, maxLength);
 
             string fileNameNoExt = _fileService.CleanFileName(noteTitle);
             if (string.IsNullOrWhiteSpace(fileNameNoExt))
@@ -893,21 +886,7 @@ namespace SlingMD.Outlook.Services
                    && _processedAppointmentIds.ContainsKey(globalAppointmentId);
         }
 
-        private string CleanSubject(string subject)
-        {
-            if (string.IsNullOrEmpty(subject))
-            {
-                return string.Empty;
-            }
-
-            // Settings-driven cleanup patterns are delegated to SubjectCleanerService (unit-tested).
-            string cleaned = _subjectCleaner.Clean(subject);
-
-            // Filename-specific normalization (colon→underscore, prefix collapse) — unit-tested.
-            cleaned = _filenameSubjectNormalizer.Normalize(cleaned);
-
-            return _fileService.CleanFileName(cleaned.Trim());
-        }
+        private string CleanSubject(string subject) => _subjectFilenameCleaner.Clean(subject);
 
         private Dictionary<string, object> BuildAppointmentMetadata(
             string noteTitle,

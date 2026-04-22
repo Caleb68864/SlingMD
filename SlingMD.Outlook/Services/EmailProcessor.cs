@@ -8,7 +8,6 @@ using Microsoft.Office.Interop.Outlook;
 using SlingMD.Outlook.Forms;
 using SlingMD.Outlook.Models;
 using System.Linq;
-using System.Text.RegularExpressions;
 using SlingMD.Outlook.Helpers;
 using Logger = SlingMD.Outlook.Helpers.Logger;
 using SlingMD.Outlook.Infrastructure;
@@ -32,9 +31,6 @@ namespace SlingMD.Outlook.Services
         private static DateTime _cacheLastBuilt = DateTime.MinValue;
         private static readonly object _cacheBuildLock = new object();
 
-        // Compiled regex patterns still used inline after the FilenameSubjectNormalizer extraction.
-        private static readonly Regex TrailingDashSpaceRegex = new Regex(@"[-\s]+$", RegexOptions.Compiled);
-
         private readonly ObsidianSettings _settings;
         private readonly FileService _fileService;
         private readonly TemplateService _templateService;
@@ -45,9 +41,8 @@ namespace SlingMD.Outlook.Services
         private readonly DateFormatter _dateFormatter;
         private readonly ContactNameParser _contactNameParser;
         private readonly ContactLinkFormatter _contactLinkFormatter;
-        private readonly SubjectCleanerService _subjectCleaner;
+        private readonly SubjectFilenameCleaner _subjectFilenameCleaner;
         private readonly NoteTitleBuilder _noteTitleBuilder;
-        private readonly FilenameSubjectNormalizer _filenameSubjectNormalizer;
         private readonly IClock _clock;
 
         public EmailProcessor(ObsidianSettings settings, IClock clock = null)
@@ -63,9 +58,8 @@ namespace SlingMD.Outlook.Services
             _dateFormatter = new DateFormatter();
             _contactNameParser = new ContactNameParser();
             _contactLinkFormatter = new ContactLinkFormatter();
-            _subjectCleaner = new SubjectCleanerService(settings ?? new ObsidianSettings());
+            _subjectFilenameCleaner = new SubjectFilenameCleaner(settings, _fileService);
             _noteTitleBuilder = new NoteTitleBuilder();
-            _filenameSubjectNormalizer = new FilenameSubjectNormalizer(settings);
         }
 
         private string FormatSenderLink(string senderName, string senderEmail)
@@ -192,9 +186,8 @@ namespace SlingMD.Outlook.Services
                         { "Sender", senderClean },
                         { "Date", includeDate ? dateStr : string.Empty }
                     };
-                    string formattedTitle = _noteTitleBuilder.Build(titleFormat, titleTokens, maxLength);
-                    // Remove trailing dash/space if {Date} rendered empty.
-                    formattedTitle = TrailingDashSpaceRegex.Replace(formattedTitle, "").Trim();
+                    // BuildTrimmed handles trailing dash/space left behind when a token like {Date} renders empty.
+                    string formattedTitle = _noteTitleBuilder.BuildTrimmed(titleFormat, titleTokens, maxLength);
                     noteTitle = formattedTitle;
 
                     // Email threading logic moved to its own method
@@ -559,19 +552,7 @@ namespace SlingMD.Outlook.Services
             }
         }
 
-        private string CleanSubject(string subject)
-        {
-            if (string.IsNullOrEmpty(subject))
-                return string.Empty;
-
-            // Settings-driven cleanup patterns are delegated to SubjectCleanerService (unit-tested).
-            string cleaned = _subjectCleaner.Clean(subject);
-
-            // Filename-specific normalization (colon→underscore, prefix collapse) — unit-tested.
-            cleaned = _filenameSubjectNormalizer.Normalize(cleaned);
-
-            return _fileService.CleanFileName(cleaned.Trim());
-        }
+        private string CleanSubject(string subject) => _subjectFilenameCleaner.Clean(subject);
 
         private string GetFirstRecipient(MailItem mail)
         {

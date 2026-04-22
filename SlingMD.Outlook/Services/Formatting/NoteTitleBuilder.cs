@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace SlingMD.Outlook.Services.Formatting
 {
@@ -13,6 +14,8 @@ namespace SlingMD.Outlook.Services.Formatting
         /// The ellipsis character used when truncating titles.
         /// </summary>
         public const string Ellipsis = "...";
+
+        private static readonly Regex TrailingSeparatorRegex = new Regex(@"[-\s]+$", RegexOptions.Compiled);
 
         /// <summary>
         /// Builds a title from a format string, substituting tokens and enforcing a maximum length.
@@ -65,6 +68,21 @@ namespace SlingMD.Outlook.Services.Formatting
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Same as <see cref="Build"/> but additionally strips any trailing run of dashes and
+        /// whitespace. Useful when a token like <c>{Date}</c> renders empty and would leave a
+        /// dangling separator (e.g. "Subject - ").
+        /// </summary>
+        public string BuildTrimmed(string format, Dictionary<string, string> tokens, int maxLen)
+        {
+            string result = Build(format, tokens, maxLen);
+            if (string.IsNullOrEmpty(result))
+            {
+                return result;
+            }
+            return TrailingSeparatorRegex.Replace(result, string.Empty).Trim();
         }
 
         /// <summary>

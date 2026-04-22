@@ -313,6 +313,7 @@
     <Compile Include="Services\Formatting\ThreadIdHasher.cs" />
     <Compile Include="Services\ReminderDueDateCalculator.cs" />
     <Compile Include="Services\SlingDecisionEngine.cs" />
+    <Compile Include="Services\SubjectFilenameCleaner.cs" />
     <Compile Include="Ribbon\SlingRibbon.cs" />
     <EmbeddedResource Include="Forms\CountdownForm.resx">
       <DependentUpon>CountdownForm.cs</DependentUpon>
