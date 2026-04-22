@@ -274,8 +274,6 @@
     <Compile Include="Forms\ToastForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <!-- FileHelper.cs deprecated - use FileService instead (duplicates functionality) -->
-    <!-- <Compile Include="Helpers\FileHelper.cs" /> -->
     <Compile Include="Helpers\Logger.cs" />
     <Compile Include="Helpers\BoundedHashSet.cs" />
     <Compile Include="Helpers\SafeComAction.cs" />
