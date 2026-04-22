@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using Microsoft.Office.Interop.Outlook;
+using SlingMD.Outlook.Helpers;
 using SlingMD.Outlook.Infrastructure;
 using SlingMD.Outlook.Models;
 using SlingMD.Outlook.Services.Formatting;
@@ -124,7 +125,14 @@ namespace SlingMD.Outlook.Services
                     if (recipient.Type == (int)type)
                     {
                         string email = null;
-                        try { email = GetSMTPEmailAddress(recipient); } catch { }
+                        try
+                        {
+                            email = GetSMTPEmailAddress(recipient);
+                        }
+                        catch (System.Exception ex)
+                        {
+                            Logger.Instance.Warning($"ContactService.BuildLinkedNames: GetSMTPEmailAddress failed for recipient '{recipient.Name}': {ex.Message}");
+                        }
                         names.Add(FormatContactLink(recipient.Name, email));
                     }
                 }
@@ -222,7 +230,14 @@ namespace SlingMD.Outlook.Services
                         if (!string.IsNullOrEmpty(name))
                         {
                             string email = null;
-                            try { email = GetSMTPEmailAddress(recipient); } catch { }
+                            try
+                            {
+                                email = GetSMTPEmailAddress(recipient);
+                            }
+                            catch (System.Exception ex)
+                            {
+                                Logger.Instance.Warning($"ContactService.BuildLinkedNames(meeting): GetSMTPEmailAddress failed for recipient '{name}': {ex.Message}");
+                            }
                             linkedNames.Add(FormatContactLink(name, email));
                         }
                     }
@@ -388,8 +403,9 @@ namespace SlingMD.Outlook.Services
                                 }
                             }
                         }
-                        catch
+                        catch (System.Exception ex)
                         {
+                            Logger.Instance.Warning($"ContactService.ContactExists: read lines failed for '{mdFile}': {ex.Message}");
                             continue;
                         }
                     }
@@ -397,8 +413,9 @@ namespace SlingMD.Outlook.Services
 
                 return false;
             }
-            catch (System.Exception)
+            catch (System.Exception ex)
             {
+                Logger.Instance.Warning($"ContactService.ContactExists: search failed for '{contactName}': {ex.Message}");
                 return false;
             }
         }
@@ -482,7 +499,10 @@ namespace SlingMD.Outlook.Services
             {
                 fullName = contact.FullName ?? string.Empty;
             }
-            catch (System.Exception) { }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ContactService.ExtractContactData: read FullName failed: {ex.Message}");
+            }
 
             if (string.IsNullOrWhiteSpace(fullName))
             {
@@ -499,7 +519,10 @@ namespace SlingMD.Outlook.Services
                                 : $"{firstName} {lastName}";
                     }
                 }
-                catch (System.Exception) { }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Warning($"ContactService.ExtractContactData: read FirstName/LastName failed: {ex.Message}");
+                }
             }
 
             if (string.IsNullOrWhiteSpace(fullName))
@@ -508,7 +531,10 @@ namespace SlingMD.Outlook.Services
                 {
                     fullName = contact.FileAs ?? string.Empty;
                 }
-                catch (System.Exception) { }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Warning($"ContactService.ExtractContactData: read FileAs failed: {ex.Message}");
+                }
             }
 
             if (string.IsNullOrWhiteSpace(fullName))
@@ -521,7 +547,10 @@ namespace SlingMD.Outlook.Services
             {
                 phone = contact.BusinessTelephoneNumber ?? string.Empty;
             }
-            catch (System.Exception) { }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ContactService.ExtractContactData: read BusinessTelephoneNumber failed: {ex.Message}");
+            }
 
             if (string.IsNullOrWhiteSpace(phone))
             {
@@ -529,7 +558,10 @@ namespace SlingMD.Outlook.Services
                 {
                     phone = contact.MobileTelephoneNumber ?? string.Empty;
                 }
-                catch (System.Exception) { }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Warning($"ContactService.ExtractContactData: read MobileTelephoneNumber failed: {ex.Message}");
+                }
             }
 
             if (string.IsNullOrWhiteSpace(phone))
@@ -538,7 +570,10 @@ namespace SlingMD.Outlook.Services
                 {
                     phone = contact.HomeTelephoneNumber ?? string.Empty;
                 }
-                catch (System.Exception) { }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Warning($"ContactService.ExtractContactData: read HomeTelephoneNumber failed: {ex.Message}");
+                }
             }
 
             string email = string.Empty;
@@ -546,28 +581,40 @@ namespace SlingMD.Outlook.Services
             {
                 email = contact.Email1Address ?? string.Empty;
             }
-            catch (System.Exception) { }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ContactService.ExtractContactData: read Email1Address failed: {ex.Message}");
+            }
 
             string company = string.Empty;
             try
             {
                 company = contact.CompanyName ?? string.Empty;
             }
-            catch (System.Exception) { }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ContactService.ExtractContactData: read CompanyName failed: {ex.Message}");
+            }
 
             string jobTitle = string.Empty;
             try
             {
                 jobTitle = contact.JobTitle ?? string.Empty;
             }
-            catch (System.Exception) { }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ContactService.ExtractContactData: read JobTitle failed: {ex.Message}");
+            }
 
             string address = string.Empty;
             try
             {
                 address = contact.BusinessAddress ?? string.Empty;
             }
-            catch (System.Exception) { }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ContactService.ExtractContactData: read BusinessAddress failed: {ex.Message}");
+            }
 
             if (string.IsNullOrWhiteSpace(address))
             {
@@ -575,7 +622,10 @@ namespace SlingMD.Outlook.Services
                 {
                     address = contact.HomeAddress ?? string.Empty;
                 }
-                catch (System.Exception) { }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Warning($"ContactService.ExtractContactData: read HomeAddress failed: {ex.Message}");
+                }
             }
 
             string birthday = string.Empty;
@@ -587,14 +637,20 @@ namespace SlingMD.Outlook.Services
                     birthday = birthdayDate.ToString("yyyy-MM-dd");
                 }
             }
-            catch (System.Exception) { }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ContactService.ExtractContactData: read Birthday failed: {ex.Message}");
+            }
 
             string notes = string.Empty;
             try
             {
                 notes = contact.Body ?? string.Empty;
             }
-            catch (System.Exception) { }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ContactService.ExtractContactData: read Body failed: {ex.Message}");
+            }
 
             string cleanName = _fileService.CleanFileName(fullName);
             string fileNameNoExtension = _fileService.CleanFileName(fullName);
