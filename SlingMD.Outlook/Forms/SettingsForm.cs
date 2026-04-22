@@ -125,7 +125,13 @@ namespace SlingMD.Outlook.Forms
 
         private void InitializeComponent()
         {
-            this.toolTip = new ToolTip();
+            this.toolTip = new ToolTip
+            {
+                AutoPopDelay = 30000,   // keep tooltip visible for 30s
+                InitialDelay = 500,
+                ReshowDelay = 200,
+                ShowAlways = true
+            };
 
             // Root layout: TabControl + Footer
             this.rootLayout = new TableLayoutPanel
@@ -394,9 +400,21 @@ namespace SlingMD.Outlook.Forms
             this.chkSearchEntireVaultForContacts = new CheckBox { Text = "Search entire vault for contacts", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
             contactsTabLayout.Controls.Add(this.chkSearchEntireVaultForContacts, 1, cRow++);
 
-            contactsTabLayout.Controls.Add(new Label { Text = "Contact Filename Format (tokens {ContactName}, {ContactShortName}):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, cRow);
+            Label lblContactFilenameFormat = new Label { Text = "Contact Filename Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            contactsTabLayout.Controls.Add(lblContactFilenameFormat, 0, cRow);
             this.txtContactFilenameFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             contactsTabLayout.Controls.Add(this.txtContactFilenameFormat, 1, cRow++);
+            string contactFilenameTip =
+                "Controls the filename used when SlingMD creates a contact note.\r\n\r\n" +
+                "Tokens:\r\n" +
+                "  {ContactName}       Full display name (e.g. \"John Smith\")\r\n" +
+                "  {ContactShortName}  Filename-safe abbreviation (e.g. \"JohnS\")\r\n\r\n" +
+                "Examples:\r\n" +
+                "  {ContactName}             → \"John Smith.md\"\r\n" +
+                "  {ContactShortName}        → \"JohnS.md\"\r\n" +
+                "  Contact - {ContactName}   → \"Contact - John Smith.md\"";
+            toolTip.SetToolTip(lblContactFilenameFormat, contactFilenameTip);
+            toolTip.SetToolTip(this.txtContactFilenameFormat, contactFilenameTip);
 
             contactsTabLayout.Controls.Add(new Label { Text = "Contact Template File:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, cRow);
             this.txtContactTemplateFile = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
@@ -406,13 +424,48 @@ namespace SlingMD.Outlook.Forms
             this.chkContactNoteIncludeDetails = new CheckBox { Text = "Include contact details (phone, email, company, etc.)", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
             contactsTabLayout.Controls.Add(this.chkContactNoteIncludeDetails, 1, cRow++);
 
-            contactsTabLayout.Controls.Add(new Label { Text = "Contact Link Format (tokens: {FullName}, {FirstName}, {LastName}, {Email}, {FirstInitial}, {LastInitial}):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, cRow);
+            Label lblContactLinkFormat = new Label { Text = "Contact Link Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            contactsTabLayout.Controls.Add(lblContactLinkFormat, 0, cRow);
             this.txtContactLinkFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             contactsTabLayout.Controls.Add(this.txtContactLinkFormat, 1, cRow++);
+            string contactLinkTip =
+                "Controls how contacts (from/to/cc/organizer/attendees) render inside exported\r\n" +
+                "emails and appointments. Brackets are not required — anything around the tokens\r\n" +
+                "is emitted literally.\r\n\r\n" +
+                "Tokens:\r\n" +
+                "  {FullName}       Full name (e.g. \"John A. Smith\")\r\n" +
+                "  {FirstName}      Parsed first name\r\n" +
+                "  {LastName}       Parsed last name\r\n" +
+                "  {MiddleName}     Parsed middle name (empty if none)\r\n" +
+                "  {Suffix}         Jr., Sr., III, PhD (empty if none)\r\n" +
+                "  {DisplayName}    Outlook's original display string\r\n" +
+                "  {ShortName}      Semantic short name (first name or full)\r\n" +
+                "  {Email}          SMTP address\r\n" +
+                "  {FirstInitial}   First letter of FirstName\r\n" +
+                "  {LastInitial}    First letter of LastName\r\n\r\n" +
+                "Examples:\r\n" +
+                "  [[{FullName}]]                   → [[John Smith]]   (default wikilink)\r\n" +
+                "  [[{LastName}, {FirstName}]]      → [[Smith, John]]\r\n" +
+                "  [[{FirstInitial}{LastName}]]     → [[JSmith]]\r\n" +
+                "  [[{FullName}|{Email}]]           → [[John Smith|john@acme.com]]  (aliased)\r\n" +
+                "  @{FullName}                      → @John Smith       (no wikilink)\r\n" +
+                "  [{FullName}](mailto:{Email})     → markdown mailto link";
+            toolTip.SetToolTip(lblContactLinkFormat, contactLinkTip);
+            toolTip.SetToolTip(this.txtContactLinkFormat, contactLinkTip);
 
-            contactsTabLayout.Controls.Add(new Label { Text = "Contact Date Format (.NET format string, e.g. yyyy-MM-dd):", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill }, 0, cRow);
+            Label lblContactDateFormat = new Label { Text = "Contact Date Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            contactsTabLayout.Controls.Add(lblContactDateFormat, 0, cRow);
             this.txtContactDateFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             contactsTabLayout.Controls.Add(this.txtContactDateFormat, 1, cRow++);
+            string contactDateTip =
+                "Standard .NET DateTime format string used for the \"created\" field on contact notes.\r\n\r\n" +
+                "Common patterns:\r\n" +
+                "  yyyy-MM-dd             → 2026-04-22\r\n" +
+                "  MM/dd/yyyy             → 04/22/2026\r\n" +
+                "  MMMM d, yyyy           → April 22, 2026\r\n" +
+                "  yyyy-MM-dd HH:mm       → 2026-04-22 14:05";
+            toolTip.SetToolTip(lblContactDateFormat, contactDateTip);
+            toolTip.SetToolTip(this.txtContactDateFormat, contactDateTip);
 
             contactsTabLayout.RowCount = cRow + 1;
             for (int i = 0; i < cRow; i++)
