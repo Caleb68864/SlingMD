@@ -357,7 +357,7 @@ namespace SlingMD.Outlook.Services
             // --- Build the note title and file name ---
             string subjectClean = CleanSubject(subject);
             string dateStr = startTime.ToString("yyyy-MM-dd");
-            string organizerShortName = _contactService.GetShortName(
+            string organizerShortName = _contactService.GetFilenameSafeShortName(
                 string.IsNullOrWhiteSpace(organizerName) ? "Unknown Organizer" : organizerName);
 
             string titleFormat = _settings.AppointmentNoteTitleFormat ?? "{Date} - {Subject}";

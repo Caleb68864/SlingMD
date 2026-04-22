@@ -34,12 +34,12 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
-        public void GetShortName_WithFullName_ReturnsFirstNameAndLastInitial()
+        public void GetFilenameSafeShortName_WithFullName_ReturnsFirstNameAndLastInitial()
         {
             // Arrange & Act (existing method, verify still works)
-            string result = _contactService.GetShortName("John Smith");
+            string result = _contactService.GetFilenameSafeShortName("John Smith");
 
-            // Assert - GetShortName returns first name + last initial when two parts
+            // Assert - GetFilenameSafeShortName returns first name + last initial when two parts
             Assert.Equal("JohnS", result);
         }
 

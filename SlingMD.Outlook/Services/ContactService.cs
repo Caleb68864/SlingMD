@@ -69,7 +69,7 @@ namespace SlingMD.Outlook.Services
         /// Returns a shortened version of <paramref name="fullName"/> that is better suited for filenames
         /// and note titles. Parenthesised suffixes are removed and first/last-name initials are applied.
         /// </summary>
-        public string GetShortName(string fullName)
+        public string GetFilenameSafeShortName(string fullName)
         {
             string cleanName = _fileService.CleanFileName(fullName);
 
@@ -442,7 +442,7 @@ namespace SlingMD.Outlook.Services
                     { "tags", new List<string> { "contact" } }
                 },
                 ContactName = contactName,
-                ContactShortName = GetShortName(contactName),
+                ContactShortName = GetFilenameSafeShortName(contactName),
                 Created = created,
                 FileName = fileNameNoExtension + ".md",
                 FileNameWithoutExtension = fileNameNoExtension,
@@ -674,7 +674,7 @@ namespace SlingMD.Outlook.Services
             {
                 Metadata = metadata,
                 ContactName = fullName,
-                ContactShortName = GetShortName(fullName),
+                ContactShortName = GetFilenameSafeShortName(fullName),
                 Created = created,
                 FileName = fileNameNoExtension + ".md",
                 FileNameWithoutExtension = fileNameNoExtension,
@@ -753,7 +753,7 @@ namespace SlingMD.Outlook.Services
             Dictionary<string, string> replacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 { "ContactName", contactName ?? string.Empty },
-                { "ContactShortName", GetShortName(contactName ?? string.Empty) },
+                { "ContactShortName", GetFilenameSafeShortName(contactName ?? string.Empty) },
                 { "CleanContactName", cleanName }
             };
 

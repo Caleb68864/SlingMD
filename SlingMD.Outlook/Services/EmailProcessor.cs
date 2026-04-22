@@ -204,7 +204,7 @@ namespace SlingMD.Outlook.Services
 
                     // Build note title using settings (with null safety)
                     string noteTitle = mail.Subject ?? "No Subject";
-                    string senderClean = _contactService.GetShortName(mail.SenderName ?? "Unknown Sender");
+                    string senderClean = _contactService.GetFilenameSafeShortName(mail.SenderName ?? "Unknown Sender");
                     string fileDateTime = mail.ReceivedTime.ToString("yyyy-MM-dd-HHmm");
                     string dateStr = mail.ReceivedTime.ToString("yyyy-MM-dd");
                     string subjectClean = CleanSubject(mail.Subject ?? "No Subject");
@@ -787,7 +787,7 @@ namespace SlingMD.Outlook.Services
         private (string conversationId, string threadNoteName, string threadFolderPath, string threadNotePath, bool shouldGroupThread, string obsidianLinkPath, string fileName, string filePath, string fileNameNoExt) GetThreadingInfo(MailItem mail, string subjectClean, string senderClean, string fileDateTime, string fileNameNoExt)
         {
             string conversationId = _threadService.GetConversationId(mail);
-            string firstRecipient = _contactService.GetShortName(GetFirstRecipient(mail));
+            string firstRecipient = _contactService.GetFilenameSafeShortName(GetFirstRecipient(mail));
             string threadFolderName = _threadService.GetThreadFolderName(mail, subjectClean, senderClean, firstRecipient);
             string threadNoteName = _threadService.GetThreadNoteName(mail, subjectClean, senderClean, firstRecipient);
             string threadFolderPath = Path.Combine(_settings.GetInboxPath(), threadFolderName);
