@@ -40,6 +40,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -72,10 +73,17 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Helpers\BoundedHashSetTests.cs" />
+    <Compile Include="Helpers\SafeComActionTests.cs" />
+    <Compile Include="Forms\CalendarRangeDialogTests.cs" />
     <Compile Include="Models\ObsidianSettingsTests.cs" />
     <Compile Include="Models\ObsidianSettingsAppointmentTests.cs" />
+    <Compile Include="Models\AutoSlingRuleTests.cs" />
+    <Compile Include="Models\WatchedFolderTests.cs" />
     <Compile Include="Services\AttachmentServiceTests.cs" />
+    <Compile Include="Services\FlagMonitorServiceTests.cs" />
     <Compile Include="Services\FileServiceTests.cs" />
+    <Compile Include="Services\RuleEngineTests.cs" />
     <Compile Include="Services\ContactServiceTests.cs" />
     <Compile Include="Services\ContactServiceMeetingTests.cs" />
     <Compile Include="Services\EmailProcessorTests.cs" />
@@ -85,6 +93,28 @@
     <Compile Include="Services\TemplateServiceTests.cs" />
     <Compile Include="Services\TemplateServiceAppointmentTests.cs" />
     <Compile Include="Services\ThreadServiceTests.cs" />
+    <Compile Include="Services\FolderMonitorServiceTests.cs" />
+    <Compile Include="Services\ThreadCompletionServiceTests.cs" />
+    <Compile Include="Services\Formatting\NoteTitleBuilderTests.cs" />
+    <Compile Include="Services\Formatting\DateFormatterTests.cs" />
+    <Compile Include="Services\Formatting\EmailAddressParserTests.cs" />
+    <Compile Include="Services\Formatting\ContactNameParserTests.cs" />
+    <Compile Include="Services\Formatting\ContactLinkFormatterTests.cs" />
+    <Compile Include="Services\Formatting\SubjectCleanerServiceTests.cs" />
+    <Compile Include="Services\Formatting\ThreadIdHasherTests.cs" />
+    <Compile Include="Services\Formatting\FileNameSanitizerTests.cs" />
+    <Compile Include="Services\Formatting\FilenameSubjectNormalizerTests.cs" />
+    <Compile Include="Services\Formatting\FrontmatterReaderTests.cs" />
+    <Compile Include="Services\Formatting\MarkdownSectionFinderTests.cs" />
+    <Compile Include="Services\Formatting\LegacyFilenameStripperTests.cs" />
+    <Compile Include="Services\Formatting\TemplatePathResolverTests.cs" />
+    <Compile Include="Services\Formatting\UniqueFilenameResolverTests.cs" />
+    <Compile Include="Services\ReminderDueDateCalculatorTests.cs" />
+    <Compile Include="Services\SlingDecisionEngineTests.cs" />
+    <Compile Include="Services\AutoSlingServiceTests.cs" />
+    <Compile Include="Services\SubjectFilenameCleanerTests.cs" />
+    <Compile Include="Services\TaskServiceClockTests.cs" />
+    <Compile Include="Infrastructure\FakeClock.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

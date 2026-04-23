@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -14,6 +13,8 @@ using SlingMD.Outlook.Forms;
 using SlingMD.Outlook.Helpers;
 using SlingMD.Outlook.Models;
 using Logger = SlingMD.Outlook.Helpers.Logger;
+using SlingMD.Outlook.Infrastructure;
+using SlingMD.Outlook.Services.Formatting;
 
 namespace SlingMD.Outlook.Services
 {
@@ -39,21 +40,6 @@ namespace SlingMD.Outlook.Services
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> _recurringFolderLocks
             = new ConcurrentDictionary<string, SemaphoreSlim>(StringComparer.OrdinalIgnoreCase);
 
-        // Compiled regex patterns matching EmailProcessor
-        private static readonly Regex WhitespaceRegex = new Regex(@"\s+", RegexOptions.Compiled);
-        private static readonly Regex TrailingDashSpaceRegex = new Regex(@"[-\s]+$", RegexOptions.Compiled);
-        private static readonly Regex ColonSpaceRegex = new Regex(@":\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ReplyPrefixRegex1 = new Regex(@"(?:Re_\s*)+(?:RE_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ReplyPrefixRegex2 = new Regex(@"(?:RE_\s*)+(?:Re_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ReplyPrefixRegex3 = new Regex(@"(?:Re_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ReplyPrefixRegex4 = new Regex(@"(?:RE_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardPrefixRegex1 = new Regex(@"(?:Fw_\s*)+(?:FW_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardPrefixRegex2 = new Regex(@"(?:FW_\s*)+(?:Fw_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardPrefixRegex3 = new Regex(@"(?:Fw_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardPrefixRegex4 = new Regex(@"(?:FW_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ReplySpaceRegex = new Regex(@"Re_\s+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardSpaceRegex = new Regex(@"Fw_\s+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
         private readonly ObsidianSettings _settings;
         private readonly FileService _fileService;
         private readonly TemplateService _templateService;
@@ -61,6 +47,14 @@ namespace SlingMD.Outlook.Services
         private readonly TaskService _taskService;
         private readonly ContactService _contactService;
         private readonly AttachmentService _attachmentService;
+        private readonly DateFormatter _dateFormatter;
+        private readonly ContactNameParser _contactNameParser;
+        private readonly ContactLinkFormatter _contactLinkFormatter;
+        private readonly SubjectFilenameCleaner _subjectFilenameCleaner;
+        private readonly NoteTitleBuilder _noteTitleBuilder;
+        private readonly UniqueFilenameResolver _uniqueFilenameResolver = new UniqueFilenameResolver();
+        private readonly IClock _clock;
+        private readonly ReminderDueDateCalculator _reminderCalculator;
 
         private List<string> _bulkErrors = new List<string>();
 
@@ -71,15 +65,33 @@ namespace SlingMD.Outlook.Services
             return errors;
         }
 
-        public AppointmentProcessor(ObsidianSettings settings)
+        public AppointmentProcessor(ObsidianSettings settings, IClock clock = null)
         {
             _settings = settings;
             _fileService = new FileService(settings);
             _templateService = new TemplateService(_fileService);
             _threadService = new ThreadService(_fileService, _templateService, settings);
-            _taskService = new TaskService(settings, _templateService);
+            _clock = clock ?? new SystemClock();
+            _taskService = new TaskService(settings, _templateService, _clock);
             _contactService = new ContactService(_fileService, _templateService);
             _attachmentService = new AttachmentService(settings, _fileService);
+            _dateFormatter = new DateFormatter();
+            _contactNameParser = new ContactNameParser();
+            _contactLinkFormatter = new ContactLinkFormatter();
+            _subjectFilenameCleaner = new SubjectFilenameCleaner(settings, _fileService);
+            _noteTitleBuilder = new NoteTitleBuilder();
+            _reminderCalculator = new ReminderDueDateCalculator();
+        }
+
+        private string FormatPersonLink(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return string.Empty;
+            }
+            ContactName parsed = _contactNameParser.Parse(name, null);
+            string formatted = _contactLinkFormatter.Format(parsed, _settings.ContactLinkFormat);
+            return string.IsNullOrEmpty(formatted) ? $"[[{name}]]" : formatted;
         }
 
         /// <summary>
@@ -172,8 +184,8 @@ namespace SlingMD.Outlook.Services
             string subject = string.Empty;
             string body = string.Empty;
             string location = string.Empty;
-            DateTime startTime = DateTime.Now;
-            DateTime endTime = DateTime.Now;
+            DateTime startTime = _clock.Now;
+            DateTime endTime = _clock.Now;
             string organizerName = string.Empty;
             string organizerEmail = string.Empty;
             string globalAppointmentId = string.Empty;
@@ -297,6 +309,14 @@ namespace SlingMD.Outlook.Services
                 }
             }
 
+            // --- Vault path pre-check before any file writes ---
+            string vaultPath = _settings.GetFullVaultPath();
+            if (!System.IO.Directory.Exists(vaultPath))
+            {
+                throw new System.IO.DirectoryNotFoundException(
+                    $"Obsidian vault at \"{vaultPath}\" is not accessible. Check that the folder exists.");
+            }
+
             // --- Task creation flags ---
             bool createObsidianTask = _settings.AppointmentTaskCreation == "Obsidian"
                                    || _settings.AppointmentTaskCreation == "Both";
@@ -337,24 +357,19 @@ namespace SlingMD.Outlook.Services
             // --- Build the note title and file name ---
             string subjectClean = CleanSubject(subject);
             string dateStr = startTime.ToString("yyyy-MM-dd");
-            string organizerShortName = _contactService.GetShortName(
+            string organizerShortName = _contactService.GetFilenameSafeShortName(
                 string.IsNullOrWhiteSpace(organizerName) ? "Unknown Organizer" : organizerName);
 
             string titleFormat = _settings.AppointmentNoteTitleFormat ?? "{Date} - {Subject}";
             int maxLength = _settings.AppointmentNoteTitleMaxLength > 0 ? _settings.AppointmentNoteTitleMaxLength : 50;
 
-            string noteTitle = titleFormat
-                .Replace("{Date}", dateStr)
-                .Replace("{Subject}", subjectClean)
-                .Replace("{Sender}", organizerShortName);
-
-            noteTitle = WhitespaceRegex.Replace(noteTitle, " ").Trim();
-            noteTitle = TrailingDashSpaceRegex.Replace(noteTitle, "").Trim();
-
-            if (noteTitle.Length > maxLength)
+            Dictionary<string, string> titleTokens = new Dictionary<string, string>
             {
-                noteTitle = noteTitle.Substring(0, maxLength - 3) + "...";
-            }
+                { "Date", dateStr },
+                { "Subject", subjectClean },
+                { "Sender", organizerShortName }
+            };
+            string noteTitle = _noteTitleBuilder.BuildTrimmed(titleFormat, titleTokens, maxLength);
 
             string fileNameNoExt = _fileService.CleanFileName(noteTitle);
             if (string.IsNullOrWhiteSpace(fileNameNoExt))
@@ -672,37 +687,17 @@ namespace SlingMD.Outlook.Services
                                   + $"Date: {startTime:yyyy-MM-dd HH:mm}\n"
                                   + $"Location: {location}";
 
-                        int dueDays = _settings.DefaultDueDays;
-                        int reminderDays = _settings.DefaultReminderDays;
-                        int reminderHour = _settings.DefaultReminderHour;
+                        TaskDueDates dates = _reminderCalculator.Calculate(_clock.Now, new TaskDueSettings
+                        {
+                            DefaultDueDays = _settings.DefaultDueDays,
+                            UseRelativeReminder = _settings.UseRelativeReminder,
+                            DefaultReminderDays = _settings.DefaultReminderDays,
+                            DefaultReminderHour = _settings.DefaultReminderHour
+                        });
 
-                        DateTime dueDate = DateTime.Now.Date.AddDays(dueDays);
-                        task.DueDate = dueDate;
+                        task.DueDate = dates.DueDate;
                         task.ReminderSet = true;
-
-                        DateTime reminderTime;
-                        if (_settings.UseRelativeReminder)
-                        {
-                            reminderTime = dueDate.AddDays(-reminderDays).Date.AddHours(reminderHour);
-                        }
-                        else
-                        {
-                            reminderTime = DateTime.Now.Date.AddDays(reminderDays).Date.AddHours(reminderHour);
-                        }
-
-                        if (reminderTime < DateTime.Now)
-                        {
-                            if (reminderTime.Date == DateTime.Now.Date)
-                            {
-                                reminderTime = DateTime.Now.AddHours(1);
-                            }
-                            else
-                            {
-                                reminderTime = DateTime.Now.Date.AddDays(1).AddHours(reminderHour);
-                            }
-                        }
-
-                        task.ReminderTime = reminderTime;
+                        task.ReminderTime = dates.ReminderDateTime;
                         task.Save();
                     }
                 }
@@ -891,37 +886,7 @@ namespace SlingMD.Outlook.Services
                    && _processedAppointmentIds.ContainsKey(globalAppointmentId);
         }
 
-        private string CleanSubject(string subject)
-        {
-            if (string.IsNullOrEmpty(subject))
-            {
-                return string.Empty;
-            }
-
-            string cleaned = subject;
-
-            foreach (string pattern in _settings.SubjectCleanupPatterns)
-            {
-                cleaned = Regex.Replace(cleaned, pattern, "", RegexOptions.IgnoreCase);
-            }
-
-            cleaned = ColonSpaceRegex.Replace(cleaned, "_");
-
-            cleaned = ReplyPrefixRegex1.Replace(cleaned, "Re_");
-            cleaned = ReplyPrefixRegex2.Replace(cleaned, "Re_");
-            cleaned = ReplyPrefixRegex3.Replace(cleaned, "Re_");
-            cleaned = ReplyPrefixRegex4.Replace(cleaned, "Re_");
-
-            cleaned = ForwardPrefixRegex1.Replace(cleaned, "Fw_");
-            cleaned = ForwardPrefixRegex2.Replace(cleaned, "Fw_");
-            cleaned = ForwardPrefixRegex3.Replace(cleaned, "Fw_");
-            cleaned = ForwardPrefixRegex4.Replace(cleaned, "Fw_");
-
-            cleaned = ReplySpaceRegex.Replace(cleaned, "Re_");
-            cleaned = ForwardSpaceRegex.Replace(cleaned, "Fw_");
-
-            return _fileService.CleanFileName(cleaned.Trim());
-        }
+        private string CleanSubject(string subject) => _subjectFilenameCleaner.Clean(subject);
 
         private Dictionary<string, object> BuildAppointmentMetadata(
             string noteTitle,
@@ -941,11 +906,11 @@ namespace SlingMD.Outlook.Services
             {
                 { "title", noteTitle },
                 { "type", "Appointment" },
-                { "organizer", string.IsNullOrWhiteSpace(organizerName) ? string.Empty : $"[[{organizerName}]]" },
+                { "organizer", FormatPersonLink(organizerName) },
                 { "organizerEmail", organizerEmail ?? string.Empty },
                 { "location", location ?? string.Empty },
-                { "startDateTime", startTime.ToString("yyyy-MM-dd HH:mm:ss") },
-                { "endDateTime", endTime.ToString("yyyy-MM-dd HH:mm:ss") },
+                { "startDateTime", _dateFormatter.Format(startTime, _settings.AppointmentDateFormat) },
+                { "endDateTime", _dateFormatter.Format(endTime, _settings.AppointmentDateFormat) },
                 { "recurrence", recurrenceState.ToString() },
                 { "globalAppointmentId", globalAppointmentId ?? string.Empty }
             };
@@ -959,7 +924,7 @@ namespace SlingMD.Outlook.Services
             if (requiredAttendees != null && requiredAttendees.Count > 0)
             {
                 List<string> linkedRequired = requiredAttendees
-                    .Select(name => $"[[{name}]]")
+                    .Select(name => FormatPersonLink(name))
                     .ToList();
                 metadata.Add("attendees", linkedRequired);
             }
@@ -967,7 +932,7 @@ namespace SlingMD.Outlook.Services
             if (optionalAttendees != null && optionalAttendees.Count > 0)
             {
                 List<string> linkedOptional = optionalAttendees
-                    .Select(name => $"[[{name}]]")
+                    .Select(name => FormatPersonLink(name))
                     .ToList();
                 metadata.Add("optionalAttendees", linkedOptional);
             }
@@ -975,7 +940,7 @@ namespace SlingMD.Outlook.Services
             if (resourceAttendees != null && resourceAttendees.Count > 0)
             {
                 List<string> linkedResources = resourceAttendees
-                    .Select(name => $"[[{name}]]")
+                    .Select(name => FormatPersonLink(name))
                     .ToList();
                 metadata.Add("resources", linkedResources);
             }
@@ -1031,13 +996,13 @@ namespace SlingMD.Outlook.Services
                 content.AppendLine();
             }
 
-            content.AppendLine($"**Start:** {startTime:yyyy-MM-dd HH:mm}");
-            content.AppendLine($"**End:** {endTime:yyyy-MM-dd HH:mm}");
+            content.AppendLine($"**Start:** {_dateFormatter.Format(startTime, _settings.AppointmentDateFormat)}");
+            content.AppendLine($"**End:** {_dateFormatter.Format(endTime, _settings.AppointmentDateFormat)}");
             content.AppendLine();
 
             if (!string.IsNullOrWhiteSpace(organizerName))
             {
-                content.AppendLine($"**Organizer:** [[{organizerName}]]");
+                content.AppendLine($"**Organizer:** {FormatPersonLink(organizerName)}");
                 content.AppendLine();
             }
 
@@ -1113,17 +1078,13 @@ namespace SlingMD.Outlook.Services
                                 : $"attachment-{i}{originalExt}";
                         }
 
-                        string fullPath = Path.Combine(targetFolder, safeFilename);
-                        int counter = 1;
-                        string nameWithoutExt = Path.GetFileNameWithoutExtension(safeFilename);
-                        string ext = Path.GetExtension(safeFilename);
-
-                        while (File.Exists(fullPath) && counter <= 10)
+                        string fullPath = _uniqueFilenameResolver.Resolve(targetFolder, safeFilename, File.Exists);
+                        if (fullPath == null)
                         {
-                            safeFilename = $"{nameWithoutExt}_{counter}{ext}";
-                            fullPath = Path.Combine(targetFolder, safeFilename);
-                            counter++;
+                            Logger.Instance.Warning($"Failed to find unique filename for appointment attachment: {attachmentFileName}");
+                            continue;
                         }
+                        safeFilename = Path.GetFileName(fullPath);
 
                         try
                         {

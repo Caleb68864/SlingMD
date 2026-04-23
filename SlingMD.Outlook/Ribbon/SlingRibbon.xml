@@ -9,6 +9,12 @@
                   size="large"
                   onAction="OnSlingButtonClick"
                   getImage="GetSlingButtonImage" />
+          <button id="CompleteThreadButton"
+                  label="Complete Thread"
+                  size="large"
+                  getImage="GetCompleteThreadImage"
+                  onAction="OnCompleteThreadClick"
+                  supertip="Find and sling missing emails from the current email's thread"/>
         </group>
         <group id="SettingsGroup" label="Settings">
           <button id="SettingsButton"
@@ -24,6 +30,12 @@
                   imageMso="ShowSchedulingPage"
                   onAction="OnSaveTodaysClick"
                   supertip="Save all of today's appointments to Obsidian"/>
+          <button id="SaveDateRangeButton"
+                  label="Save Date Range"
+                  size="large"
+                  imageMso="DateAndTimeInsert"
+                  onAction="OnSaveDateRangeClick"
+                  supertip="Save appointments for a custom date range to Obsidian"/>
         </group>
         <group id="ContactsGroup" label="Contacts">
           <button id="SlingAllContactsButton"

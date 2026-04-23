@@ -105,6 +105,29 @@ namespace SlingMD.Outlook.Models
         public bool ContactNoteIncludeDetails { get; set; } = true;
 
         /// <summary>
+        /// Format string for rendering contact mentions ({{to}}, {{from}}, {{cc}}).
+        /// Supported tokens: {FullName}, {FirstName}, {LastName}, {MiddleName}, {Suffix},
+        /// {DisplayName}, {ShortName}, {Email}, {FirstInitial}, {LastInitial}.
+        /// Default: "[[{FullName}]]" which produces wikilinks like [[John Smith]].
+        /// </summary>
+        public string ContactLinkFormat { get; set; } = "[[{FullName}]]";
+
+        /// <summary>
+        /// .NET format string for email received dates in exported notes. Default: "yyyy-MM-dd HH:mm:ss".
+        /// </summary>
+        public string EmailDateFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";
+
+        /// <summary>
+        /// .NET format string for the "{{created}}" placeholder in contact notes. Default: "yyyy-MM-dd".
+        /// </summary>
+        public string ContactDateFormat { get; set; } = "yyyy-MM-dd";
+
+        /// <summary>
+        /// .NET format string for appointment dates/times in exported notes. Default: "yyyy-MM-dd HH:mm".
+        /// </summary>
+        public string AppointmentDateFormat { get; set; } = "yyyy-MM-dd HH:mm";
+
+        /// <summary>
         /// Default tags to apply to the note's frontmatter.
         /// Leave empty to not include any tags.
         /// </summary>
@@ -209,7 +232,65 @@ namespace SlingMD.Outlook.Models
         /// </summary>
         public string AppointmentTaskCreation { get; set; } = "None";
 
+        // Auto-Sling Settings
+
+        /// <summary>
+        /// Whether automatic email slinging is enabled.
+        /// </summary>
+        public bool EnableAutoSling { get; set; } = false;
+
+        /// <summary>
+        /// Notification mode for auto-sling activity. Valid values: "Toast", "Silent".
+        /// </summary>
+        public string AutoSlingNotificationMode { get; set; } = "Toast";
+
+        /// <summary>
+        /// Rules that determine which emails are automatically slung.
+        /// </summary>
+        public List<AutoSlingRule> AutoSlingRules { get; set; } = new List<AutoSlingRule>();
+
+        /// <summary>
+        /// Outlook folders to watch for incoming emails to auto-sling.
+        /// </summary>
+        public List<WatchedFolder> WatchedFolders { get; set; } = new List<WatchedFolder>();
+
+        /// <summary>
+        /// Whether flagged emails are automatically slung to Obsidian.
+        /// </summary>
+        public bool EnableFlagToSling { get; set; } = false;
+
+        /// <summary>
+        /// Outlook category applied to emails that have been sent to Obsidian.
+        /// </summary>
+        public string SentToObsidianCategory { get; set; } = "Sent to Obsidian";
+
         public List<string> SubjectCleanupPatterns { get; set; } = CreateDefaultSubjectCleanupPatterns();
+
+        /// <summary>
+        /// Ordered find/replace rules applied to the subject after <see cref="SubjectCleanupPatterns"/>
+        /// to canonicalize it for filename use (e.g. "Re: Re: foo" → "Re_foo"). Each rule runs in order.
+        /// If null or empty, <see cref="Services.Formatting.FilenameSubjectNormalizer"/> falls back to
+        /// its built-in defaults — the same regex set SlingMD shipped with before these rules existed.
+        /// </summary>
+        public List<FilenameSubjectRule> FilenameSubjectPatterns { get; set; } = CreateDefaultFilenameSubjectPatterns();
+
+        internal static List<FilenameSubjectRule> CreateDefaultFilenameSubjectPatterns()
+        {
+            return new List<FilenameSubjectRule>
+            {
+                new FilenameSubjectRule { Pattern = @":\s*",                         Replacement = "_"    },
+                new FilenameSubjectRule { Pattern = @"(?:Re_\s*)+(?:RE_\s*)+",       Replacement = "Re_"  },
+                new FilenameSubjectRule { Pattern = @"(?:RE_\s*)+(?:Re_\s*)+",       Replacement = "Re_"  },
+                new FilenameSubjectRule { Pattern = @"(?:Re_\s*){2,}",               Replacement = "Re_"  },
+                new FilenameSubjectRule { Pattern = @"(?:RE_\s*){2,}",               Replacement = "Re_"  },
+                new FilenameSubjectRule { Pattern = @"(?:Fw_\s*)+(?:FW_\s*)+",       Replacement = "Fw_"  },
+                new FilenameSubjectRule { Pattern = @"(?:FW_\s*)+(?:Fw_\s*)+",       Replacement = "Fw_"  },
+                new FilenameSubjectRule { Pattern = @"(?:Fw_\s*){2,}",               Replacement = "Fw_"  },
+                new FilenameSubjectRule { Pattern = @"(?:FW_\s*){2,}",               Replacement = "Fw_"  },
+                new FilenameSubjectRule { Pattern = @"Re_\s+",                       Replacement = "Re_"  },
+                new FilenameSubjectRule { Pattern = @"Fw_\s+",                       Replacement = "Fw_"  }
+            };
+        }
 
         private static List<string> CreateDefaultNoteTags()
         {
@@ -221,12 +302,23 @@ namespace SlingMD.Outlook.Models
             return new List<string> { "FollowUp" };
         }
 
+        /// <summary>
+        /// The exact legacy broken regex pattern that matches "re-" inside words like "pre-release".
+        /// Used for migration detection only.
+        /// </summary>
+        internal const string LegacyBrokenPrefixPattern = @"(?:(?:Re|Fwd|FW|RE|FWD)[:\s_-])+";
+
+        /// <summary>
+        /// The fixed regex pattern that uses word boundary to avoid matching inside words.
+        /// </summary>
+        internal const string FixedPrefixPattern = @"(?:\b(?:Re|Fwd|FW|RE|FWD)[:\s_-])+";
+
         private static List<string> CreateDefaultSubjectCleanupPatterns()
         {
             return new List<string>
             {
-                @"^(?:(?:Re|Fwd|FW|RE|FWD)[:\s_-])*",
-                @"(?:(?:Re|Fwd|FW|RE|FWD)[:\s_-])+",
+                @"^(?:\b(?:Re|Fwd|FW|RE|FWD)[:\s_-])*",
+                FixedPrefixPattern,
                 @"\[EXTERNAL\]\s*",
                 @"\[Internal\]\s*",
                 @"\[Confidential\]\s*",
@@ -354,6 +446,12 @@ namespace SlingMD.Outlook.Models
             {
                 throw new ArgumentException($"Invalid AppointmentTaskCreation value: {AppointmentTaskCreation}. Must be one of: None, Obsidian, Outlook, Both.");
             }
+
+            string[] validNotificationModes = { "Toast", "Silent" };
+            if (!System.Array.Exists(validNotificationModes, v => v == AutoSlingNotificationMode))
+            {
+                throw new ArgumentException($"Invalid AutoSlingNotificationMode: {AutoSlingNotificationMode}. Must be Toast or Silent.");
+            }
         }
 
         public void Save()
@@ -420,7 +518,16 @@ namespace SlingMD.Outlook.Models
             TaskTemplateFile = string.IsNullOrWhiteSpace(TaskTemplateFile) ? "TaskTemplate.md" : TaskTemplateFile;
             ThreadTemplateFile = string.IsNullOrWhiteSpace(ThreadTemplateFile) ? "ThreadNoteTemplate.md" : ThreadTemplateFile;
             ContactFilenameFormat = string.IsNullOrWhiteSpace(ContactFilenameFormat) ? "{ContactName}" : ContactFilenameFormat;
+            ContactLinkFormat = string.IsNullOrWhiteSpace(ContactLinkFormat) ? "[[{FullName}]]" : ContactLinkFormat;
+            EmailDateFormat = string.IsNullOrWhiteSpace(EmailDateFormat) ? "yyyy-MM-dd HH:mm:ss" : EmailDateFormat;
+            ContactDateFormat = string.IsNullOrWhiteSpace(ContactDateFormat) ? "yyyy-MM-dd" : ContactDateFormat;
+            AppointmentDateFormat = string.IsNullOrWhiteSpace(AppointmentDateFormat) ? "yyyy-MM-dd HH:mm" : AppointmentDateFormat;
+            ValidateContactLinkFormatTokens();
             SubjectCleanupPatterns = SubjectCleanupPatterns ?? CreateDefaultSubjectCleanupPatterns();
+            FilenameSubjectPatterns = (FilenameSubjectPatterns != null && FilenameSubjectPatterns.Count > 0)
+                ? FilenameSubjectPatterns
+                : CreateDefaultFilenameSubjectPatterns();
+            MigrateLegacyCleanupPatterns();
             DefaultNoteTags = DefaultNoteTags ?? CreateDefaultNoteTags();
             DefaultTaskTags = DefaultTaskTags ?? CreateDefaultTaskTags();
             NoteTitleFormat = string.IsNullOrWhiteSpace(NoteTitleFormat) ? "{Subject} - {Date}" : NoteTitleFormat;
@@ -444,6 +551,43 @@ namespace SlingMD.Outlook.Models
             if (string.IsNullOrWhiteSpace(AppointmentTaskCreation) || !System.Array.Exists(validTaskCreationValues, v => v == AppointmentTaskCreation))
             {
                 AppointmentTaskCreation = "None";
+            }
+
+            AutoSlingNotificationMode = string.IsNullOrWhiteSpace(AutoSlingNotificationMode) ? "Toast" : AutoSlingNotificationMode;
+            AutoSlingRules = AutoSlingRules ?? new List<AutoSlingRule>();
+            WatchedFolders = WatchedFolders ?? new List<WatchedFolder>();
+            SentToObsidianCategory = string.IsNullOrWhiteSpace(SentToObsidianCategory) ? "Sent to Obsidian" : SentToObsidianCategory;
+        }
+
+        /// <summary>
+        /// Validates tokens in <see cref="ContactLinkFormat"/>. Currently permissive —
+        /// unknown tokens render as empty strings at runtime.
+        /// </summary>
+        private void ValidateContactLinkFormatTokens()
+        {
+            // Permissive: unknown tokens render empty at runtime. Reserved for future
+            // brace-balance warnings.
+        }
+
+        /// <summary>
+        /// Migrates legacy broken subject cleanup patterns to the fixed versions.
+        /// Only rewrites the exact legacy broken pattern string; user-customized patterns are left untouched.
+        /// This is called during Load() and the migration is in-memory only until the next Save().
+        /// </summary>
+        private void MigrateLegacyCleanupPatterns()
+        {
+            if (SubjectCleanupPatterns == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < SubjectCleanupPatterns.Count; i++)
+            {
+                // Only migrate the exact legacy broken pattern - don't touch user modifications
+                if (SubjectCleanupPatterns[i] == LegacyBrokenPrefixPattern)
+                {
+                    SubjectCleanupPatterns[i] = FixedPrefixPattern;
+                }
             }
         }
 

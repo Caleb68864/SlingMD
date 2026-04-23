@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.Office.Interop.Outlook;
+using SlingMD.Outlook.Infrastructure;
 using SlingMD.Outlook.Models;
 
 namespace SlingMD.Outlook.Services
@@ -12,16 +13,34 @@ namespace SlingMD.Outlook.Services
     {
         private readonly ObsidianSettings _settings;
         private readonly TemplateService _templateService;
+        private readonly IClock _clock;
+        private readonly ReminderDueDateCalculator _calculator;
         private int? _taskDueDays;
         private int? _taskReminderDays;
         private int? _taskReminderHour;
         private bool _useRelativeReminder;
         private bool _createTasks = true;
 
-        public TaskService(ObsidianSettings settings, TemplateService templateService = null)
+        public TaskService(ObsidianSettings settings, TemplateService templateService = null, IClock clock = null)
         {
             _settings = settings;
             _templateService = templateService ?? new TemplateService(new FileService(settings));
+            _clock = clock ?? new SystemClock();
+            _calculator = new ReminderDueDateCalculator();
+        }
+
+        private TaskDueDates ComputeDueDates()
+        {
+            int dueDays = _taskDueDays ?? _settings.DefaultDueDays;
+            int reminderDays = _taskReminderDays ?? _settings.DefaultReminderDays;
+            int reminderHour = _taskReminderHour ?? _settings.DefaultReminderHour;
+            return _calculator.Calculate(_clock.Now, new TaskDueSettings
+            {
+                DefaultDueDays = dueDays,
+                UseRelativeReminder = _useRelativeReminder,
+                DefaultReminderDays = reminderDays,
+                DefaultReminderHour = reminderHour
+            });
         }
 
         public void InitializeTaskSettings(int? dueDays = null, int? reminderDays = null, int? reminderHour = null, bool? useRelativeReminder = null)
@@ -50,23 +69,10 @@ namespace SlingMD.Outlook.Services
                 return string.Empty;
             }
 
-            int dueDays = _taskDueDays ?? _settings.DefaultDueDays;
-            int reminderDays = _taskReminderDays ?? _settings.DefaultReminderDays;
-
-            string currentDate = DateTime.Now.ToString("yyyy-MM-dd");
-            string dueDate = DateTime.Now.Date.AddDays(dueDays).ToString("yyyy-MM-dd");
-
-            DateTime reminderDateTime;
-            if (_useRelativeReminder)
-            {
-                reminderDateTime = DateTime.Now.Date.AddDays(dueDays - reminderDays);
-            }
-            else
-            {
-                reminderDateTime = DateTime.Now.Date.AddDays(reminderDays);
-            }
-
-            string reminderDate = reminderDateTime.ToString("yyyy-MM-dd");
+            TaskDueDates dates = ComputeDueDates();
+            string currentDate = _clock.Now.ToString("yyyy-MM-dd");
+            string dueDate = dates.DueDate.ToString("yyyy-MM-dd");
+            string reminderDate = dates.ReminderDate.ToString("yyyy-MM-dd");
             List<string> effectiveTags = GetEffectiveTaskTags(taskTags);
             string tagsPart = string.Join(" ", effectiveTags.Select(tag => tag.StartsWith("#") ? tag : "#" + tag));
 
@@ -95,43 +101,16 @@ namespace SlingMD.Outlook.Services
 
             try
             {
-                int dueDays = _taskDueDays ?? _settings.DefaultDueDays;
-                int reminderDays = _taskReminderDays ?? _settings.DefaultReminderDays;
-                int reminderHour = _taskReminderHour ?? _settings.DefaultReminderHour;
+                TaskDueDates dates = ComputeDueDates();
 
                 outlookApp = mail.Application;
                 task = (Microsoft.Office.Interop.Outlook.TaskItem)outlookApp.CreateItem(OlItemType.olTaskItem);
                 task.Subject = $"Follow up: {mail.Subject ?? "No Subject"}";
                 task.Body = $"Follow up on email from {mail.SenderName ?? "Unknown Sender"}\n\nOriginal email:\n{mail.Body ?? string.Empty}";
 
-                DateTime dueDate = DateTime.Now.Date.AddDays(dueDays);
-                task.DueDate = dueDate;
+                task.DueDate = dates.DueDate;
                 task.ReminderSet = true;
-
-                DateTime reminderDate;
-                if (_useRelativeReminder)
-                {
-                    reminderDate = dueDate.AddDays(-reminderDays);
-                }
-                else
-                {
-                    reminderDate = DateTime.Now.Date.AddDays(reminderDays);
-                }
-
-                DateTime reminderTime = reminderDate.AddHours(reminderHour);
-                if (reminderTime < DateTime.Now)
-                {
-                    if (reminderTime.Date == DateTime.Now.Date)
-                    {
-                        reminderTime = DateTime.Now.AddHours(1);
-                    }
-                    else
-                    {
-                        reminderTime = DateTime.Now.Date.AddDays(1).AddHours(reminderHour);
-                    }
-                }
-
-                task.ReminderTime = reminderTime;
+                task.ReminderTime = dates.ReminderDateTime;
                 task.Save();
             }
             catch (System.Exception ex)

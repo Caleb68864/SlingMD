@@ -7,13 +7,15 @@ using Microsoft.Office.Interop.Outlook;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using SlingMD.Outlook.Infrastructure;
 using SlingMD.Outlook.Models;
+using SlingMD.Outlook.Services.Formatting;
 
 namespace SlingMD.Outlook.Services
 {
     /// <summary>
-    /// Provides helper routines for detecting email conversation threads, generating folder/note names, 
-    /// manipulating files that belong to a thread and updating the thread summary note.  
+    /// Provides helper routines for detecting email conversation threads, generating folder/note names,
+    /// manipulating files that belong to a thread and updating the thread summary note.
     /// All publicly exposed members are safe for unit-testing and are free of any Outlook UI dependencies.
     /// </summary>
     public class ThreadService
@@ -21,12 +23,20 @@ namespace SlingMD.Outlook.Services
         private readonly FileService _fileService;
         private readonly TemplateService _templateService;
         private readonly ObsidianSettings _settings;
+        private readonly ThreadIdHasher _threadIdHasher;
+        private readonly FrontmatterReader _frontmatter;
+        private readonly LegacyFilenameStripper _legacyFilenameStripper;
 
         public ThreadService(FileService fileService, TemplateService templateService, ObsidianSettings settings)
         {
             _fileService = fileService;
             _templateService = templateService;
             _settings = settings;
+            // Use a fallback settings instance when null so "store-only" constructor pattern
+            // is preserved (exceptions only surface when methods are actually called).
+            _threadIdHasher = new ThreadIdHasher(new SubjectCleanerService(settings ?? new ObsidianSettings()));
+            _frontmatter = new FrontmatterReader();
+            _legacyFilenameStripper = new LegacyFilenameStripper();
         }
 
         /// <summary>
@@ -41,38 +51,25 @@ namespace SlingMD.Outlook.Services
         {
             try
             {
-                // Try to get the conversation topic first as it's most reliable for threading
+                // Strategy 1: Hash the conversation topic (most reliable for threading).
                 if (!string.IsNullOrEmpty(mail.ConversationTopic))
                 {
-                    string normalizedSubject = mail.ConversationTopic;
-                    // Remove all variations of Re, Fwd, etc. and [EXTERNAL] tags
-                    normalizedSubject = Regex.Replace(normalizedSubject, @"^(?:(?:Re|Fwd|FW|RE|FWD)[- :]|\[EXTERNAL\]|\s)+", "", RegexOptions.IgnoreCase);
-                    // Also remove any "Re:" that might appear after [EXTERNAL]
-                    normalizedSubject = Regex.Replace(normalizedSubject, @"^Re:\s+", "", RegexOptions.IgnoreCase);
-                    return BitConverter.ToString(MD5.Create()
-                        .ComputeHash(Encoding.UTF8.GetBytes(normalizedSubject)))
-                        .Replace("-", "").Substring(0, 20);
+                    return _threadIdHasher.Hash(mail.ConversationTopic);
                 }
 
-                // Try to get the conversation index using PR_CONVERSATION_INDEX property
-                const string PR_CONVERSATION_INDEX = "http://schemas.microsoft.com/mapi/proptag/0x0071001F";
-                byte[] conversationIndex = (byte[])mail.PropertyAccessor.GetProperty(PR_CONVERSATION_INDEX);
+                // Strategy 2: PR_CONVERSATION_INDEX — Exchange-native thread bytes. Different hash shape
+                // than ThreadIdHasher; preserved as a separate strategy because its ID is not derived
+                // from the subject line.
+                byte[] conversationIndex = (byte[])mail.PropertyAccessor.GetProperty(MapiPropertyTags.PrConversationIndex);
 
                 if (conversationIndex != null && conversationIndex.Length >= 22)
                 {
-                    // The first 22 bytes of the conversation index identify the thread
-                    // Use 20 characters for better uniqueness
                     return BitConverter.ToString(conversationIndex.Take(22).ToArray())
                         .Replace("-", "").Substring(0, 20);
                 }
 
-                // If both methods fail, use the normalized subject as last resort
-                string subject = mail.Subject;
-                subject = Regex.Replace(subject, @"^(?:(?:Re|Fwd|FW|RE|FWD)[- :]|\[EXTERNAL\]|\s)+", "", RegexOptions.IgnoreCase);
-                subject = Regex.Replace(subject, @"^Re:\s+", "", RegexOptions.IgnoreCase);
-                return BitConverter.ToString(MD5.Create()
-                    .ComputeHash(Encoding.UTF8.GetBytes(subject)))
-                    .Replace("-", "").Substring(0, 20);
+                // Strategy 3: Fall back to hashing the subject line.
+                return _threadIdHasher.Hash(mail.Subject ?? string.Empty);
             }
             catch
             {
@@ -293,28 +290,26 @@ namespace SlingMD.Outlook.Services
                     try
                     {
                         string emailContent = File.ReadAllText(file);
-                        var threadIdMatch = Regex.Match(emailContent, @"threadId: ""([^""]+)""");
-                        
+                        string fileThreadId = _frontmatter.ExtractThreadId(emailContent);
+
                         // If this file belongs to the conversation thread
-                        if (threadIdMatch.Success && threadIdMatch.Groups[1].Value == conversationId)
+                        if (fileThreadId == conversationId)
                         {
                             hasExistingThread = true;
                             emailCount++; // Increment email count for each matching email
                             matchingFiles.Add(file); // Add to our debugging list
 
                             // Parse the date to find the earliest email.
-                            // Accept the currently written quoted "yyyy-MM-dd HH:mm:ss" format first,
-                            // then fall back to legacy minute-precision values for backward compatibility.
-                            var dateMatch = Regex.Match(emailContent, @"date: ""?(\d{4}-\d{2}-\d{2} \d{2}:\d{2}(?::\d{2})?)""?");
-                            if (dateMatch.Success)
+                            string rawDate = _frontmatter.ExtractRawDate(emailContent);
+                            if (rawDate != null)
                             {
                                 DateTime emailDate;
-                                if (TryParseThreadDate(dateMatch.Groups[1].Value, out emailDate))
+                                if (TryParseThreadDate(rawDate, out emailDate))
                                 {
                                     if (!earliestEmailDate.HasValue || emailDate < earliestEmailDate.Value)
                                     {
                                         earliestEmailDate = emailDate;
-                                        
+
                                         // Check if this email is in a thread folder
                                         string directory = Path.GetDirectoryName(file);
                                         if (directory != inboxPath)
@@ -323,20 +318,18 @@ namespace SlingMD.Outlook.Services
                                         }
                                         else
                                         {
-                                            // Try to extract thread name components from frontmatter
-                                            var subjectMatch = Regex.Match(emailContent, @"title: ""([^""]+)""");
-                                            var fromMatch = Regex.Match(emailContent, @"from: ""[^""]*\[\[([^""]+)\]\]""");
-                                            var toMatch = Regex.Match(emailContent, @"to:.*?\n\s*- ""[^""]*\[\[([^""]+)\]\]""", RegexOptions.Singleline);
-                                            
-                                            if (subjectMatch.Success && fromMatch.Success && toMatch.Success)
+                                            // Reconstruct a thread name from the frontmatter title/from/to fields.
+                                            string title = _frontmatter.ExtractTitle(emailContent);
+                                            string sender = _frontmatter.ExtractFromName(emailContent);
+                                            string recipient = _frontmatter.ExtractFirstToName(emailContent);
+
+                                            if (title != null && sender != null && recipient != null)
                                             {
-                                                string subject = _fileService.CleanFileName(subjectMatch.Groups[1].Value);
+                                                string subject = _fileService.CleanFileName(title);
                                                 if (subject.Length > 50)
                                                 {
                                                     subject = subject.Substring(0, 47) + "...";
                                                 }
-                                                string sender = fromMatch.Groups[1].Value;
-                                                string recipient = toMatch.Groups[1].Value;
                                                 earliestEmailThreadName = $"{subject}-{sender}-{recipient}";
                                             }
                                         }
@@ -455,12 +448,9 @@ namespace SlingMD.Outlook.Services
                 string nameNoExt = Path.GetFileNameWithoutExtension(fd.file);
                 string ext = Path.GetExtension(fd.file);
 
-                // Remove any email id suffix ( -eid{ID} ) or old numeric suffix ( -001 )
-                nameNoExt = Regex.Replace(nameNoExt, "-eid[0-9A-Za-z]+$", "");
-                nameNoExt = Regex.Replace(nameNoExt, "-\\d{3}$", "");
-
-                // Remove any existing date prefix formats (yyyy-MM-dd_HHmmss, yyyy-MM-dd-HHmm, yyyy-MM-dd_HHmm)
-                nameNoExt = Regex.Replace(nameNoExt, "^\\d{4}-\\d{2}-\\d{2}[_-]\\d{4,6}_?", "");
+                // Strip SlingMD's legacy filename decorations (eid suffix, -NNN suffix, leading
+                // date prefix) — unit-tested helper.
+                nameNoExt = _legacyFilenameStripper.Strip(nameNoExt);
 
                 // Include seconds in date prefix to reduce collision probability
                 string datePrefix = fd.date.ToString("yyyy-MM-dd_HHmmss");

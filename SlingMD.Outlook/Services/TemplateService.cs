@@ -42,6 +42,13 @@ namespace SlingMD.Outlook.Services
         public string Birthday { get; set; } = string.Empty;
         public string Notes { get; set; } = string.Empty;
         public bool IncludeDetails { get; set; } = true;
+
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string MiddleName { get; set; } = string.Empty;
+        public string Suffix { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
     }
 
     public class TaskTemplateContext
@@ -101,16 +108,34 @@ namespace SlingMD.Outlook.Services
     {
         private readonly FileService _fileService;
         private readonly ObsidianSettings _settings;
+        private readonly SlingMD.Outlook.Services.Formatting.DateFormatter _dateFormatter;
+
+        // Cache template contents by path. Keyed on (path, lastWriteTimeUtc) so edits to a template
+        // file — by the user or by an update — invalidate automatically.
+        private readonly Dictionary<string, CachedTemplate> _templateCache =
+            new Dictionary<string, CachedTemplate>(StringComparer.OrdinalIgnoreCase);
+        private readonly object _templateCacheLock = new object();
+
+        private struct CachedTemplate
+        {
+            public DateTime LastWriteTimeUtc;
+            public string Content;
+        }
 
         public TemplateService(FileService fileService)
         {
             _fileService = fileService;
             _settings = fileService.GetSettings();
+            _templatePathResolver = new SlingMD.Outlook.Services.Formatting.TemplatePathResolver();
+            _dateFormatter = new SlingMD.Outlook.Services.Formatting.DateFormatter();
         }
+
+        private readonly SlingMD.Outlook.Services.Formatting.TemplatePathResolver _templatePathResolver;
 
         /// <summary>
         /// Attempts to locate <paramref name="templateName"/> in the configured template folder, the vault,
         /// and the application deployment folders. The first hit is returned as raw text.
+        /// Results are cached per-file and invalidated on <see cref="File.GetLastWriteTimeUtc"/> change.
         /// </summary>
         public string LoadTemplate(string templateName)
         {
@@ -121,7 +146,7 @@ namespace SlingMD.Outlook.Services
 
             if (Path.IsPathRooted(templateName) && File.Exists(templateName))
             {
-                return File.ReadAllText(templateName);
+                return ReadTemplateCached(templateName);
             }
 
             List<string> candidatePaths = BuildTemplateCandidatePaths(templateName);
@@ -129,11 +154,51 @@ namespace SlingMD.Outlook.Services
             {
                 if (File.Exists(path))
                 {
-                    return File.ReadAllText(path);
+                    return ReadTemplateCached(path);
                 }
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Reads a template file, returning cached content when the file's last-write timestamp
+        /// matches the cache entry. Any I/O error falls through to a fresh read.
+        /// </summary>
+        private string ReadTemplateCached(string path)
+        {
+            DateTime currentMtime;
+            try
+            {
+                currentMtime = File.GetLastWriteTimeUtc(path);
+            }
+            catch (System.Exception)
+            {
+                // If we can't stat the file, bypass the cache and let ReadAllText surface the real error.
+                return File.ReadAllText(path);
+            }
+
+            lock (_templateCacheLock)
+            {
+                if (_templateCache.TryGetValue(path, out CachedTemplate cached)
+                    && cached.LastWriteTimeUtc == currentMtime)
+                {
+                    return cached.Content;
+                }
+            }
+
+            string content = File.ReadAllText(path);
+
+            lock (_templateCacheLock)
+            {
+                _templateCache[path] = new CachedTemplate
+                {
+                    LastWriteTimeUtc = currentMtime,
+                    Content = content
+                };
+            }
+
+            return content;
         }
 
         /// <summary>
@@ -190,7 +255,13 @@ namespace SlingMD.Outlook.Services
                 }
                 else if (item.Value is DateTime dateTimeValue)
                 {
-                    frontMatter.AppendLine($"{item.Key}: {dateTimeValue:yyyy-MM-dd HH:mm}");
+                    // Respect EmailDateFormat setting (matches the {{date}} / {{timestamp}} contract).
+                    string format = _settings?.EmailDateFormat;
+                    if (string.IsNullOrWhiteSpace(format))
+                    {
+                        format = "yyyy-MM-dd HH:mm:ss";
+                    }
+                    frontMatter.AppendLine($"{item.Key}: \"{EscapeYamlDoubleQuotedScalar(_dateFormatter.Format(dateTimeValue, format))}\"");
                 }
                 else if (stringEnumerable != null && !(item.Value is string))
                 {
@@ -235,14 +306,9 @@ namespace SlingMD.Outlook.Services
 
         public string RenderContactContent(ContactTemplateContext context)
         {
-            string templateContent = null;
-
-            // If the user has customized ContactTemplateFile, use their template
-            // for ALL contacts — all 13 fields are available as {{placeholders}}.
-            if (!string.Equals(_settings.ContactTemplateFile, "ContactTemplate.md", StringComparison.OrdinalIgnoreCase))
-            {
-                templateContent = LoadTemplate(_settings.ContactTemplateFile);
-            }
+            // Always try to load the user's configured ContactTemplate file. The previous gate
+            // skipped lookup for the common case where users drop their template in the default filename.
+            string templateContent = LoadTemplate(_settings.ContactTemplateFile);
 
             // Fall back to built-in defaults based on IncludeDetails
             if (string.IsNullOrEmpty(templateContent))
@@ -265,6 +331,12 @@ namespace SlingMD.Outlook.Services
             AddReplacement(replacements, "address", context.Address);
             AddReplacement(replacements, "birthday", context.Birthday);
             AddReplacement(replacements, "notes", context.Notes);
+            AddReplacement(replacements, "firstName", context.FirstName);
+            AddReplacement(replacements, "lastName", context.LastName);
+            AddReplacement(replacements, "middleName", context.MiddleName);
+            AddReplacement(replacements, "suffix", context.Suffix);
+            AddReplacement(replacements, "fullName", context.FullName);
+            AddReplacement(replacements, "displayName", context.DisplayName);
 
             return ProcessTemplate(templateContent, replacements);
         }
@@ -703,37 +775,16 @@ for (const email of emails) {
 
         private List<string> BuildTemplateCandidatePaths(string templateName)
         {
-            HashSet<string> directories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            AddDirectoryIfValid(directories, _settings.GetTemplatesPath());
-            if (!Path.IsPathRooted(_settings.TemplatesFolder))
+            // Pure path-resolution logic lives in TemplatePathResolver; we just supply the
+            // environment-bound base directories.
+            List<string> baseDirectories = new List<string>
             {
-                AddDirectoryIfValid(directories, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, _settings.TemplatesFolder));
-                AddDirectoryIfValid(directories, Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), _settings.TemplatesFolder));
-                AddDirectoryIfValid(directories, Path.Combine(Directory.GetCurrentDirectory(), _settings.TemplatesFolder));
-                AddDirectoryIfValid(directories, Path.Combine(Environment.CurrentDirectory, _settings.TemplatesFolder));
-            }
-
-            AddDirectoryIfValid(directories, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Templates"));
-            AddDirectoryIfValid(directories, Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Templates"));
-            AddDirectoryIfValid(directories, Path.Combine(Directory.GetCurrentDirectory(), "Templates"));
-            AddDirectoryIfValid(directories, Path.Combine(Environment.CurrentDirectory, "Templates"));
-
-            List<string> candidatePaths = new List<string>();
-            foreach (string directory in directories)
-            {
-                candidatePaths.Add(Path.Combine(directory, templateName));
-            }
-
-            return candidatePaths;
-        }
-
-        private static void AddDirectoryIfValid(ISet<string> directories, string path)
-        {
-            if (!string.IsNullOrWhiteSpace(path))
-            {
-                directories.Add(path);
-            }
+                AppDomain.CurrentDomain.BaseDirectory,
+                Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),
+                Directory.GetCurrentDirectory(),
+                Environment.CurrentDirectory
+            };
+            return _templatePathResolver.Resolve(templateName, _settings, baseDirectories);
         }
 
         private static void AddReplacement(Dictionary<string, string> replacements, string key, string value)
@@ -772,7 +823,14 @@ for (const email of emails) {
                 }
                 else if (item.Value is DateTime dateTimeValue)
                 {
-                    replacements[item.Key] = dateTimeValue.ToString("yyyy-MM-dd HH:mm:ss");
+                    // Respect EmailDateFormat setting when rendering DateTime frontmatter values
+                    // (the same format used for {{timestamp}} and the email "date" metadata field).
+                    string format = _settings?.EmailDateFormat;
+                    if (string.IsNullOrWhiteSpace(format))
+                    {
+                        format = "yyyy-MM-dd HH:mm:ss";
+                    }
+                    replacements[item.Key] = _dateFormatter.Format(dateTimeValue, format);
                 }
                 else
                 {

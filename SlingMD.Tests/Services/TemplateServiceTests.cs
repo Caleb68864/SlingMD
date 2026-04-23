@@ -141,6 +141,34 @@ namespace SlingMD.Tests.Services
         /// the list shape (YAML block sequence) is preserved.
         /// </summary>
         [Fact]
+        public void BuildFrontMatter_DateTimeValue_UsesDefaultEmailDateFormat()
+        {
+            Dictionary<string, object> metadata = new Dictionary<string, object>
+            {
+                { "date", new System.DateTime(2026, 4, 21, 14, 5, 9) }
+            };
+
+            string frontmatter = _templateService.BuildFrontMatter(metadata);
+
+            Assert.Contains("date: \"2026-04-21 14:05:09\"", frontmatter);
+        }
+
+        [Fact]
+        public void BuildFrontMatter_DateTimeValue_HonorsEmailDateFormatOverride()
+        {
+            _settings.EmailDateFormat = "yyyy-MM-dd";
+            Dictionary<string, object> metadata = new Dictionary<string, object>
+            {
+                { "date", new System.DateTime(2026, 4, 21, 14, 5, 9) }
+            };
+
+            string frontmatter = _templateService.BuildFrontMatter(metadata);
+
+            Assert.Contains("date: \"2026-04-21\"", frontmatter);
+            Assert.DoesNotContain("14:05:09", frontmatter);
+        }
+
+        [Fact]
         public void BuildFrontMatter_EscapesListValuesWithoutChangingListShape()
         {
             Dictionary<string, object> metadata = new Dictionary<string, object>
@@ -208,6 +236,11 @@ namespace SlingMD.Tests.Services
         [Fact]
         public void RenderContactContent_WithIncludeDetailsFalse_OmitsContactDetails()
         {
+            // IncludeDetails branching only applies when no ContactTemplate file is found.
+            // Point at a name that doesn't exist anywhere on the candidate path so the
+            // built-in default (driven by IncludeDetails) is used.
+            _settings.ContactTemplateFile = "NonExistentContactTemplate-" + System.Guid.NewGuid().ToString("N") + ".md";
+
             ContactTemplateContext context = new ContactTemplateContext
             {
                 Metadata = new Dictionary<string, object>
@@ -262,6 +295,43 @@ namespace SlingMD.Tests.Services
 
             Assert.DoesNotContain("null", content, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("## Contact Details", content);
+        }
+
+        [Fact]
+        public void LoadTemplate_CachesContentUntilFileMtimeChanges()
+        {
+            string templatePath = Path.Combine(_templatesDir, "EmailTemplate.md");
+            File.WriteAllText(templatePath, "original");
+
+            // First load: reads from disk and caches.
+            string first = _templateService.LoadTemplate("EmailTemplate.md");
+            Assert.Equal("original", first);
+
+            // Overwrite the file but force the mtime back to the original value. The cache
+            // keys on mtime — with no change detected, the stale cached content is returned.
+            DateTime originalMtime = File.GetLastWriteTimeUtc(templatePath);
+            File.WriteAllText(templatePath, "edited");
+            File.SetLastWriteTimeUtc(templatePath, originalMtime);
+
+            string cached = _templateService.LoadTemplate("EmailTemplate.md");
+            Assert.Equal("original", cached);
+        }
+
+        [Fact]
+        public void LoadTemplate_InvalidatesCacheWhenMtimeChanges()
+        {
+            string templatePath = Path.Combine(_templatesDir, "EmailTemplate.md");
+            File.WriteAllText(templatePath, "original");
+
+            string first = _templateService.LoadTemplate("EmailTemplate.md");
+            Assert.Equal("original", first);
+
+            // Overwrite and bump the mtime so the cache is forced to refresh.
+            File.WriteAllText(templatePath, "edited");
+            File.SetLastWriteTimeUtc(templatePath, DateTime.UtcNow.AddMinutes(1));
+
+            string refreshed = _templateService.LoadTemplate("EmailTemplate.md");
+            Assert.Equal("edited", refreshed);
         }
 
         public void Dispose()

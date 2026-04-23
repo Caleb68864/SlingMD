@@ -32,7 +32,10 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook e
 - Duplicate-email protection and safe file-naming, including chronological prefixes for threads
 - **Contact slinging** — export single contacts or your entire address book to Obsidian with rich detail notes (phone, email, company, etc.)
 - First-class markdown templates for email notes, contact notes, inline task lines, thread notes, **appointment notes, and meeting notes**
-- **Tabbed settings dialog** organized into 8 focused tabs (General, Email, Appointments, Contacts, Tasks, Threading, Attachments, Developer)
+- **Tabbed settings dialog** organized into 9 focused tabs (General, Email, Appointments, Contacts, Tasks, Threading, Attachments, Auto-Sling, Developer)
+- **Searchable settings help** — every setting has a ⓘ indicator, hover tooltips with tokens/examples, and a pop-out `Help` window with live search across all settings
+- **Auto-sling** — rule-based automatic export for new mail (sender, domain, or category) with toast or silent notifications
+- **Complete Thread** — backfill missing emails from the currently-selected conversation in one click
 
 ## Installation
 
@@ -126,6 +129,62 @@ Before using SlingMD, you'll need to configure your Obsidian vault settings:
 
 Note: Make sure your Vault Base Path points to an existing Obsidian vault directory. If you haven't created a vault yet, please set one up in Obsidian first.
 
+### Customization
+
+SlingMD exposes several format strings so you can tailor the output to your vault or mention-plugin setup.
+
+#### `EmailDateFormat`, `ContactDateFormat`, `AppointmentDateFormat`
+
+Controls how `{{date}}` (and related date placeholders) render in exported notes. Uses the standard .NET `DateTime` format syntax.
+
+- Default: `"yyyy-MM-dd HH:mm:ss"` — e.g., `2026-04-21 09:30:00`
+
+Each domain has its own setting so you can keep email timestamps precise while rendering appointments as date-only.
+
+**Examples (non-default):**
+
+```
+EmailDateFormat = "yyyy-MM-dd"
+```
+Produces: `2026-04-21`
+
+```
+ContactDateFormat = "MMMM d, yyyy"
+```
+Produces: `April 21, 2026`
+
+```
+AppointmentDateFormat = "dddd, MMMM d, yyyy h:mm tt"
+```
+Produces: `Tuesday, April 21, 2026 9:30 AM`
+
+#### `ContactLinkFormat`
+
+Controls how `{{to}}`, `{{from}}`, and `{{cc}}` render recipients in email and appointment notes. Supports tokens: `{FullName}`, `{FirstName}`, `{LastName}`, `{MiddleName}`, `{Suffix}`, `{DisplayName}`, `{ShortName}`, `{Email}`, `{FirstInitial}`, `{LastInitial}`.
+
+- Default: `"[[{FullName}]]"` — produces `[[John Smith]]`
+
+**Examples (non-default):**
+
+```
+ContactLinkFormat = "@{FirstName}{LastName}"
+```
+Produces: `@JohnSmith` — compatible with the At People plugin for inline mentions.
+
+```
+ContactLinkFormat = "[[{LastName}]]"
+```
+Produces: `[[Smith]]`
+
+```
+ContactLinkFormat = "@{FirstInitial}{LastInitial}"
+```
+Produces: `@JS`
+
+#### Subject cleanup
+
+The default subject-cleanup patterns now correctly preserve words that contain `re-` (like `pre-release`). If you upgraded from a previous version, SlingMD silently migrates the broken default pattern on first load — your custom patterns are never touched.
+
 ## Task Creation
 
 When task creation is enabled, SlingMD can create follow-up tasks in two locations:
@@ -212,6 +271,8 @@ SlingMD uses `{{placeholder}}` templates to generate markdown notes. You can cus
 
 If no custom template is configured, SlingMD uses sensible built-in defaults.
 
+> **Note:** If you drop a `ContactTemplate.md` into your vault's Templates folder, SlingMD will load and use it automatically. (Earlier versions only honored the file when the template filename was changed to a non-default name — this is now fixed.)
+
 ### Template Types and Settings
 
 | Note Type | Setting Name | Default File | Description |
@@ -283,6 +344,23 @@ This project is licensed under the terms included in the [LICENSE](LICENSE) file
 If you encounter any issues or have questions, please open an issue in the GitHub repository.
 
 ## Changelog
+
+### Version 1.2.2 (pre-release)
+- **Searchable settings help** — new `Help` button in the Settings footer opens a pop-out window with live search, tab-grouped TreeView, and a detail pane showing each setting's summary, description, default, token reference, and worked examples
+- **Hover tooltips on every setting**, with a ⓘ glyph indicator on every labelled setting as the visual cue that hover-help exists
+- **Complete Thread fix** — the ribbon button now lists only emails in the currently-selected conversation (previously: every email in the inbox not yet slung)
+- **Complete Thread icon** — Sling logo with a green-check badge, composited programmatically
+- **Auto-sling eligibility** extracted to a pure static method with 10 unit tests
+- **Deduplicated** `CleanSubject` / `TrailingDashSpaceRegex` across `EmailProcessor` and `AppointmentProcessor`
+- **Centralized MAPI property tags** in `Infrastructure/MapiPropertyTags.cs`
+- `IClock` threaded through every date-touching service for deterministic tests
+- `FlagMonitorService` + `FolderMonitorService` implement `IDisposable`
+- Template file caching in `TemplateService` (mtime-based invalidation)
+- Logging on previously-silent COM-read failures in `ContactService`
+- GitHub Actions CI on `windows-latest` (MSBuild + vstest)
+- `Services/Formatting/*` helpers marked `internal`
+- Signing key removed from repo; `*.pfx` added to `.gitignore`
+- **381 unit tests** (up from 356)
 
 ### Version 1.1.0.7
 - **Contact Slinging** — export single contacts or your entire address book to Obsidian with rich detail notes (phone, email, company, address, birthday)

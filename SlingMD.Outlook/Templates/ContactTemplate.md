@@ -1,6 +1,15 @@
 {{frontmatter}}
 # {{contactName}}
 
+## Contact Details
+
+**Phone:** {{phone}}
+**Email:** {{email}}
+**Company:** {{company}}
+**Title:** {{jobTitle}}
+**Address:** {{address}}
+**Birthday:** {{birthday}}
+
 ## Communication History
 
 ```dataviewjs
@@ -8,7 +17,7 @@ const current = dv.current();
 const contactSources = [current.title, current.file?.name, current.file?.path];
 
 function normalizeSingle(value) {
-    if (value == null) return [];
+    if (!value && value !== 0) return [];
 
     if (typeof value === "object") {
         const candidates = [];
@@ -39,7 +48,7 @@ function normalizeSingle(value) {
 }
 
 function normalizeValue(value) {
-    if (value == null) return [];
+    if (!value && value !== 0) return [];
     if (Array.isArray(value)) return value.flatMap(normalizeSingle);
     return normalizeSingle(value);
 }
@@ -77,3 +86,5 @@ dv.table(["Date", "Subject", "Type"],
 ```
 
 ## Notes
+
+{{notes}}

@@ -3,7 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using Microsoft.Office.Interop.Outlook;
+using SlingMD.Outlook.Helpers;
+using SlingMD.Outlook.Infrastructure;
 using SlingMD.Outlook.Models;
+using SlingMD.Outlook.Services.Formatting;
 
 namespace SlingMD.Outlook.Services
 {
@@ -20,19 +23,53 @@ namespace SlingMD.Outlook.Services
         private readonly FileService _fileService;
         private readonly TemplateService _templateService;
         private readonly ObsidianSettings _settings;
+        private readonly ContactNameParser _contactNameParser;
+        private readonly ContactLinkFormatter _contactLinkFormatter;
+        private readonly DateFormatter _dateFormatter;
+        private readonly IClock _clock;
+        private static readonly MarkdownSectionFinder SectionFinder = new MarkdownSectionFinder();
 
-        public ContactService(FileService fileService, TemplateService templateService)
+        public ContactService(FileService fileService, TemplateService templateService, IClock clock = null)
         {
             _fileService = fileService;
             _templateService = templateService;
             _settings = fileService.GetSettings();
+            _contactNameParser = new ContactNameParser();
+            _contactLinkFormatter = new ContactLinkFormatter();
+            _dateFormatter = new DateFormatter();
+            _clock = clock ?? new SystemClock();
+        }
+
+        /// <summary>
+        /// Populates the new ContactName fields (FirstName/LastName/etc.) on the given context
+        /// by parsing the ContactName + Email through ContactNameParser. Idempotent.
+        /// </summary>
+        private void PopulateNameParts(ContactTemplateContext context)
+        {
+            ContactName parsed = _contactNameParser.Parse(context.ContactName, context.Email);
+            context.FirstName = parsed.FirstName ?? string.Empty;
+            context.LastName = parsed.LastName ?? string.Empty;
+            context.MiddleName = parsed.MiddleName ?? string.Empty;
+            context.Suffix = parsed.Suffix ?? string.Empty;
+            context.FullName = parsed.FullName ?? string.Empty;
+            context.DisplayName = parsed.DisplayName ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Formats a display name as a contact link using the configured <see cref="ObsidianSettings.ContactLinkFormat"/>.
+        /// </summary>
+        private string FormatContactLink(string displayName, string email)
+        {
+            ContactName parsed = _contactNameParser.Parse(displayName, email);
+            string formatted = _contactLinkFormatter.Format(parsed, _settings.ContactLinkFormat);
+            return string.IsNullOrEmpty(formatted) ? $"[[{displayName}]]" : formatted;
         }
 
         /// <summary>
         /// Returns a shortened version of <paramref name="fullName"/> that is better suited for filenames
         /// and note titles. Parenthesised suffixes are removed and first/last-name initials are applied.
         /// </summary>
-        public string GetShortName(string fullName)
+        public string GetFilenameSafeShortName(string fullName)
         {
             string cleanName = _fileService.CleanFileName(fullName);
 
@@ -66,8 +103,7 @@ namespace SlingMD.Outlook.Services
         {
             try
             {
-                const string PrSmtpAddress = "http://schemas.microsoft.com/mapi/proptag/0x39FE001E";
-                return mail.PropertyAccessor.GetProperty(PrSmtpAddress);
+                return mail.PropertyAccessor.GetProperty(MapiPropertyTags.PrSmtpAddress);
             }
             catch
             {
@@ -87,7 +123,16 @@ namespace SlingMD.Outlook.Services
                 {
                     if (recipient.Type == (int)type)
                     {
-                        names.Add($"[[{recipient.Name}]]");
+                        string email = null;
+                        try
+                        {
+                            email = GetSMTPEmailAddress(recipient);
+                        }
+                        catch (System.Exception ex)
+                        {
+                            Logger.Instance.Warning($"ContactService.BuildLinkedNames: GetSMTPEmailAddress failed for recipient '{recipient.Name}': {ex.Message}");
+                        }
+                        names.Add(FormatContactLink(recipient.Name, email));
                     }
                 }
                 finally
@@ -116,8 +161,7 @@ namespace SlingMD.Outlook.Services
                     {
                         try
                         {
-                            const string PrSmtpAddress = "http://schemas.microsoft.com/mapi/proptag/0x39FE001E";
-                            string email = recipient.PropertyAccessor.GetProperty(PrSmtpAddress);
+                            string email = recipient.PropertyAccessor.GetProperty(MapiPropertyTags.PrSmtpAddress);
                             if (!string.IsNullOrEmpty(email))
                             {
                                 emails.Add(email);
@@ -152,8 +196,7 @@ namespace SlingMD.Outlook.Services
         {
             try
             {
-                const string PrSmtpAddress = "http://schemas.microsoft.com/mapi/proptag/0x39FE001E";
-                return recipient.PropertyAccessor.GetProperty(PrSmtpAddress) as string ?? recipient.Address;
+                return recipient.PropertyAccessor.GetProperty(MapiPropertyTags.PrSmtpAddress) as string ?? recipient.Address;
             }
             catch
             {
@@ -183,7 +226,16 @@ namespace SlingMD.Outlook.Services
                         string name = recipient.Name;
                         if (!string.IsNullOrEmpty(name))
                         {
-                            linkedNames.Add($"[[{name}]]");
+                            string email = null;
+                            try
+                            {
+                                email = GetSMTPEmailAddress(recipient);
+                            }
+                            catch (System.Exception ex)
+                            {
+                                Logger.Instance.Warning($"ContactService.BuildLinkedNames(meeting): GetSMTPEmailAddress failed for recipient '{name}': {ex.Message}");
+                            }
+                            linkedNames.Add(FormatContactLink(name, email));
                         }
                     }
                 }
@@ -219,8 +271,7 @@ namespace SlingMD.Outlook.Services
                     {
                         try
                         {
-                            const string PrSmtpAddress = "http://schemas.microsoft.com/mapi/proptag/0x39FE001E";
-                            string email = recipient.PropertyAccessor.GetProperty(PrSmtpAddress) as string;
+                            string email = recipient.PropertyAccessor.GetProperty(MapiPropertyTags.PrSmtpAddress) as string;
                             if (!string.IsNullOrEmpty(email))
                             {
                                 emails.Add(email);
@@ -348,8 +399,9 @@ namespace SlingMD.Outlook.Services
                                 }
                             }
                         }
-                        catch
+                        catch (System.Exception ex)
                         {
+                            Logger.Instance.Warning($"ContactService.ContactExists: read lines failed for '{mdFile}': {ex.Message}");
                             continue;
                         }
                     }
@@ -357,8 +409,9 @@ namespace SlingMD.Outlook.Services
 
                 return false;
             }
-            catch (System.Exception)
+            catch (System.Exception ex)
             {
+                Logger.Instance.Warning($"ContactService.ContactExists: search failed for '{contactName}': {ex.Message}");
                 return false;
             }
         }
@@ -378,22 +431,24 @@ namespace SlingMD.Outlook.Services
             string filePath = GetManagedContactNotePath(contactName);
             string fileNameNoExtension = Path.GetFileNameWithoutExtension(filePath);
 
+            string created = _dateFormatter.Format(_clock.Now, _settings.ContactDateFormat);
             ContactTemplateContext context = new ContactTemplateContext
             {
                 Metadata = new Dictionary<string, object>
                 {
                     { "title", contactName },
                     { "type", "contact" },
-                    { "created", DateTime.Now.ToString("yyyy-MM-dd HH:mm") },
+                    { "created", created },
                     { "tags", new List<string> { "contact" } }
                 },
                 ContactName = contactName,
-                ContactShortName = GetShortName(contactName),
-                Created = DateTime.Now.ToString("yyyy-MM-dd HH:mm"),
+                ContactShortName = GetFilenameSafeShortName(contactName),
+                Created = created,
                 FileName = fileNameNoExtension + ".md",
                 FileNameWithoutExtension = fileNameNoExtension,
                 IncludeDetails = false
             };
+            PopulateNameParts(context);
 
             CreateContactNote(context);
         }
@@ -440,7 +495,10 @@ namespace SlingMD.Outlook.Services
             {
                 fullName = contact.FullName ?? string.Empty;
             }
-            catch (System.Exception) { }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ContactService.ExtractContactData: read FullName failed: {ex.Message}");
+            }
 
             if (string.IsNullOrWhiteSpace(fullName))
             {
@@ -457,7 +515,10 @@ namespace SlingMD.Outlook.Services
                                 : $"{firstName} {lastName}";
                     }
                 }
-                catch (System.Exception) { }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Warning($"ContactService.ExtractContactData: read FirstName/LastName failed: {ex.Message}");
+                }
             }
 
             if (string.IsNullOrWhiteSpace(fullName))
@@ -466,7 +527,10 @@ namespace SlingMD.Outlook.Services
                 {
                     fullName = contact.FileAs ?? string.Empty;
                 }
-                catch (System.Exception) { }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Warning($"ContactService.ExtractContactData: read FileAs failed: {ex.Message}");
+                }
             }
 
             if (string.IsNullOrWhiteSpace(fullName))
@@ -479,7 +543,10 @@ namespace SlingMD.Outlook.Services
             {
                 phone = contact.BusinessTelephoneNumber ?? string.Empty;
             }
-            catch (System.Exception) { }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ContactService.ExtractContactData: read BusinessTelephoneNumber failed: {ex.Message}");
+            }
 
             if (string.IsNullOrWhiteSpace(phone))
             {
@@ -487,7 +554,10 @@ namespace SlingMD.Outlook.Services
                 {
                     phone = contact.MobileTelephoneNumber ?? string.Empty;
                 }
-                catch (System.Exception) { }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Warning($"ContactService.ExtractContactData: read MobileTelephoneNumber failed: {ex.Message}");
+                }
             }
 
             if (string.IsNullOrWhiteSpace(phone))
@@ -496,7 +566,10 @@ namespace SlingMD.Outlook.Services
                 {
                     phone = contact.HomeTelephoneNumber ?? string.Empty;
                 }
-                catch (System.Exception) { }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Warning($"ContactService.ExtractContactData: read HomeTelephoneNumber failed: {ex.Message}");
+                }
             }
 
             string email = string.Empty;
@@ -504,28 +577,40 @@ namespace SlingMD.Outlook.Services
             {
                 email = contact.Email1Address ?? string.Empty;
             }
-            catch (System.Exception) { }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ContactService.ExtractContactData: read Email1Address failed: {ex.Message}");
+            }
 
             string company = string.Empty;
             try
             {
                 company = contact.CompanyName ?? string.Empty;
             }
-            catch (System.Exception) { }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ContactService.ExtractContactData: read CompanyName failed: {ex.Message}");
+            }
 
             string jobTitle = string.Empty;
             try
             {
                 jobTitle = contact.JobTitle ?? string.Empty;
             }
-            catch (System.Exception) { }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ContactService.ExtractContactData: read JobTitle failed: {ex.Message}");
+            }
 
             string address = string.Empty;
             try
             {
                 address = contact.BusinessAddress ?? string.Empty;
             }
-            catch (System.Exception) { }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ContactService.ExtractContactData: read BusinessAddress failed: {ex.Message}");
+            }
 
             if (string.IsNullOrWhiteSpace(address))
             {
@@ -533,7 +618,10 @@ namespace SlingMD.Outlook.Services
                 {
                     address = contact.HomeAddress ?? string.Empty;
                 }
-                catch (System.Exception) { }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Warning($"ContactService.ExtractContactData: read HomeAddress failed: {ex.Message}");
+                }
             }
 
             string birthday = string.Empty;
@@ -545,23 +633,30 @@ namespace SlingMD.Outlook.Services
                     birthday = birthdayDate.ToString("yyyy-MM-dd");
                 }
             }
-            catch (System.Exception) { }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ContactService.ExtractContactData: read Birthday failed: {ex.Message}");
+            }
 
             string notes = string.Empty;
             try
             {
                 notes = contact.Body ?? string.Empty;
             }
-            catch (System.Exception) { }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ContactService.ExtractContactData: read Body failed: {ex.Message}");
+            }
 
             string cleanName = _fileService.CleanFileName(fullName);
             string fileNameNoExtension = _fileService.CleanFileName(fullName);
 
+            string created = _dateFormatter.Format(_clock.Now, _settings.ContactDateFormat);
             Dictionary<string, object> metadata = new Dictionary<string, object>
             {
                 { "title", fullName },
                 { "type", "contact" },
-                { "created", DateTime.Now.ToString("yyyy-MM-dd HH:mm") },
+                { "created", created },
                 { "tags", new List<string> { "contact" } }
             };
 
@@ -575,12 +670,12 @@ namespace SlingMD.Outlook.Services
                 metadata["email"] = email;
             }
 
-            return new ContactTemplateContext
+            ContactTemplateContext result = new ContactTemplateContext
             {
                 Metadata = metadata,
                 ContactName = fullName,
-                ContactShortName = GetShortName(fullName),
-                Created = DateTime.Now.ToString("yyyy-MM-dd HH:mm"),
+                ContactShortName = GetFilenameSafeShortName(fullName),
+                Created = created,
                 FileName = fileNameNoExtension + ".md",
                 FileNameWithoutExtension = fileNameNoExtension,
                 Phone = phone,
@@ -592,6 +687,8 @@ namespace SlingMD.Outlook.Services
                 Notes = notes,
                 IncludeDetails = true
             };
+            PopulateNameParts(result);
+            return result;
         }
 
 
@@ -656,7 +753,7 @@ namespace SlingMD.Outlook.Services
             Dictionary<string, string> replacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 { "ContactName", contactName ?? string.Empty },
-                { "ContactShortName", GetShortName(contactName ?? string.Empty) },
+                { "ContactShortName", GetFilenameSafeShortName(contactName ?? string.Empty) },
                 { "CleanContactName", cleanName }
             };
 
@@ -665,13 +762,7 @@ namespace SlingMD.Outlook.Services
 
         private static int FindSectionStart(string content, string heading, int startIndex = 0)
         {
-            if (string.IsNullOrEmpty(content) || startIndex >= content.Length)
-            {
-                return -1;
-            }
-
-            Match match = Regex.Match(content.Substring(startIndex), $"^{Regex.Escape(heading)}\\s*$", RegexOptions.Multiline);
-            return match.Success ? startIndex + match.Index : -1;
+            return SectionFinder.FindSectionStart(content, heading, startIndex);
         }
 
         private static string ExtractManagedCommunicationHistorySection(string content)

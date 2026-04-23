@@ -8,9 +8,10 @@ using Microsoft.Office.Interop.Outlook;
 using SlingMD.Outlook.Forms;
 using SlingMD.Outlook.Models;
 using System.Linq;
-using System.Text.RegularExpressions;
 using SlingMD.Outlook.Helpers;
 using Logger = SlingMD.Outlook.Helpers.Logger;
+using SlingMD.Outlook.Infrastructure;
+using SlingMD.Outlook.Services.Formatting;
 
 namespace SlingMD.Outlook.Services
 {
@@ -21,31 +22,23 @@ namespace SlingMD.Outlook.Services
     /// </summary>
     public class EmailProcessor
     {
+        // Rebuild the processed-id cache at most every N minutes. Fresh cache on every sling would
+        // re-scan the whole inbox; a cache that lives forever would miss external edits.
+        private const int CacheTtlMinutes = 5;
+
+        // Exponential-backoff parameters for WaitForFileAvailability.
+        // 5 attempts × starting at 50 ms doubles to ~1550 ms total wait worst-case.
+        private const int MaxFileWaitAttempts = 5;
+        private const int InitialFileWaitDelayMs = 50;
+
         // Static lock dictionary to prevent race conditions when multiple emails target the same thread folder
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.SemaphoreSlim> _threadFolderLocks
             = new System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.SemaphoreSlim>(StringComparer.OrdinalIgnoreCase);
 
         // Static cache to track processed email IDs and prevent O(n*m) file scanning on every email
-        // Key: email ID (internetMessageId or entryId), Value: true (exists)
-        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool> _processedEmailIds
-            = new System.Collections.Concurrent.ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        private static readonly BoundedHashSet _processedEmailIds = new BoundedHashSet();
         private static DateTime _cacheLastBuilt = DateTime.MinValue;
         private static readonly object _cacheBuildLock = new object();
-
-        // Compiled regex patterns for performance (used in CleanSubject and title formatting)
-        private static readonly Regex WhitespaceRegex = new Regex(@"\s+", RegexOptions.Compiled);
-        private static readonly Regex TrailingDashSpaceRegex = new Regex(@"[-\s]+$", RegexOptions.Compiled);
-        private static readonly Regex ColonSpaceRegex = new Regex(@":\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ReplyPrefixRegex1 = new Regex(@"(?:Re_\s*)+(?:RE_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ReplyPrefixRegex2 = new Regex(@"(?:RE_\s*)+(?:Re_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ReplyPrefixRegex3 = new Regex(@"(?:Re_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ReplyPrefixRegex4 = new Regex(@"(?:RE_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardPrefixRegex1 = new Regex(@"(?:Fw_\s*)+(?:FW_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardPrefixRegex2 = new Regex(@"(?:FW_\s*)+(?:Fw_\s*)+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardPrefixRegex3 = new Regex(@"(?:Fw_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardPrefixRegex4 = new Regex(@"(?:FW_\s*){2,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ReplySpaceRegex = new Regex(@"Re_\s+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ForwardSpaceRegex = new Regex(@"Fw_\s+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         private readonly ObsidianSettings _settings;
         private readonly FileService _fileService;
@@ -54,16 +47,62 @@ namespace SlingMD.Outlook.Services
         private readonly TaskService _taskService;
         private readonly ContactService _contactService;
         private readonly AttachmentService _attachmentService;
+        private readonly DateFormatter _dateFormatter;
+        private readonly ContactNameParser _contactNameParser;
+        private readonly ContactLinkFormatter _contactLinkFormatter;
+        private readonly SubjectFilenameCleaner _subjectFilenameCleaner;
+        private readonly NoteTitleBuilder _noteTitleBuilder;
+        private readonly IClock _clock;
 
-        public EmailProcessor(ObsidianSettings settings)
+        public EmailProcessor(ObsidianSettings settings, IClock clock = null)
+            : this(
+                settings,
+                clock ?? new SystemClock(),
+                fileService: null,
+                templateService: null,
+                threadService: null,
+                taskService: null,
+                contactService: null,
+                attachmentService: null)
+        {
+        }
+
+        /// <summary>
+        /// Full-injection constructor for tests. Any argument passed as <c>null</c> falls back
+        /// to the default production wiring. Production callers should use the single-arg
+        /// constructor — this overload is only intended for unit tests that need to substitute
+        /// collaborators (e.g. a fake FileService or an in-memory TemplateService).
+        /// </summary>
+        internal EmailProcessor(
+            ObsidianSettings settings,
+            IClock clock,
+            FileService fileService,
+            TemplateService templateService,
+            ThreadService threadService,
+            TaskService taskService,
+            ContactService contactService,
+            AttachmentService attachmentService)
         {
             _settings = settings;
-            _fileService = new FileService(settings);
-            _templateService = new TemplateService(_fileService);
-            _threadService = new ThreadService(_fileService, _templateService, settings);
-            _taskService = new TaskService(settings, _templateService);
-            _contactService = new ContactService(_fileService, _templateService);
-            _attachmentService = new AttachmentService(settings, _fileService);
+            _clock = clock ?? new SystemClock();
+            _fileService = fileService ?? new FileService(settings);
+            _templateService = templateService ?? new TemplateService(_fileService);
+            _threadService = threadService ?? new ThreadService(_fileService, _templateService, settings);
+            _taskService = taskService ?? new TaskService(settings, _templateService, _clock);
+            _contactService = contactService ?? new ContactService(_fileService, _templateService, _clock);
+            _attachmentService = attachmentService ?? new AttachmentService(settings, _fileService, _clock);
+            _dateFormatter = new DateFormatter();
+            _contactNameParser = new ContactNameParser();
+            _contactLinkFormatter = new ContactLinkFormatter();
+            _subjectFilenameCleaner = new SubjectFilenameCleaner(settings, _fileService);
+            _noteTitleBuilder = new NoteTitleBuilder();
+        }
+
+        private string FormatSenderLink(string senderName, string senderEmail)
+        {
+            ContactName parsed = _contactNameParser.Parse(senderName, senderEmail);
+            string formatted = _contactLinkFormatter.Format(parsed, _settings.ContactLinkFormat);
+            return string.IsNullOrEmpty(formatted) ? $"[[{senderName}]]" : formatted;
         }
 
         /// <summary>
@@ -152,33 +191,39 @@ namespace SlingMD.Outlook.Services
                 {
                     status.UpdateProgress("Processing email...", 0);
 
+                    // Vault path pre-check before any file writes
+                    string vaultPath = _settings.GetFullVaultPath();
+                    if (!System.IO.Directory.Exists(vaultPath))
+                    {
+                        throw new System.IO.DirectoryNotFoundException(
+                            $"Obsidian vault at \"{vaultPath}\" is not accessible. Check that the folder exists.");
+                    }
+
                     // Check for cancellation
                     cancellationToken.ThrowIfCancellationRequested();
 
                     // Build note title using settings (with null safety)
                     string noteTitle = mail.Subject ?? "No Subject";
-                    string senderClean = _contactService.GetShortName(mail.SenderName ?? "Unknown Sender");
+                    string senderClean = _contactService.GetFilenameSafeShortName(mail.SenderName ?? "Unknown Sender");
                     string fileDateTime = mail.ReceivedTime.ToString("yyyy-MM-dd-HHmm");
                     string dateStr = mail.ReceivedTime.ToString("yyyy-MM-dd");
                     string subjectClean = CleanSubject(mail.Subject ?? "No Subject");
 
-                    // Use settings for title format
+                    // Use settings for title format; delegate token substitution + truncation
+                    // to NoteTitleBuilder (unit-tested), then post-process to strip a trailing
+                    // separator if {Date} rendered empty.
                     string titleFormat = _settings.NoteTitleFormat ?? "{Subject} - {Date}";
                     bool includeDate = _settings.NoteTitleIncludeDate;
                     int maxLength = _settings.NoteTitleMaxLength > 0 ? _settings.NoteTitleMaxLength : 50;
 
-                    // Prepare replacements
-                    string formattedTitle = titleFormat
-                        .Replace("{Subject}", subjectClean)
-                        .Replace("{Sender}", senderClean)
-                        .Replace("{Date}", includeDate ? dateStr : "");
-                    // Remove double spaces and trim (using compiled regex)
-                    formattedTitle = WhitespaceRegex.Replace(formattedTitle, " ").Trim();
-                    // Remove trailing dash if date is omitted (using compiled regex)
-                    formattedTitle = TrailingDashSpaceRegex.Replace(formattedTitle, "").Trim();
-                    // Trim to max length
-                    if (formattedTitle.Length > maxLength)
-                        formattedTitle = formattedTitle.Substring(0, maxLength - 3) + "...";
+                    Dictionary<string, string> titleTokens = new Dictionary<string, string>
+                    {
+                        { "Subject", subjectClean },
+                        { "Sender", senderClean },
+                        { "Date", includeDate ? dateStr : string.Empty }
+                    };
+                    // BuildTrimmed handles trailing dash/space left behind when a token like {Date} renders empty.
+                    string formattedTitle = _noteTitleBuilder.BuildTrimmed(titleFormat, titleTokens, maxLength);
                     noteTitle = formattedTitle;
 
                     // Email threading logic moved to its own method
@@ -543,42 +588,7 @@ namespace SlingMD.Outlook.Services
             }
         }
 
-        private string CleanSubject(string subject)
-        {
-            if (string.IsNullOrEmpty(subject))
-                return string.Empty;
-
-            string cleaned = subject;
-
-            // Apply all cleanup patterns from settings
-            foreach (var pattern in _settings.SubjectCleanupPatterns)
-            {
-                cleaned = Regex.Replace(cleaned, pattern, "", RegexOptions.IgnoreCase);
-            }
-            
-            // Replace colons (with or without spaces) with underscores (using compiled regex)
-            cleaned = ColonSpaceRegex.Replace(cleaned, "_");
-
-            // Handle Re_ (Reply) prefixes (using compiled regex)
-            // Remove redundant Re_ RE_ prefixes - keep only one "Re_"
-            cleaned = ReplyPrefixRegex1.Replace(cleaned, "Re_");
-            cleaned = ReplyPrefixRegex2.Replace(cleaned, "Re_");
-            cleaned = ReplyPrefixRegex3.Replace(cleaned, "Re_");
-            cleaned = ReplyPrefixRegex4.Replace(cleaned, "Re_");
-
-            // Handle Fw_ (Forward) prefixes (using compiled regex)
-            // Remove redundant Fw_ FW_ prefixes - keep only one "Fw_"
-            cleaned = ForwardPrefixRegex1.Replace(cleaned, "Fw_");
-            cleaned = ForwardPrefixRegex2.Replace(cleaned, "Fw_");
-            cleaned = ForwardPrefixRegex3.Replace(cleaned, "Fw_");
-            cleaned = ForwardPrefixRegex4.Replace(cleaned, "Fw_");
-
-            // Ensure there are no spaces after prefixes (using compiled regex)
-            cleaned = ReplySpaceRegex.Replace(cleaned, "Re_");
-            cleaned = ForwardSpaceRegex.Replace(cleaned, "Fw_");
-
-            return _fileService.CleanFileName(cleaned.Trim());
-        }
+        private string CleanSubject(string subject) => _subjectFilenameCleaner.Clean(subject);
 
         private string GetFirstRecipient(MailItem mail)
         {
@@ -619,17 +629,16 @@ namespace SlingMD.Outlook.Services
 
         /// <summary>
         /// Waits for a file to become available by checking its existence and attempting to open it.
-        /// Uses exponential backoff retry logic with a maximum of 5 attempts over approximately 1 second.
-        /// This replaces hard-coded delays and ensures file system operations have completed.
+        /// Uses exponential backoff retry logic (see <see cref="MaxFileWaitAttempts"/> and
+        /// <see cref="InitialFileWaitDelayMs"/>). Replaces hard-coded delays.
         /// </summary>
         /// <param name="filePath">The full path to the file to wait for.</param>
         private async Task WaitForFileAvailability(string filePath)
         {
-            const int maxAttempts = 5;
             int attempt = 0;
-            int delayMs = 50; // Start with 50ms
+            int delayMs = InitialFileWaitDelayMs;
 
-            while (attempt < maxAttempts)
+            while (attempt < MaxFileWaitAttempts)
             {
                 try
                 {
@@ -654,9 +663,9 @@ namespace SlingMD.Outlook.Services
                     return;
                 }
 
-                // Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms
+                // Exponential backoff: InitialFileWaitDelayMs doubled on each retry.
                 attempt++;
-                if (attempt < maxAttempts)
+                if (attempt < MaxFileWaitAttempts)
                 {
                     await Task.Delay(delayMs);
                     delayMs *= 2;
@@ -678,7 +687,7 @@ namespace SlingMD.Outlook.Services
             try
             {
                 // Try to get InternetMessageID via PropertyAccessor (works for most accounts)
-                internetMessageId = mail.PropertyAccessor.GetProperty("http://schemas.microsoft.com/mapi/proptag/0x1035001E") as string;
+                internetMessageId = mail.PropertyAccessor.GetProperty(MapiPropertyTags.PrInternetMessageId) as string;
             }
             catch (System.Exception ex)
             {
@@ -724,7 +733,7 @@ namespace SlingMD.Outlook.Services
                 SenderShortName = senderClean,
                 SenderEmail = _contactService.GetSenderEmail(mail),
                 Date = mail.ReceivedTime.ToString("yyyy-MM-dd"),
-                Timestamp = mail.ReceivedTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                Timestamp = _dateFormatter.Format(mail.ReceivedTime, _settings.EmailDateFormat),
                 Body = mail.Body ?? string.Empty,
                 TaskBlock = taskBlock,
                 FileName = fileNameNoExt + ".md",
@@ -778,7 +787,7 @@ namespace SlingMD.Outlook.Services
         private (string conversationId, string threadNoteName, string threadFolderPath, string threadNotePath, bool shouldGroupThread, string obsidianLinkPath, string fileName, string filePath, string fileNameNoExt) GetThreadingInfo(MailItem mail, string subjectClean, string senderClean, string fileDateTime, string fileNameNoExt)
         {
             string conversationId = _threadService.GetConversationId(mail);
-            string firstRecipient = _contactService.GetShortName(GetFirstRecipient(mail));
+            string firstRecipient = _contactService.GetFilenameSafeShortName(GetFirstRecipient(mail));
             string threadFolderName = _threadService.GetThreadFolderName(mail, subjectClean, senderClean, firstRecipient);
             string threadNoteName = _threadService.GetThreadNoteName(mail, subjectClean, senderClean, firstRecipient);
             string threadFolderPath = Path.Combine(_settings.GetInboxPath(), threadFolderName);
@@ -827,12 +836,12 @@ namespace SlingMD.Outlook.Services
             {
                 { "title", noteTitle },
                 { "type", "email" },
-                { "from", $"[[{senderName}]]" },
+                { "from", FormatSenderLink(senderName, senderEmail) },
                 { "fromEmail", senderEmail },
                 { "to", toLinked },
                 { "toEmail", toEmails },
                 { "threadId", conversationId },
-                { "date", receivedTime.ToString("yyyy-MM-dd HH:mm:ss") },
+                { "date", _dateFormatter.Format(receivedTime, _settings.EmailDateFormat) },
                 { "internetMessageId", realInternetMessageId },
                 { "entryId", realEntryId }
             };
@@ -870,17 +879,17 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         private void EnsureEmailCacheIsBuilt(string inboxPath)
         {
-            // Only rebuild cache if it's older than 5 minutes (to allow for external changes)
-            // or if it's never been built
-            if ((DateTime.Now - _cacheLastBuilt).TotalMinutes < 5 && _processedEmailIds.Count > 0)
+            // Only rebuild cache when it's older than CacheTtlMinutes (to pick up external changes)
+            // or when it's never been built.
+            if ((_clock.Now - _cacheLastBuilt).TotalMinutes < CacheTtlMinutes && _processedEmailIds.Count > 0)
             {
                 return;
             }
 
             lock (_cacheBuildLock)
             {
-                // Double-check after acquiring lock
-                if ((DateTime.Now - _cacheLastBuilt).TotalMinutes < 5 && _processedEmailIds.Count > 0)
+                // Double-check after acquiring lock.
+                if ((_clock.Now - _cacheLastBuilt).TotalMinutes < CacheTtlMinutes && _processedEmailIds.Count > 0)
                 {
                     return;
                 }
@@ -891,7 +900,7 @@ namespace SlingMD.Outlook.Services
                 {
                     // Inbox folder does not yet exist (first run or vault not yet created).
                     // Treat as an empty cache – no files to scan.
-                    _cacheLastBuilt = DateTime.Now;
+                    _cacheLastBuilt = _clock.Now;
                     return;
                 }
 
@@ -922,7 +931,7 @@ namespace SlingMD.Outlook.Services
                                 var value = trimmed.Substring("internetMessageId:".Length).Trim().Trim('"');
                                 if (!string.IsNullOrWhiteSpace(value))
                                 {
-                                    _processedEmailIds.TryAdd(value, true);
+                                    _processedEmailIds.Add(value);
                                 }
                             }
                             else if (trimmed.StartsWith("entryId:", StringComparison.OrdinalIgnoreCase))
@@ -930,14 +939,14 @@ namespace SlingMD.Outlook.Services
                                 var value = trimmed.Substring("entryId:".Length).Trim().Trim('"');
                                 if (!string.IsNullOrWhiteSpace(value))
                                 {
-                                    _processedEmailIds.TryAdd(value, true);
+                                    _processedEmailIds.Add(value);
                                 }
                             }
                         }
                     }
                 }
 
-                _cacheLastBuilt = DateTime.Now;
+                _cacheLastBuilt = _clock.Now;
             }
         }
 
@@ -952,12 +961,12 @@ namespace SlingMD.Outlook.Services
             EnsureEmailCacheIsBuilt(inboxPath);
 
             // Fast O(1) lookup in cache
-            if (!string.IsNullOrWhiteSpace(internetMessageId) && _processedEmailIds.ContainsKey(internetMessageId))
+            if (!string.IsNullOrWhiteSpace(internetMessageId) && _processedEmailIds.Contains(internetMessageId))
             {
                 return true;
             }
 
-            if (!string.IsNullOrWhiteSpace(entryId) && _processedEmailIds.ContainsKey(entryId))
+            if (!string.IsNullOrWhiteSpace(entryId) && _processedEmailIds.Contains(entryId))
             {
                 return true;
             }
@@ -973,11 +982,11 @@ namespace SlingMD.Outlook.Services
         {
             if (!string.IsNullOrWhiteSpace(internetMessageId))
             {
-                _processedEmailIds.TryAdd(internetMessageId, true);
+                _processedEmailIds.Add(internetMessageId);
             }
             if (!string.IsNullOrWhiteSpace(entryId))
             {
-                _processedEmailIds.TryAdd(entryId, true);
+                _processedEmailIds.Add(entryId);
             }
         }
     }

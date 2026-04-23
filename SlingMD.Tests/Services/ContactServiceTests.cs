@@ -107,16 +107,16 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
-        public void GetShortName_SingleWordName_ReturnsName()
+        public void GetFilenameSafeShortName_SingleWordName_ReturnsName()
         {
-            string shortName = _contactService.GetShortName("John");
+            string shortName = _contactService.GetFilenameSafeShortName("John");
             Assert.Equal("John", shortName);
         }
 
         [Fact]
-        public void GetShortName_FullName_ReturnsFirstNameAndLastInitial()
+        public void GetFilenameSafeShortName_FullName_ReturnsFirstNameAndLastInitial()
         {
-            string shortName = _contactService.GetShortName("John Smith");
+            string shortName = _contactService.GetFilenameSafeShortName("John Smith");
             Assert.Equal("JohnS", shortName);
         }
 
