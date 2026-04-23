@@ -17,3 +17,8 @@ vault/
 # Signing keys — VSTO temp keys must never be committed.
 # If you need to sign locally, regenerate via VS > Project > Signing.
 *.pfx
+
+# Crash dumps and per-workstation tooling state
+*.stackdump
+.claude-terminal/logs/
+.claude/settings.local.json

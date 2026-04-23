@@ -32,7 +32,10 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook e
 - Duplicate-email protection and safe file-naming, including chronological prefixes for threads
 - **Contact slinging** — export single contacts or your entire address book to Obsidian with rich detail notes (phone, email, company, etc.)
 - First-class markdown templates for email notes, contact notes, inline task lines, thread notes, **appointment notes, and meeting notes**
-- **Tabbed settings dialog** organized into 8 focused tabs (General, Email, Appointments, Contacts, Tasks, Threading, Attachments, Developer)
+- **Tabbed settings dialog** organized into 9 focused tabs (General, Email, Appointments, Contacts, Tasks, Threading, Attachments, Auto-Sling, Developer)
+- **Searchable settings help** — every setting has a ⓘ indicator, hover tooltips with tokens/examples, and a pop-out `Help` window with live search across all settings
+- **Auto-sling** — rule-based automatic export for new mail (sender, domain, or category) with toast or silent notifications
+- **Complete Thread** — backfill missing emails from the currently-selected conversation in one click
 
 ## Installation
 
@@ -341,6 +344,23 @@ This project is licensed under the terms included in the [LICENSE](LICENSE) file
 If you encounter any issues or have questions, please open an issue in the GitHub repository.
 
 ## Changelog
+
+### Version 1.2.2 (pre-release)
+- **Searchable settings help** — new `Help` button in the Settings footer opens a pop-out window with live search, tab-grouped TreeView, and a detail pane showing each setting's summary, description, default, token reference, and worked examples
+- **Hover tooltips on every setting**, with a ⓘ glyph indicator on every labelled setting as the visual cue that hover-help exists
+- **Complete Thread fix** — the ribbon button now lists only emails in the currently-selected conversation (previously: every email in the inbox not yet slung)
+- **Complete Thread icon** — Sling logo with a green-check badge, composited programmatically
+- **Auto-sling eligibility** extracted to a pure static method with 10 unit tests
+- **Deduplicated** `CleanSubject` / `TrailingDashSpaceRegex` across `EmailProcessor` and `AppointmentProcessor`
+- **Centralized MAPI property tags** in `Infrastructure/MapiPropertyTags.cs`
+- `IClock` threaded through every date-touching service for deterministic tests
+- `FlagMonitorService` + `FolderMonitorService` implement `IDisposable`
+- Template file caching in `TemplateService` (mtime-based invalidation)
+- Logging on previously-silent COM-read failures in `ContactService`
+- GitHub Actions CI on `windows-latest` (MSBuild + vstest)
+- `Services/Formatting/*` helpers marked `internal`
+- Signing key removed from repo; `*.pfx` added to `.gitignore`
+- **381 unit tests** (up from 356)
 
 ### Version 1.1.0.7
 - **Contact Slinging** — export single contacts or your entire address book to Obsidian with rich detail notes (phone, email, company, address, birthday)
