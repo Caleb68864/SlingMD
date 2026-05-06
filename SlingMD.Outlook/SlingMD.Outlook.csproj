@@ -272,6 +272,12 @@
     <Compile Include="Forms\ContactConfirmationDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\ContactMatchPromptForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\ContactMatchPromptForm.Designer.cs">
+      <DependentUpon>ContactMatchPromptForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="Forms\ThreadCompletionDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -314,6 +320,7 @@
     <Compile Include="Services\Formatting\ContactAliasWriter.cs" />
     <Compile Include="Services\Formatting\MatchResult.cs" />
     <Compile Include="Services\Formatting\MatchTier.cs" />
+    <Compile Include="Services\ContactInteractionMode.cs" />
     <Compile Include="Services\Formatting\ContactMatcher.cs" />
     <Compile Include="Services\Formatting\FrontmatterReader.cs" />
     <Compile Include="Services\Formatting\LegacyFilenameStripper.cs" />
@@ -327,6 +334,9 @@
     <Compile Include="Services\SlingDecisionEngine.cs" />
     <Compile Include="Services\SubjectFilenameCleaner.cs" />
     <Compile Include="Ribbon\SlingRibbon.cs" />
+    <EmbeddedResource Include="Forms\ContactMatchPromptForm.resx">
+      <DependentUpon>ContactMatchPromptForm.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Forms\CountdownForm.resx">
       <DependentUpon>CountdownForm.cs</DependentUpon>
     </EmbeddedResource>
