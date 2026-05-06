@@ -14,6 +14,7 @@ namespace SlingMD.Outlook.Models
         public bool EnableContactSaving { get; set; } = true;
         public bool SearchEntireVaultForContacts { get; set; } = false;
         public bool EnableContactFuzzyMatching { get; set; } = false;
+        public bool AutoSaveAliasOnMatchConfirmed { get; set; } = true;
         public bool LaunchObsidian { get; set; } = true;
         public int ObsidianDelaySeconds { get; set; } = 1;
         public bool ShowCountdown { get; set; } = true;

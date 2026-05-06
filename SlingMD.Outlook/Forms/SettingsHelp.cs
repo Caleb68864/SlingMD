@@ -542,6 +542,28 @@ namespace SlingMD.Outlook.Forms
                         new HelpExample { Input = "MMMM d, yyyy", Output = "April 22, 2026" },
                     }
                 },
+                new HelpEntry
+                {
+                    Id = "Contacts.EnableContactFuzzyMatching",
+                    Tab = "Contacts",
+                    Title = "Enable contact fuzzy matching",
+                    Summary = "When off, contact matching uses exact filenames only — byte-identical to pre-1.3 behavior. Toggle on to match aliases and structural variants (honorifics, suffixes, parenthetical suffixes). Capped at 5000 files in vault-wide search.",
+                },
+                new HelpEntry
+                {
+                    Id = "Contacts.AutoSaveAliasOnMatchConfirmed",
+                    Tab = "Contacts",
+                    Title = "Auto-save alias when match confirmed",
+                    Summary = "When the disambiguation dialog confirms a match, append the new name format as an alias on the matched note so future Slings of the same sender resolve as exact matches without prompting.",
+                },
+                new HelpEntry
+                {
+                    Id = "Contacts.BulkAmbiguousMatchLogPath",
+                    Tab = "Contacts",
+                    Title = "Bulk ambiguous-match log path",
+                    Summary = "Vault-relative path where bulk operations record ambiguous matches that needed human review. Rendered as a wikilink in bulk run summaries.",
+                    Default = "Logs/bulk-ambiguous-matches.md",
+                },
 
                 // ===== Tasks =====
                 new HelpEntry
