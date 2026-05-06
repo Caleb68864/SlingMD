@@ -60,13 +60,57 @@ namespace SlingMD.Outlook.Services
         }
 
         /// <summary>
-        /// Formats a display name as a contact link using the configured <see cref="ObsidianSettings.ContactLinkFormat"/>.
+        /// Formats a display name as a contact link by walking <see cref="ObsidianSettings.ContactLinkFormats"/>
+        /// in order and using the first format whose rendered stem points at an existing contact note. If none
+        /// resolve, the first non-empty format is used so callers can fall through to create-new-contact.
         /// </summary>
         private string FormatContactLink(string displayName, string email)
         {
             ContactName parsed = _contactNameParser.Parse(displayName, email);
-            string formatted = _contactLinkFormatter.Format(parsed, _settings.ContactLinkFormat);
+            string formatted = _contactLinkFormatter.Resolve(parsed, _settings.ContactLinkFormats, NoteFileExists);
             return string.IsNullOrEmpty(formatted) ? $"[[{displayName}]]" : formatted;
+        }
+
+        /// <summary>
+        /// Returns <c>true</c> when a markdown note with filename <paramref name="stem"/>.md exists in the
+        /// configured contacts folder, or anywhere in the vault when <see cref="ObsidianSettings.SearchEntireVaultForContacts"/>
+        /// is enabled. The stem is treated literally — sanitisation must happen at the caller.
+        /// </summary>
+        public bool NoteFileExists(string stem)
+        {
+            if (string.IsNullOrWhiteSpace(stem))
+            {
+                return false;
+            }
+
+            try
+            {
+                string contactsFolder = _settings.GetContactsPath();
+                if (Directory.Exists(contactsFolder)
+                    && File.Exists(Path.Combine(contactsFolder, stem + ".md")))
+                {
+                    return true;
+                }
+
+                if (_settings.SearchEntireVaultForContacts)
+                {
+                    string vaultPath = _settings.GetFullVaultPath();
+                    if (Directory.Exists(vaultPath))
+                    {
+                        string[] matches = Directory.GetFiles(vaultPath, stem + ".md", SearchOption.AllDirectories);
+                        if (matches.Length > 0)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ContactService.NoteFileExists: lookup failed for stem '{stem}': {ex.Message}");
+            }
+
+            return false;
         }
 
         /// <summary>

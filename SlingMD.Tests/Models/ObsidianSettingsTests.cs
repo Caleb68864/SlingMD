@@ -493,7 +493,7 @@ namespace SlingMD.Tests.Models
             ObsidianSettingsTestable settings = new ObsidianSettingsTestable
             {
                 TestSettingsPath = _testSettingsPath,
-                ContactLinkFormat = "[[{LastName}, {FirstName}]]",
+                ContactLinkFormats = new System.Collections.Generic.List<string> { "[[{LastName}, {FirstName}]]", "[[{Email}]]" },
                 EmailDateFormat = "MM/dd/yyyy HH:mm",
                 ContactDateFormat = "yyyy.MM.dd",
                 AppointmentDateFormat = "dd MMM yyyy HH:mm"
@@ -507,14 +507,14 @@ namespace SlingMD.Tests.Models
 
             // Sanity: before load the defaults must differ from the values we just saved,
             // otherwise the test would pass trivially.
-            Assert.Equal("[[{FullName}]]", loaded.ContactLinkFormat);
+            Assert.Equal(new[] { "[[{FullName}]]", "[[{Email}]]" }, loaded.ContactLinkFormats);
             Assert.Equal("yyyy-MM-dd HH:mm:ss", loaded.EmailDateFormat);
             Assert.Equal("yyyy-MM-dd", loaded.ContactDateFormat);
             Assert.Equal("yyyy-MM-dd HH:mm", loaded.AppointmentDateFormat);
 
             loaded.Load();
 
-            Assert.Equal("[[{LastName}, {FirstName}]]", loaded.ContactLinkFormat);
+            Assert.Equal(new[] { "[[{LastName}, {FirstName}]]", "[[{Email}]]" }, loaded.ContactLinkFormats);
             Assert.Equal("MM/dd/yyyy HH:mm", loaded.EmailDateFormat);
             Assert.Equal("yyyy.MM.dd", loaded.ContactDateFormat);
             Assert.Equal("dd MMM yyyy HH:mm", loaded.AppointmentDateFormat);
@@ -526,7 +526,7 @@ namespace SlingMD.Tests.Models
             string json = @"{
   ""VaultName"": ""V"",
   ""VaultBasePath"": ""C:\\V"",
-  ""ContactLinkFormat"": """",
+  ""ContactLinkFormats"": [],
   ""EmailDateFormat"": """",
   ""ContactDateFormat"": """",
   ""AppointmentDateFormat"": """"
@@ -539,7 +539,7 @@ namespace SlingMD.Tests.Models
             };
             loaded.Load();
 
-            Assert.Equal("[[{FullName}]]", loaded.ContactLinkFormat);
+            Assert.Equal(new[] { "[[{FullName}]]", "[[{Email}]]" }, loaded.ContactLinkFormats);
             Assert.Equal("yyyy-MM-dd HH:mm:ss", loaded.EmailDateFormat);
             Assert.Equal("yyyy-MM-dd", loaded.ContactDateFormat);
             Assert.Equal("yyyy-MM-dd HH:mm", loaded.AppointmentDateFormat);

@@ -1,6 +1,6 @@
 namespace SlingMD.Outlook.Services
 {
-    internal enum ContactInteractionMode
+    public enum ContactInteractionMode
     {
         Interactive,
         Automated

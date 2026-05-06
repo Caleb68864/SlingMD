@@ -101,7 +101,7 @@ namespace SlingMD.Outlook.Services
                 return string.Empty;
             }
             ContactName parsed = _contactNameParser.Parse(name, null);
-            string formatted = _contactLinkFormatter.Format(parsed, _settings.ContactLinkFormat);
+            string formatted = _contactLinkFormatter.Resolve(parsed, _settings.ContactLinkFormats, _contactService.NoteFileExists);
             return string.IsNullOrEmpty(formatted) ? $"[[{name}]]" : formatted;
         }
 

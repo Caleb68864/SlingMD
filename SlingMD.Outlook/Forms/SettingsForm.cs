@@ -521,10 +521,21 @@ namespace SlingMD.Outlook.Forms
             contactsTabLayout.Controls.Add(this.chkContactNoteIncludeDetails, 1, cRow++);
             BindHelpInline("Contacts.ContactNoteIncludeDetails", chkContactNoteIncludeDetails);
 
-            Label lblContactLinkFormat = new Label { Text = "Contact Link Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            Label lblContactLinkFormat = new Label { Text = "Contact Link Formats:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.TopLeft, Dock = DockStyle.Fill };
             contactsTabLayout.Controls.Add(lblContactLinkFormat, 0, cRow);
-            this.txtContactLinkFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
-            contactsTabLayout.Controls.Add(this.txtContactLinkFormat, 1, cRow++);
+            this.txtContactLinkFormat = new TextBox
+            {
+                Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top | AnchorStyles.Bottom,
+                Dock = DockStyle.Fill,
+                Multiline = true,
+                ScrollBars = ScrollBars.Vertical,
+                AcceptsReturn = true,
+                WordWrap = false,
+                Height = 72
+            };
+            contactsTabLayout.Controls.Add(this.txtContactLinkFormat, 1, cRow);
+            contactsTabLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 76F));
+            cRow++;
             BindHelp("Contacts.ContactLinkFormat", lblContactLinkFormat, txtContactLinkFormat);
 
             Label lblContactDateFormat = new Label { Text = "Contact Date Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
@@ -1053,7 +1064,12 @@ namespace SlingMD.Outlook.Forms
             txtContactFilenameFormat.Text = _settings.ContactFilenameFormat ?? "{ContactName}";
             txtContactTemplateFile.Text = _settings.ContactTemplateFile ?? "ContactTemplate.md";
             chkContactNoteIncludeDetails.Checked = _settings.ContactNoteIncludeDetails;
-            txtContactLinkFormat.Text = _settings.ContactLinkFormat ?? "[[{FullName}]]";
+            List<string> linkFormats = _settings.ContactLinkFormats ?? new List<string>();
+            if (linkFormats.Count == 0)
+            {
+                linkFormats = new List<string> { "[[{FullName}]]", "[[{Email}]]" };
+            }
+            txtContactLinkFormat.Text = string.Join(Environment.NewLine, linkFormats);
             txtContactDateFormat.Text = _settings.ContactDateFormat ?? "yyyy-MM-dd";
             txtEmailDateFormat.Text = _settings.EmailDateFormat ?? "yyyy-MM-dd HH:mm:ss";
             txtAppointmentDateFormat.Text = _settings.AppointmentDateFormat ?? "yyyy-MM-dd HH:mm";
@@ -1176,7 +1192,15 @@ namespace SlingMD.Outlook.Forms
             _settings.ContactFilenameFormat = txtContactFilenameFormat.Text.Trim();
             _settings.ContactTemplateFile = txtContactTemplateFile.Text.Trim();
             _settings.ContactNoteIncludeDetails = chkContactNoteIncludeDetails.Checked;
-            _settings.ContactLinkFormat = txtContactLinkFormat.Text.Trim();
+            _settings.ContactLinkFormats = txtContactLinkFormat.Text
+                .Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None)
+                .Select(line => line.Trim())
+                .Where(line => line.Length > 0)
+                .ToList();
+            if (_settings.ContactLinkFormats.Count == 0)
+            {
+                _settings.ContactLinkFormats.Add("[[{FullName}]]");
+            }
             _settings.ContactDateFormat = txtContactDateFormat.Text.Trim();
             _settings.EmailDateFormat = txtEmailDateFormat.Text.Trim();
             _settings.AppointmentDateFormat = txtAppointmentDateFormat.Text.Trim();

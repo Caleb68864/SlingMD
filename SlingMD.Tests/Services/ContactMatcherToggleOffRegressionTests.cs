@@ -121,7 +121,7 @@ namespace SlingMD.Tests.Services
                 EnableContactSaving = true,
                 SearchEntireVaultForContacts = false,
                 EnableContactFuzzyMatching = false,
-                ContactLinkFormat = "[[{FullName}]]",
+                ContactLinkFormats = new System.Collections.Generic.List<string> { "[[{FullName}]]" },
                 ContactFilenameFormat = "{ContactName}"
             };
 
@@ -201,7 +201,7 @@ namespace SlingMD.Tests.Services
                     EnableContactSaving = true,
                     SearchEntireVaultForContacts = false,
                     EnableContactFuzzyMatching = false,
-                    ContactLinkFormat = "[[{FullName}]]",
+                    ContactLinkFormats = new System.Collections.Generic.List<string> { "[[{FullName}]]" },
                     ContactFilenameFormat = "{ContactName}"
                 };
 
