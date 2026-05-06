@@ -308,6 +308,8 @@
     <Compile Include="Services\Formatting\EmailAddressParser.cs" />
     <Compile Include="Services\Formatting\FileNameSanitizer.cs" />
     <Compile Include="Services\Formatting\FilenameSubjectNormalizer.cs" />
+    <Compile Include="Services\Formatting\ContactIndex.cs" />
+    <Compile Include="Services\Formatting\ContactIndexEntry.cs" />
     <Compile Include="Services\Formatting\FrontmatterReader.cs" />
     <Compile Include="Services\Formatting\LegacyFilenameStripper.cs" />
     <Compile Include="Services\Formatting\MarkdownSectionFinder.cs" />
