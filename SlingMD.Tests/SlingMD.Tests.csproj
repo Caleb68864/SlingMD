@@ -104,6 +104,7 @@
     <Compile Include="Services\Formatting\ThreadIdHasherTests.cs" />
     <Compile Include="Services\Formatting\FileNameSanitizerTests.cs" />
     <Compile Include="Services\Formatting\FilenameSubjectNormalizerTests.cs" />
+    <Compile Include="Services\Formatting\ContactIndexTests.cs" />
     <Compile Include="Services\Formatting\FrontmatterReaderTests.cs" />
     <Compile Include="Services\Formatting\MarkdownSectionFinderTests.cs" />
     <Compile Include="Services\Formatting\LegacyFilenameStripperTests.cs" />
@@ -112,6 +113,7 @@
     <Compile Include="Services\ReminderDueDateCalculatorTests.cs" />
     <Compile Include="Services\SlingDecisionEngineTests.cs" />
     <Compile Include="Services\AutoSlingServiceTests.cs" />
+    <Compile Include="Services\ContactMatcherToggleOffRegressionTests.cs" />
     <Compile Include="Services\SubjectFilenameCleanerTests.cs" />
     <Compile Include="Services\TaskServiceClockTests.cs" />
     <Compile Include="Infrastructure\FakeClock.cs" />
@@ -119,6 +121,14 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Fixtures\ToggleOffBaseline\inputs.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Fixtures\ToggleOffBaseline\expected-outputs.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SlingMD.Outlook\SlingMD.Outlook.csproj">

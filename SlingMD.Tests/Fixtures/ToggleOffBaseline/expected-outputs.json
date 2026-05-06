@@ -1,0 +1,85 @@
+{
+  "_comment": "Baseline captured from main HEAD ContactService (pre-SS-09). DO NOT modify without a dedicated spec escalation.",
+  "cases": [
+    {
+      "name": "simple_exact_match",
+      "expected": {
+        "contactExists": true,
+        "formatContactLink": "[[John Smith]]",
+        "buildLinkedNames": [ "[[John Smith]]" ],
+        "buildContactFileName": "John Smith",
+        "createContactNotePath": "Contacts/John Smith.md"
+      }
+    },
+    {
+      "name": "no_match_create_new",
+      "expected": {
+        "contactExists": false,
+        "formatContactLink": "[[Alice Cooper]]",
+        "buildLinkedNames": [ "[[Alice Cooper]]" ],
+        "buildContactFileName": "Alice Cooper",
+        "createContactNotePath": "Contacts/Alice Cooper.md"
+      }
+    },
+    {
+      "name": "parenthesized_company",
+      "expected": {
+        "contactExists": false,
+        "formatContactLink": "[[Bob (Acme)]]",
+        "buildLinkedNames": [ "[[Bob (Acme)]]" ],
+        "buildContactFileName": "Bob Jones (Acme)",
+        "createContactNotePath": "Contacts/Bob Jones (Acme).md"
+      }
+    },
+    {
+      "name": "middle_initial",
+      "expected": {
+        "contactExists": false,
+        "formatContactLink": "[[John Smith]]",
+        "buildLinkedNames": [ "[[John Smith]]" ],
+        "buildContactFileName": "John M. Smith",
+        "createContactNotePath": "Contacts/John M. Smith.md"
+      }
+    },
+    {
+      "name": "two_token_name",
+      "expected": {
+        "contactExists": false,
+        "formatContactLink": "[[Jane Doe]]",
+        "buildLinkedNames": [ "[[Jane Doe]]" ],
+        "buildContactFileName": "Jane Doe",
+        "createContactNotePath": "Contacts/Jane Doe.md"
+      }
+    },
+    {
+      "name": "single_token_name",
+      "expected": {
+        "contactExists": false,
+        "formatContactLink": "[[Madonna]]",
+        "buildLinkedNames": [ "[[Madonna]]" ],
+        "buildContactFileName": "Madonna",
+        "createContactNotePath": "Contacts/Madonna.md"
+      }
+    },
+    {
+      "name": "name_with_suffix_jr",
+      "expected": {
+        "contactExists": false,
+        "formatContactLink": "[[Robert Smith]]",
+        "buildLinkedNames": [ "[[Robert Smith]]" ],
+        "buildContactFileName": "Robert Smith Jr.",
+        "createContactNotePath": "Contacts/Robert Smith Jr..md"
+      }
+    },
+    {
+      "name": "name_with_honorific_dr",
+      "expected": {
+        "contactExists": false,
+        "formatContactLink": "[[Dr. Chen]]",
+        "buildLinkedNames": [ "[[Dr. Chen]]" ],
+        "buildContactFileName": "Dr. Emily Chen",
+        "createContactNotePath": "Contacts/Dr. Emily Chen.md"
+      }
+    }
+  ]
+}

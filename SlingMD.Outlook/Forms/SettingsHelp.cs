@@ -502,10 +502,10 @@ namespace SlingMD.Outlook.Forms
                 {
                     Id = "Contacts.ContactLinkFormat",
                     Tab = "Contacts",
-                    Title = "Contact Link Format",
-                    Summary = "How contacts render inside emails and appointments (from/to/cc/organizer/attendees).",
-                    Description = "Brackets are not required — anything around the tokens is emitted literally. This is the single most customizable format string in SlingMD.",
-                    Default = "[[{FullName}]]",
+                    Title = "Contact Link Formats",
+                    Summary = "Ordered list of formats tried when rendering contact mentions (from/to/cc/organizer/attendees). One format per line; first format whose rendered note exists in the vault wins. If none match, the first format is used and a new contact note is created.",
+                    Description = "Use this when contact notes follow more than one filing convention — e.g. most people are filed as `[[{FullName}]]` but a few are filed by email address. Brackets are not required — anything around the tokens is emitted literally. List is tried top-down; put your most common format first.",
+                    Default = "[[{FullName}]]\n[[{Email}]]",
                     Tokens = new Dictionary<string, string>
                     {
                         { "{FullName}", "Full name (e.g. \"John A. Smith\")" },
@@ -541,6 +541,28 @@ namespace SlingMD.Outlook.Forms
                         new HelpExample { Input = "yyyy-MM-dd", Output = "2026-04-22" },
                         new HelpExample { Input = "MMMM d, yyyy", Output = "April 22, 2026" },
                     }
+                },
+                new HelpEntry
+                {
+                    Id = "Contacts.EnableContactFuzzyMatching",
+                    Tab = "Contacts",
+                    Title = "Enable contact fuzzy matching",
+                    Summary = "When off, contact matching uses exact filenames only — byte-identical to pre-1.3 behavior. Toggle on to match aliases and structural variants (honorifics, suffixes, parenthetical suffixes). Capped at 5000 files in vault-wide search.",
+                },
+                new HelpEntry
+                {
+                    Id = "Contacts.AutoSaveAliasOnMatchConfirmed",
+                    Tab = "Contacts",
+                    Title = "Auto-save alias when match confirmed",
+                    Summary = "When the disambiguation dialog confirms a match, append the new name format as an alias on the matched note so future Slings of the same sender resolve as exact matches without prompting.",
+                },
+                new HelpEntry
+                {
+                    Id = "Contacts.BulkAmbiguousMatchLogPath",
+                    Tab = "Contacts",
+                    Title = "Bulk ambiguous-match log path",
+                    Summary = "Vault-relative path where bulk operations record ambiguous matches that needed human review. Rendered as a wikilink in bulk run summaries.",
+                    Default = "Logs/bulk-ambiguous-matches.md",
                 },
 
                 // ===== Tasks =====

@@ -311,5 +311,88 @@ namespace SlingMD.Tests.Services
             string content = File.ReadAllText(expectedPath);
             Assert.Contains("555-0200", content);
         }
+
+        // ── Automated-mode fuzzy match / ambiguous log ────────────────────────
+
+        [Fact]
+        public void GetAndClearAmbiguousCount_InitiallyZero()
+        {
+            // Fresh service starts with zero ambiguous events
+            Assert.Equal(0, _contactService.GetAndClearAmbiguousCount());
+        }
+
+        [Fact]
+        public void GetAndClearAmbiguousCount_ResetsAfterRead()
+        {
+            _contactService.GetAndClearAmbiguousCount(); // read once
+            Assert.Equal(0, _contactService.GetAndClearAmbiguousCount()); // still zero
+        }
+
+        [Fact]
+        public void TryHandleFuzzyMatch_FuzzyMatchingDisabled_ReturnsFalse()
+        {
+            // When EnableContactFuzzyMatching is false, the method returns false immediately
+            _settings.EnableContactFuzzyMatching = false;
+
+            bool handled = _contactService.TryHandleFuzzyMatch(
+                "Alice Example", "alice@example.com",
+                SlingMD.Outlook.Services.ContactInteractionMode.Automated,
+                "Test Source");
+
+            Assert.False(handled);
+            Assert.Equal(0, _contactService.GetAndClearAmbiguousCount());
+        }
+
+        [Fact]
+        public void TryHandleFuzzyMatch_Automated_AmbiguousMatch_WritesLogAndIncrementsCount()
+        {
+            // Arrange: create two contact files that will produce an Ambiguous match
+            string contactsDir = Path.Combine(_testDir, "TestVault", "Contacts");
+            Directory.CreateDirectory(contactsDir);
+            File.WriteAllText(Path.Combine(contactsDir, "Bob Smith Jr.md"), "---\ntitle: Bob Smith Jr.\n---\n");
+            File.WriteAllText(Path.Combine(contactsDir, "Bob Smith Sr.md"), "---\ntitle: Bob Smith Sr.\n---\n");
+
+            _settings.EnableContactFuzzyMatching = true;
+            _settings.BulkAmbiguousMatchLogPath = "Logs/test-ambiguous.md";
+
+            string logPath = Path.Combine(_testDir, "TestVault", "Logs", "test-ambiguous.md");
+
+            // Act
+            bool handled = _contactService.TryHandleFuzzyMatch(
+                "Bob James Smith", null,
+                SlingMD.Outlook.Services.ContactInteractionMode.Automated,
+                "Test Email Subject");
+
+            // Assert: handled (ambiguous → logged), count incremented
+            Assert.True(handled);
+            Assert.Equal(1, _contactService.GetAndClearAmbiguousCount());
+            Assert.True(File.Exists(logPath), "Ambiguous match log should have been created.");
+            string logContent = File.ReadAllText(logPath);
+            Assert.Contains("Bob James Smith", logContent);
+            Assert.Contains("[[Bob Smith Jr.]]", logContent);
+            Assert.Contains("[[Bob Smith Sr.]]", logContent);
+        }
+
+        [Fact]
+        public void GetAndClearAmbiguousCount_ClearsAfterAmbiguousEvent()
+        {
+            string contactsDir = Path.Combine(_testDir, "TestVault", "Contacts");
+            Directory.CreateDirectory(contactsDir);
+            File.WriteAllText(Path.Combine(contactsDir, "Charlie Brown.md"), "---\ntitle: Charlie Brown\n---\n");
+            File.WriteAllText(Path.Combine(contactsDir, "Charlie Browning.md"), "---\ntitle: Charlie Browning\n---\n");
+
+            _settings.EnableContactFuzzyMatching = true;
+            _settings.BulkAmbiguousMatchLogPath = "Logs/test-ambiguous2.md";
+
+            _contactService.TryHandleFuzzyMatch(
+                "Charlie", null,
+                SlingMD.Outlook.Services.ContactInteractionMode.Automated,
+                "Source");
+
+            // First read returns whatever was accumulated
+            int first = _contactService.GetAndClearAmbiguousCount();
+            // Second read must be zero because counter was cleared
+            Assert.Equal(0, _contactService.GetAndClearAmbiguousCount());
+        }
     }
 }

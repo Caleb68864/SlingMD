@@ -133,7 +133,7 @@ namespace SlingMD.Outlook.Services
                     return;
                 }
 
-                await _emailProcessor.ProcessEmail(mail);
+                await _emailProcessor.ProcessEmail(mail, contactMode: ContactInteractionMode.Automated);
 
                 try
                 {

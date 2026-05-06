@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
 namespace SlingMD.Outlook.Services.Formatting
@@ -16,6 +18,9 @@ namespace SlingMD.Outlook.Services.Formatting
         private static readonly Regex ToRegex = new Regex(@"to:.*?\n\s*- ""[^""]*\[\[([^""]+)\]\]""", RegexOptions.Compiled | RegexOptions.Singleline);
         private static readonly Regex InternetMessageIdRegex = new Regex(@"internetMessageId: ""([^""]+)""", RegexOptions.Compiled);
         private static readonly Regex EntryIdRegex = new Regex(@"entryId: ""([^""]+)""", RegexOptions.Compiled);
+        private static readonly Regex AliasesBlockRegex = new Regex(@"aliases:\s*\r?\n((?:[ \t]+-[ \t]+.+\r?\n?)+)", RegexOptions.Compiled);
+        private static readonly Regex AliasesInlineRegex = new Regex(@"aliases:\s*\[([^\]]*)\]", RegexOptions.Compiled);
+        private static readonly Regex AliasesBlockItemRegex = new Regex(@"[ \t]+-[ \t]+(.+)", RegexOptions.Compiled);
 
         /// <summary>
         /// Returns the threadId frontmatter value, or null if not present.
@@ -72,6 +77,50 @@ namespace SlingMD.Outlook.Services.Formatting
         public string ExtractFirstToName(string content)
         {
             return ExtractFirst(content, ToRegex);
+        }
+
+        /// <summary>
+        /// Returns all aliases from the frontmatter aliases field, supporting both
+        /// block-style (dash list) and inline-array shapes. Returns an empty list
+        /// when the key is absent, the file has no leading ---, or parsing fails.
+        /// </summary>
+        public IReadOnlyList<string> ExtractAliases(string content)
+        {
+            if (string.IsNullOrEmpty(content))
+                return Array.Empty<string>();
+
+            if (!content.TrimStart().StartsWith("---"))
+                return Array.Empty<string>();
+
+            Match blockMatch = AliasesBlockRegex.Match(content);
+            if (blockMatch.Success)
+            {
+                string block = blockMatch.Groups[1].Value;
+                List<string> items = new List<string>();
+                foreach (Match itemMatch in AliasesBlockItemRegex.Matches(block))
+                {
+                    string val = itemMatch.Groups[1].Value.Trim();
+                    if (!string.IsNullOrEmpty(val))
+                        items.Add(val);
+                }
+                return items.AsReadOnly();
+            }
+
+            Match inlineMatch = AliasesInlineRegex.Match(content);
+            if (inlineMatch.Success)
+            {
+                string[] parts = inlineMatch.Groups[1].Value.Split(',');
+                List<string> items = new List<string>();
+                foreach (string part in parts)
+                {
+                    string val = part.Trim();
+                    if (!string.IsNullOrEmpty(val))
+                        items.Add(val);
+                }
+                return items.AsReadOnly();
+            }
+
+            return Array.Empty<string>();
         }
 
         private static string ExtractFirst(string content, Regex regex)

@@ -66,6 +66,12 @@ namespace SlingMD.Outlook.Forms
         private TextBox txtEmailDateFormat;
         private TextBox txtAppointmentDateFormat;
 
+        // Contacts tab — Matching subgroup controls
+        private GroupBox grpMatchingControls;
+        private CheckBox chkEnableFuzzyMatching;
+        private CheckBox chkAutoSaveAlias;
+        private TextBox txtBulkAmbiguousLogPath;
+
         // Tasks tab controls
         private CheckBox chkCreateObsidianTask;
         private CheckBox chkCreateOutlookTask;
@@ -515,10 +521,21 @@ namespace SlingMD.Outlook.Forms
             contactsTabLayout.Controls.Add(this.chkContactNoteIncludeDetails, 1, cRow++);
             BindHelpInline("Contacts.ContactNoteIncludeDetails", chkContactNoteIncludeDetails);
 
-            Label lblContactLinkFormat = new Label { Text = "Contact Link Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            Label lblContactLinkFormat = new Label { Text = "Contact Link Formats:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.TopLeft, Dock = DockStyle.Fill };
             contactsTabLayout.Controls.Add(lblContactLinkFormat, 0, cRow);
-            this.txtContactLinkFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
-            contactsTabLayout.Controls.Add(this.txtContactLinkFormat, 1, cRow++);
+            this.txtContactLinkFormat = new TextBox
+            {
+                Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top | AnchorStyles.Bottom,
+                Dock = DockStyle.Fill,
+                Multiline = true,
+                ScrollBars = ScrollBars.Vertical,
+                AcceptsReturn = true,
+                WordWrap = false,
+                Height = 72
+            };
+            contactsTabLayout.Controls.Add(this.txtContactLinkFormat, 1, cRow);
+            contactsTabLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 76F));
+            cRow++;
             BindHelp("Contacts.ContactLinkFormat", lblContactLinkFormat, txtContactLinkFormat);
 
             Label lblContactDateFormat = new Label { Text = "Contact Date Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
@@ -526,6 +543,49 @@ namespace SlingMD.Outlook.Forms
             this.txtContactDateFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             contactsTabLayout.Controls.Add(this.txtContactDateFormat, 1, cRow++);
             BindHelp("Contacts.ContactDateFormat", lblContactDateFormat, txtContactDateFormat);
+
+            // Matching subgroup
+            this.grpMatchingControls = new GroupBox
+            {
+                Text = "Matching",
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                Padding = new Padding(4)
+            };
+            TableLayoutPanel matchingLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                AutoSize = true
+            };
+            matchingLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35F));
+            matchingLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65F));
+
+            int mRow = 0;
+            matchingLayout.Controls.Add(new Label(), 0, mRow);
+            this.chkEnableFuzzyMatching = new CheckBox { Text = "Enable contact fuzzy matching", AutoSize = true, Anchor = AnchorStyles.Left };
+            matchingLayout.Controls.Add(this.chkEnableFuzzyMatching, 1, mRow++);
+            BindHelpInline("Contacts.EnableContactFuzzyMatching", chkEnableFuzzyMatching);
+
+            matchingLayout.Controls.Add(new Label(), 0, mRow);
+            this.chkAutoSaveAlias = new CheckBox { Text = "Auto-save alias when match confirmed", AutoSize = true, Anchor = AnchorStyles.Left };
+            matchingLayout.Controls.Add(this.chkAutoSaveAlias, 1, mRow++);
+            BindHelpInline("Contacts.AutoSaveAliasOnMatchConfirmed", chkAutoSaveAlias);
+
+            Label lblBulkLog = new Label { Text = "Bulk ambiguous-match log path:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            matchingLayout.Controls.Add(lblBulkLog, 0, mRow);
+            this.txtBulkAmbiguousLogPath = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
+            matchingLayout.Controls.Add(this.txtBulkAmbiguousLogPath, 1, mRow++);
+            BindHelp("Contacts.BulkAmbiguousMatchLogPath", lblBulkLog, txtBulkAmbiguousLogPath);
+
+            matchingLayout.RowCount = mRow + 1;
+            for (int i = 0; i < mRow; i++)
+                matchingLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            matchingLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            this.grpMatchingControls.Controls.Add(matchingLayout);
+
+            contactsTabLayout.SetColumnSpan(this.grpMatchingControls, 2);
+            contactsTabLayout.Controls.Add(this.grpMatchingControls, 0, cRow++);
 
             contactsTabLayout.RowCount = cRow + 1;
             for (int i = 0; i < cRow; i++)
@@ -998,10 +1058,18 @@ namespace SlingMD.Outlook.Forms
             chkEnableContactSaving.Checked = _settings.EnableContactSaving;
             txtContactsFolder.Enabled = _settings.EnableContactSaving;
             chkSearchEntireVaultForContacts.Checked = _settings.SearchEntireVaultForContacts;
+            chkEnableFuzzyMatching.Checked = _settings.EnableContactFuzzyMatching;
+            chkAutoSaveAlias.Checked = _settings.AutoSaveAliasOnMatchConfirmed;
+            txtBulkAmbiguousLogPath.Text = _settings.BulkAmbiguousMatchLogPath ?? "Logs/bulk-ambiguous-matches.md";
             txtContactFilenameFormat.Text = _settings.ContactFilenameFormat ?? "{ContactName}";
             txtContactTemplateFile.Text = _settings.ContactTemplateFile ?? "ContactTemplate.md";
             chkContactNoteIncludeDetails.Checked = _settings.ContactNoteIncludeDetails;
-            txtContactLinkFormat.Text = _settings.ContactLinkFormat ?? "[[{FullName}]]";
+            List<string> linkFormats = _settings.ContactLinkFormats ?? new List<string>();
+            if (linkFormats.Count == 0)
+            {
+                linkFormats = new List<string> { "[[{FullName}]]", "[[{Email}]]" };
+            }
+            txtContactLinkFormat.Text = string.Join(Environment.NewLine, linkFormats);
             txtContactDateFormat.Text = _settings.ContactDateFormat ?? "yyyy-MM-dd";
             txtEmailDateFormat.Text = _settings.EmailDateFormat ?? "yyyy-MM-dd HH:mm:ss";
             txtAppointmentDateFormat.Text = _settings.AppointmentDateFormat ?? "yyyy-MM-dd HH:mm";
@@ -1118,10 +1186,21 @@ namespace SlingMD.Outlook.Forms
             _settings.ContactsFolder = txtContactsFolder.Text;
             _settings.EnableContactSaving = chkEnableContactSaving.Checked;
             _settings.SearchEntireVaultForContacts = chkSearchEntireVaultForContacts.Checked;
+            _settings.EnableContactFuzzyMatching = chkEnableFuzzyMatching.Checked;
+            _settings.AutoSaveAliasOnMatchConfirmed = chkAutoSaveAlias.Checked;
+            _settings.BulkAmbiguousMatchLogPath = txtBulkAmbiguousLogPath.Text.Trim();
             _settings.ContactFilenameFormat = txtContactFilenameFormat.Text.Trim();
             _settings.ContactTemplateFile = txtContactTemplateFile.Text.Trim();
             _settings.ContactNoteIncludeDetails = chkContactNoteIncludeDetails.Checked;
-            _settings.ContactLinkFormat = txtContactLinkFormat.Text.Trim();
+            _settings.ContactLinkFormats = txtContactLinkFormat.Text
+                .Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None)
+                .Select(line => line.Trim())
+                .Where(line => line.Length > 0)
+                .ToList();
+            if (_settings.ContactLinkFormats.Count == 0)
+            {
+                _settings.ContactLinkFormats.Add("[[{FullName}]]");
+            }
             _settings.ContactDateFormat = txtContactDateFormat.Text.Trim();
             _settings.EmailDateFormat = txtEmailDateFormat.Text.Trim();
             _settings.AppointmentDateFormat = txtAppointmentDateFormat.Text.Trim();

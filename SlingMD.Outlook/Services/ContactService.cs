@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Office.Interop.Outlook;
+using SlingMD.Outlook.Forms;
 using SlingMD.Outlook.Helpers;
 using SlingMD.Outlook.Infrastructure;
 using SlingMD.Outlook.Models;
@@ -28,6 +30,8 @@ namespace SlingMD.Outlook.Services
         private readonly DateFormatter _dateFormatter;
         private readonly IClock _clock;
         private static readonly MarkdownSectionFinder SectionFinder = new MarkdownSectionFinder();
+
+        private int _automatedAmbiguousCount;
 
         public ContactService(FileService fileService, TemplateService templateService, IClock clock = null)
         {
@@ -56,13 +60,57 @@ namespace SlingMD.Outlook.Services
         }
 
         /// <summary>
-        /// Formats a display name as a contact link using the configured <see cref="ObsidianSettings.ContactLinkFormat"/>.
+        /// Formats a display name as a contact link by walking <see cref="ObsidianSettings.ContactLinkFormats"/>
+        /// in order and using the first format whose rendered stem points at an existing contact note. If none
+        /// resolve, the first non-empty format is used so callers can fall through to create-new-contact.
         /// </summary>
         private string FormatContactLink(string displayName, string email)
         {
             ContactName parsed = _contactNameParser.Parse(displayName, email);
-            string formatted = _contactLinkFormatter.Format(parsed, _settings.ContactLinkFormat);
+            string formatted = _contactLinkFormatter.Resolve(parsed, _settings.ContactLinkFormats, NoteFileExists);
             return string.IsNullOrEmpty(formatted) ? $"[[{displayName}]]" : formatted;
+        }
+
+        /// <summary>
+        /// Returns <c>true</c> when a markdown note with filename <paramref name="stem"/>.md exists in the
+        /// configured contacts folder, or anywhere in the vault when <see cref="ObsidianSettings.SearchEntireVaultForContacts"/>
+        /// is enabled. The stem is treated literally — sanitisation must happen at the caller.
+        /// </summary>
+        public bool NoteFileExists(string stem)
+        {
+            if (string.IsNullOrWhiteSpace(stem))
+            {
+                return false;
+            }
+
+            try
+            {
+                string contactsFolder = _settings.GetContactsPath();
+                if (Directory.Exists(contactsFolder)
+                    && File.Exists(Path.Combine(contactsFolder, stem + ".md")))
+                {
+                    return true;
+                }
+
+                if (_settings.SearchEntireVaultForContacts)
+                {
+                    string vaultPath = _settings.GetFullVaultPath();
+                    if (Directory.Exists(vaultPath))
+                    {
+                        string[] matches = Directory.GetFiles(vaultPath, stem + ".md", SearchOption.AllDirectories);
+                        if (matches.Length > 0)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ContactService.NoteFileExists: lookup failed for stem '{stem}': {ex.Message}");
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -413,6 +461,129 @@ namespace SlingMD.Outlook.Services
             {
                 Logger.Instance.Warning($"ContactService.ContactExists: search failed for '{contactName}': {ex.Message}");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Returns the number of ambiguous contact match events accumulated since the last call, then resets the counter.
+        /// </summary>
+        public int GetAndClearAmbiguousCount()
+        {
+            int count = _automatedAmbiguousCount;
+            _automatedAmbiguousCount = 0;
+            return count;
+        }
+
+        /// <summary>
+        /// Attempts fuzzy contact resolution using <see cref="ContactMatcher"/> when fuzzy matching is enabled.
+        /// In Interactive mode an ambiguous result shows <see cref="ContactMatchPromptForm"/>.
+        /// In Automated mode an ambiguous result is logged to <see cref="ObsidianSettings.BulkAmbiguousMatchLogPath"/>
+        /// and treated as skipped.
+        /// Returns <c>true</c> when the contact is fully handled (existing match found or ambiguous-logged);
+        /// returns <c>false</c> when the contact should go through the normal new-contact creation flow.
+        /// </summary>
+        public bool TryHandleFuzzyMatch(
+            string displayName,
+            string email,
+            ContactInteractionMode mode,
+            string sourceTitle)
+        {
+            if (!_settings.EnableContactFuzzyMatching)
+            {
+                return false;
+            }
+
+            string contactsPath = _settings.GetContactsPath();
+            string vaultPath = _settings.SearchEntireVaultForContacts ? _settings.GetFullVaultPath() : null;
+
+            ContactMatcher matcher = new ContactMatcher(contactsPath, vaultPath);
+            MatchResult result = matcher.Match(displayName, email ?? string.Empty);
+
+            switch (result.Tier)
+            {
+                case MatchTier.Exact:
+                case MatchTier.HighConfidence:
+                    // Auto-link: contact note already exists — handled silently
+                    return true;
+
+                case MatchTier.Ambiguous:
+                    if (mode == ContactInteractionMode.Automated)
+                    {
+                        _automatedAmbiguousCount++;
+                        AppendAmbiguousMatchLog(sourceTitle ?? string.Empty, displayName, result.Candidates);
+                        return true;
+                    }
+
+                    // Interactive mode — show the prompt form (constructor guard throws if mode is Automated)
+                    try
+                    {
+                        using (ContactMatchPromptForm form = new ContactMatchPromptForm(
+                            result.Candidates, mode, _settings.ContactNoteIncludeDetails))
+                        {
+                            if (form.ShowDialog() == System.Windows.Forms.DialogResult.OK
+                                && form.Result != null
+                                && form.Result.Decision == MatchPromptDecision.Match
+                                && form.Result.ChosenEntry != null)
+                            {
+                                // User picked an existing contact — handled
+                                return true;
+                            }
+
+                            // User chose CreateNew — fall through to normal creation flow
+                            return false;
+                        }
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        // Automated-mode guard triggered: log and treat as ambiguous
+                        Logger.Instance.Error($"ContactService.TryHandleFuzzyMatch: ContactMatchPromptForm invoked in Automated mode: {ex.Message}");
+                        _automatedAmbiguousCount++;
+                        AppendAmbiguousMatchLog(sourceTitle ?? string.Empty, displayName, result.Candidates);
+                        return true;
+                    }
+
+                default:
+                    return false;
+            }
+        }
+
+        private void AppendAmbiguousMatchLog(
+            string sourceTitle,
+            string displayName,
+            System.Collections.Generic.IReadOnlyList<ContactIndexEntry> candidates)
+        {
+            try
+            {
+                string vaultPath = _settings.GetFullVaultPath();
+                string logRelative = _settings.BulkAmbiguousMatchLogPath;
+                string logPath = Path.IsPathRooted(logRelative)
+                    ? logRelative
+                    : Path.Combine(vaultPath, logRelative);
+
+                string logDir = Path.GetDirectoryName(logPath);
+                if (!string.IsNullOrEmpty(logDir) && !Directory.Exists(logDir))
+                {
+                    Directory.CreateDirectory(logDir);
+                }
+
+                StringBuilder sb = new StringBuilder();
+                sb.AppendLine($"## {_clock.Now:yyyy-MM-dd HH:mm:ss} — {sourceTitle}");
+                sb.AppendLine($"Unmatched display name: **{displayName}**");
+                sb.Append("Candidates: ");
+                List<string> wikiLinks = new List<string>();
+                foreach (ContactIndexEntry entry in candidates)
+                {
+                    string stem = Path.GetFileNameWithoutExtension(entry.FilePath);
+                    wikiLinks.Add($"[[{stem}]]");
+                }
+                sb.AppendLine(string.Join(", ", wikiLinks));
+                sb.AppendLine();
+
+                File.AppendAllText(logPath, sb.ToString(), Encoding.UTF8);
+            }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Error($"ContactService.AppendAmbiguousMatchLog: {ex.Message}");
             }
         }
 

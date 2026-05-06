@@ -35,6 +35,78 @@ namespace SlingMD.Outlook.Services.Formatting
         private static readonly Regex TokenPattern = new Regex(@"\{([^}]+)\}", RegexOptions.Compiled);
 
         /// <summary>
+        /// Pattern that extracts the wikilink stem (the target filename, before any '|' alias)
+        /// from a rendered link such as <c>[[Bob Smith]]</c> or <c>[[bob@acme.com|Bob]]</c>.
+        /// </summary>
+        private static readonly Regex WikilinkStemPattern = new Regex(@"\[\[([^\]\|]+)(?:\|[^\]]*)?\]\]", RegexOptions.Compiled);
+
+        /// <summary>
+        /// Walks <paramref name="formats"/> in order, rendering each against <paramref name="name"/> and
+        /// asking <paramref name="noteExists"/> whether the rendered stem points at an existing contact
+        /// note. The first format whose stem resolves wins. If none resolve, the first format is used
+        /// (so callers fall through to today's create-new-contact path).
+        /// </summary>
+        public string Resolve(ContactName name, IList<string> formats, Func<string, bool> noteExists)
+        {
+            if (name == null || formats == null || formats.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            string firstRendered = null;
+            for (int i = 0; i < formats.Count; i++)
+            {
+                string format = formats[i];
+                if (string.IsNullOrWhiteSpace(format))
+                {
+                    continue;
+                }
+
+                string rendered = Format(name, format);
+                if (string.IsNullOrEmpty(rendered))
+                {
+                    continue;
+                }
+
+                if (firstRendered == null)
+                {
+                    firstRendered = rendered;
+                }
+
+                if (noteExists == null)
+                {
+                    continue;
+                }
+
+                Match m = WikilinkStemPattern.Match(rendered);
+                if (!m.Success)
+                {
+                    continue;
+                }
+
+                string stem = m.Groups[1].Value.Trim();
+                if (stem.Length == 0)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    if (noteExists(stem))
+                    {
+                        return rendered;
+                    }
+                }
+                catch
+                {
+                    // Existence check is advisory — fall through to the next candidate.
+                }
+            }
+
+            return firstRendered ?? string.Empty;
+        }
+
+        /// <summary>
         /// Formats a contact name using the specified format string.
         /// </summary>
         /// <param name="name">The contact name to format.</param>
