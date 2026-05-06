@@ -13,6 +13,7 @@ namespace SlingMD.Outlook.Models
         public string ContactsFolder { get; set; } = "Contacts";
         public bool EnableContactSaving { get; set; } = true;
         public bool SearchEntireVaultForContacts { get; set; } = false;
+        public bool EnableContactFuzzyMatching { get; set; } = false;
         public bool LaunchObsidian { get; set; } = true;
         public int ObsidianDelaySeconds { get; set; } = 1;
         public bool ShowCountdown { get; set; } = true;

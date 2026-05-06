@@ -1,0 +1,70 @@
+{
+  "cases": [
+    {
+      "name": "simple_exact_match",
+      "input": {
+        "displayName": "John Smith",
+        "email": "john.smith@example.com",
+        "vaultLayout": [
+          { "path": "Contacts/John Smith.md", "frontmatter": null }
+        ]
+      }
+    },
+    {
+      "name": "no_match_create_new",
+      "input": {
+        "displayName": "Alice Cooper",
+        "email": "alice@example.com",
+        "vaultLayout": []
+      }
+    },
+    {
+      "name": "parenthesized_company",
+      "input": {
+        "displayName": "Bob Jones (Acme)",
+        "email": "bob@acme.com",
+        "vaultLayout": []
+      }
+    },
+    {
+      "name": "middle_initial",
+      "input": {
+        "displayName": "John M. Smith",
+        "email": "john.m.smith@example.com",
+        "vaultLayout": []
+      }
+    },
+    {
+      "name": "two_token_name",
+      "input": {
+        "displayName": "Jane Doe",
+        "email": "jane.doe@example.com",
+        "vaultLayout": []
+      }
+    },
+    {
+      "name": "single_token_name",
+      "input": {
+        "displayName": "Madonna",
+        "email": "madonna@example.com",
+        "vaultLayout": []
+      }
+    },
+    {
+      "name": "name_with_suffix_jr",
+      "input": {
+        "displayName": "Robert Smith Jr.",
+        "email": "robert.smith@example.com",
+        "vaultLayout": []
+      }
+    },
+    {
+      "name": "name_with_honorific_dr",
+      "input": {
+        "displayName": "Dr. Emily Chen",
+        "email": "emily.chen@example.com",
+        "vaultLayout": []
+      }
+    }
+  ]
+}

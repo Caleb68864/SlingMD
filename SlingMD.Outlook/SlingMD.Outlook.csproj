@@ -310,6 +310,11 @@
     <Compile Include="Services\Formatting\FilenameSubjectNormalizer.cs" />
     <Compile Include="Services\Formatting\ContactIndex.cs" />
     <Compile Include="Services\Formatting\ContactIndexEntry.cs" />
+    <Compile Include="Services\Formatting\ContactNameNormalizer.cs" />
+    <Compile Include="Services\Formatting\ContactAliasWriter.cs" />
+    <Compile Include="Services\Formatting\MatchResult.cs" />
+    <Compile Include="Services\Formatting\MatchTier.cs" />
+    <Compile Include="Services\Formatting\ContactMatcher.cs" />
     <Compile Include="Services\Formatting\FrontmatterReader.cs" />
     <Compile Include="Services\Formatting\LegacyFilenameStripper.cs" />
     <Compile Include="Services\Formatting\MarkdownSectionFinder.cs" />
