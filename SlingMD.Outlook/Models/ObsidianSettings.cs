@@ -265,6 +265,11 @@ namespace SlingMD.Outlook.Models
         /// </summary>
         public string SentToObsidianCategory { get; set; } = "Sent to Obsidian";
 
+        /// <summary>
+        /// Relative path within the vault where bulk ambiguous contact match events are logged.
+        /// </summary>
+        public string BulkAmbiguousMatchLogPath { get; set; } = "Logs/bulk-ambiguous-matches.md";
+
         public List<string> SubjectCleanupPatterns { get; set; } = CreateDefaultSubjectCleanupPatterns();
 
         /// <summary>
@@ -558,6 +563,7 @@ namespace SlingMD.Outlook.Models
             AutoSlingRules = AutoSlingRules ?? new List<AutoSlingRule>();
             WatchedFolders = WatchedFolders ?? new List<WatchedFolder>();
             SentToObsidianCategory = string.IsNullOrWhiteSpace(SentToObsidianCategory) ? "Sent to Obsidian" : SentToObsidianCategory;
+            BulkAmbiguousMatchLogPath = string.IsNullOrWhiteSpace(BulkAmbiguousMatchLogPath) ? "Logs/bulk-ambiguous-matches.md" : BulkAmbiguousMatchLogPath;
         }
 
         /// <summary>

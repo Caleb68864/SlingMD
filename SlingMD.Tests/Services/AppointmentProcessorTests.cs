@@ -123,6 +123,22 @@ namespace SlingMD.Tests.Services
             Assert.NotSame(first, second);
         }
 
+        [Fact]
+        public void GetAndClearAmbiguousCount_InitiallyZero()
+        {
+            // [STRUCTURAL] AppointmentProcessor exposes GetAndClearAmbiguousCount starting at zero
+            AppointmentProcessor processor = new AppointmentProcessor(_settings);
+            Assert.Equal(0, processor.GetAndClearAmbiguousCount());
+        }
+
+        [Fact]
+        public void GetAndClearAmbiguousCount_ResetsAfterRead()
+        {
+            AppointmentProcessor processor = new AppointmentProcessor(_settings);
+            processor.GetAndClearAmbiguousCount(); // first read
+            Assert.Equal(0, processor.GetAndClearAmbiguousCount()); // cleared
+        }
+
         public void Dispose()
         {
             if (Directory.Exists(_testDir))

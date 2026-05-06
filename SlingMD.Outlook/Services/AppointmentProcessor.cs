@@ -57,12 +57,23 @@ namespace SlingMD.Outlook.Services
         private readonly ReminderDueDateCalculator _reminderCalculator;
 
         private List<string> _bulkErrors = new List<string>();
+        private int _bulkAmbiguousCount;
 
         public List<string> GetBulkErrors()
         {
             List<string> errors = new List<string>(_bulkErrors);
             _bulkErrors.Clear();
             return errors;
+        }
+
+        /// <summary>
+        /// Returns the number of ambiguous contact match events accumulated since the last call, then resets the counter.
+        /// </summary>
+        public int GetAndClearAmbiguousCount()
+        {
+            int count = _bulkAmbiguousCount;
+            _bulkAmbiguousCount = 0;
+            return count;
         }
 
         public AppointmentProcessor(ObsidianSettings settings, IClock clock = null)
@@ -639,10 +650,40 @@ namespace SlingMD.Outlook.Services
                             _contactService.CreateContactNote(contactName);
                         }
 
-                        // In single mode, show dialog for new contacts; in bulk mode, skip silently
-                        if (!bulkMode && newContacts.Count > 0)
+                        // Determine contact interaction mode: bulk runs are always Automated
+                        ContactInteractionMode contactMode = bulkMode
+                            ? ContactInteractionMode.Automated
+                            : ContactInteractionMode.Interactive;
+
+                        // Try fuzzy matching for new contacts
+                        List<string> unfuzzyNewContacts = new List<string>();
+                        foreach (string contactName in newContacts)
                         {
-                            using (ContactConfirmationDialog dialog = new ContactConfirmationDialog(newContacts))
+                            bool handled = _contactService.TryHandleFuzzyMatch(
+                                contactName, null, contactMode, subject);
+                            if (!handled)
+                            {
+                                unfuzzyNewContacts.Add(contactName);
+                            }
+                        }
+
+                        // In bulk (Automated) mode, accumulate the ambiguous count
+                        if (bulkMode)
+                        {
+                            _bulkAmbiguousCount += _contactService.GetAndClearAmbiguousCount();
+                        }
+
+                        // In single mode, show dialog for remaining new contacts; in bulk mode, create silently
+                        if (bulkMode)
+                        {
+                            foreach (string contactName in unfuzzyNewContacts)
+                            {
+                                _contactService.CreateContactNote(contactName);
+                            }
+                        }
+                        else if (unfuzzyNewContacts.Count > 0)
+                        {
+                            using (ContactConfirmationDialog dialog = new ContactConfirmationDialog(unfuzzyNewContacts))
                             {
                                 if (dialog.ShowDialog() == DialogResult.OK)
                                 {

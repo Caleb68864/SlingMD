@@ -444,9 +444,16 @@ namespace SlingMD.Outlook
                 }
 
                 List<string> bulkErrors = _appointmentProcessor.GetBulkErrors();
+                int ambiguousCount = _appointmentProcessor.GetAndClearAmbiguousCount();
                 string summary = string.Format(
                     "Saved {0}/{1} appointments.\nSkipped: {2} (duplicates/cancelled)\nErrors: {3}",
                     saved, total, skipped, errors);
+
+                if (ambiguousCount > 0)
+                {
+                    string logStem = System.IO.Path.GetFileNameWithoutExtension(_settings.BulkAmbiguousMatchLogPath);
+                    summary += string.Format("\n> ⚠ {0} ambiguous matches — see [[{1}]]", ambiguousCount, logStem);
+                }
 
                 if (bulkErrors.Count > 0)
                 {
@@ -558,10 +565,17 @@ namespace SlingMD.Outlook
                 }
 
                 List<string> bulkErrors = _appointmentProcessor.GetBulkErrors();
+                int ambiguousCount = _appointmentProcessor.GetAndClearAmbiguousCount();
                 string summary = string.Format(
                     "Saved {0}/{1} appointments.\nSkipped: {2} (duplicates/cancelled)\nErrors: {3}\nDate range: {4} to {5}",
                     saved, total, skipped, errors,
                     start.ToString("d"), end.ToString("d"));
+
+                if (ambiguousCount > 0)
+                {
+                    string logStem = System.IO.Path.GetFileNameWithoutExtension(_settings.BulkAmbiguousMatchLogPath);
+                    summary += string.Format("\n> ⚠ {0} ambiguous matches — see [[{1}]]", ambiguousCount, logStem);
+                }
 
                 if (bulkErrors.Count > 0)
                 {

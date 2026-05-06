@@ -113,7 +113,10 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         /// <param name="mail">The email that should be exported.</param>
         /// <param name="cancellationToken">Optional cancellation token to allow cancellation of long-running operations.</param>
-        public async Task ProcessEmail(MailItem mail, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async Task ProcessEmail(
+            MailItem mail,
+            System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken),
+            ContactInteractionMode contactMode = ContactInteractionMode.Interactive)
         {
             // Declare variables at method level so they're accessible throughout the method
             List<string> contactNames = new List<string>();
@@ -516,7 +519,7 @@ namespace SlingMD.Outlook.Services
                 {
                     // Remove duplicates and sort
                     contactNames = contactNames.Distinct().OrderBy(n => n).ToList();
-                    
+
                     // Refresh existing managed contact notes and collect truly new contacts.
                     var newContacts = new List<string>();
                     var managedContactsToRefresh = new List<string>();
@@ -537,17 +540,38 @@ namespace SlingMD.Outlook.Services
                         _contactService.CreateContactNote(contactName);
                     }
 
-                    // Only show dialog if we have new contacts to create
-                    if (newContacts.Count > 0)
+                    // For truly new contacts, try fuzzy matching first (when enabled)
+                    var unfuzzyNewContacts = new List<string>();
+                    string subjectForLog = string.Empty;
+                    try { subjectForLog = mail.Subject ?? string.Empty; } catch { }
+
+                    foreach (var contactName in newContacts)
                     {
-                        // Show contact confirmation dialog
-                        using (var dialog = new ContactConfirmationDialog(newContacts))
+                        bool handled = _contactService.TryHandleFuzzyMatch(
+                            contactName, null, contactMode, subjectForLog);
+                        if (!handled)
+                        {
+                            unfuzzyNewContacts.Add(contactName);
+                        }
+                    }
+
+                    // In automated mode, silently create all remaining new contacts
+                    if (contactMode == ContactInteractionMode.Automated)
+                    {
+                        foreach (var contactName in unfuzzyNewContacts)
+                        {
+                            _contactService.CreateContactNote(contactName);
+                        }
+                    }
+                    else if (unfuzzyNewContacts.Count > 0)
+                    {
+                        // Show contact confirmation dialog in interactive mode
+                        using (var dialog = new ContactConfirmationDialog(unfuzzyNewContacts))
                         {
                             if (dialog.ShowDialog() == DialogResult.OK)
                             {
                                 foreach (var contactName in dialog.SelectedContacts)
                                 {
-                                    // Create contact note for each selected contact
                                     _contactService.CreateContactNote(contactName);
                                 }
                             }

@@ -58,5 +58,28 @@ namespace SlingMD.Tests.Services
 
             Assert.Null(caughtException);
         }
+
+        [Fact]
+        public void FolderMonitorService_SignalShutdown_DoesNotThrow()
+        {
+            // [STRUCTURAL] FolderMonitorService (an Automated entry point) is constructable and
+            // can be shut down without error — prerequisite for Automated mode wiring.
+            ObsidianSettings settings = CreateValidSettings();
+            EmailProcessor emailProcessor = new EmailProcessor(settings);
+            NotificationService notificationService = new NotificationService(settings);
+            FolderMonitorService service = new FolderMonitorService(settings, emailProcessor, notificationService, null);
+
+            System.Exception caughtException = null;
+            try
+            {
+                service.SignalShutdown();
+            }
+            catch (System.Exception ex)
+            {
+                caughtException = ex;
+            }
+
+            Assert.Null(caughtException);
+        }
     }
 }

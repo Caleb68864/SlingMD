@@ -4,6 +4,11 @@ using System.Windows.Forms;
 
 namespace SlingMD.Outlook.Forms
 {
+    /// <summary>
+    /// Date-range picker for bulk calendar export. Processing triggered by this dialog
+    /// uses <see cref="SlingMD.Outlook.Services.ContactInteractionMode.Automated"/> — no
+    /// interactive dialogs are shown during the export run.
+    /// </summary>
     public class CalendarRangeDialog : Form
     {
         internal DateTimePicker dtpStart;

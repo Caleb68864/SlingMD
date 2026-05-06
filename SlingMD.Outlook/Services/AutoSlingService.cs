@@ -190,7 +190,7 @@ namespace SlingMD.Outlook.Services
 
                 _processedEntryIds.Add(entryId);
 
-                await _emailProcessor.ProcessEmail(mail);
+                await _emailProcessor.ProcessEmail(mail, contactMode: ContactInteractionMode.Automated);
 
                 string subject = SafeComAction.Execute(() => mail.Subject, "AutoSlingService.ProcessSingleEmail: Subject", "Unknown");
                 string ruleLabel = eligibility.MatchedRule != null ? $" [{eligibility.MatchedRule.Type}:{eligibility.MatchedRule.Pattern}]" : string.Empty;
