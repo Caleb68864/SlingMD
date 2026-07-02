@@ -92,6 +92,7 @@ namespace SlingMD.Outlook.Forms
         private GroupBox grpAttachments;
         private TextBox txtAttachmentsFolder;
         private ComboBox cmbAttachmentStorageMode;
+        private CheckBox chkSaveRealAttachments;
         private CheckBox chkSaveInlineImages;
         private CheckBox chkSaveAllAttachments;
         private CheckBox chkUseObsidianWikilinks;
@@ -746,13 +747,16 @@ namespace SlingMD.Outlook.Forms
                 AutoSize = true,
                 Anchor = AnchorStyles.Left
             };
-            this.chkSaveInlineImages = new CheckBox { Text = "Save inline images", AutoSize = true };
+            this.chkSaveRealAttachments = new CheckBox { Text = "Save real attachments (files attached to the email)", AutoSize = true };
+            this.chkSaveInlineImages = new CheckBox { Text = "Save inline images", AutoSize = true, Margin = new Padding(20, 0, 0, 0) };
             this.chkSaveAllAttachments = new CheckBox { Text = "Save all attachments", AutoSize = true, Margin = new Padding(20, 0, 0, 0) };
             this.chkUseObsidianWikilinks = new CheckBox { Text = "Use Obsidian wikilinks", AutoSize = true, Margin = new Padding(20, 0, 0, 0) };
+            checkboxLayout.Controls.Add(this.chkSaveRealAttachments);
             checkboxLayout.Controls.Add(this.chkSaveInlineImages);
             checkboxLayout.Controls.Add(this.chkSaveAllAttachments);
             checkboxLayout.Controls.Add(this.chkUseObsidianWikilinks);
             attachmentLayout.Controls.Add(checkboxLayout, 1, 2);
+            BindHelpInline("Attachments.SaveRealAttachments", chkSaveRealAttachments);
             BindHelpInline("Attachments.SaveInlineImages", chkSaveInlineImages);
             BindHelpInline("Attachments.SaveAllAttachments", chkSaveAllAttachments);
             BindHelpInline("Attachments.UseObsidianWikilinks", chkUseObsidianWikilinks);
@@ -1094,6 +1098,7 @@ namespace SlingMD.Outlook.Forms
             txtAttachmentsFolder.Text = _settings.AttachmentsFolder ?? "Attachments";
             cmbAttachmentStorageMode.SelectedIndex = (int)_settings.AttachmentStorageMode;
             txtAttachmentsFolder.Enabled = _settings.AttachmentStorageMode == AttachmentStorageMode.Centralized;
+            chkSaveRealAttachments.Checked = _settings.SaveRealAttachments;
             chkSaveInlineImages.Checked = _settings.SaveInlineImages;
             chkSaveAllAttachments.Checked = _settings.SaveAllAttachments;
             chkUseObsidianWikilinks.Checked = _settings.UseObsidianWikilinks;
@@ -1224,6 +1229,7 @@ namespace SlingMD.Outlook.Forms
             // Attachments tab
             _settings.AttachmentsFolder = txtAttachmentsFolder.Text.Trim();
             _settings.AttachmentStorageMode = (AttachmentStorageMode)cmbAttachmentStorageMode.SelectedIndex;
+            _settings.SaveRealAttachments = chkSaveRealAttachments.Checked;
             _settings.SaveInlineImages = chkSaveInlineImages.Checked;
             _settings.SaveAllAttachments = chkSaveAllAttachments.Checked;
             _settings.UseObsidianWikilinks = chkUseObsidianWikilinks.Checked;
