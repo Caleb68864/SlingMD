@@ -171,14 +171,20 @@ namespace SlingMD.Outlook.Models
         public AttachmentStorageMode AttachmentStorageMode { get; set; } = AttachmentStorageMode.SameAsNote;
 
         /// <summary>
-        /// Whether to save inline images from emails.
+        /// Whether to save inline images from emails (signature/embedded images).
+        /// Default false so that real-attachments-only is the out-of-the-box behavior (issue #12).
         /// </summary>
-        public bool SaveInlineImages { get; set; } = true;
+        public bool SaveInlineImages { get; set; } = false;
 
         /// <summary>
         /// Whether to save all email attachments (not just inline images).
         /// </summary>
         public bool SaveAllAttachments { get; set; } = false;
+
+        /// <summary>
+        /// Whether to save real (non-inline) file attachments alongside the note.
+        /// </summary>
+        public bool SaveRealAttachments { get; set; } = true;
 
         /// <summary>
         /// Whether to use Obsidian wikilinks (![[image.png]]) or standard markdown (![image.png](image.png)).

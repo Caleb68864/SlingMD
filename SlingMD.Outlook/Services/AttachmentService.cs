@@ -59,17 +59,21 @@ namespace SlingMD.Outlook.Services
                     try
                     {
                         attachment = attachments[i];
-                        bool isInline = IsInlineImage(attachment);
+                        AttachmentSignals signals = ReadSignals(attachment);
+                        bool isInline = ClassifyFromSignals(signals);
+                        bool shouldSave = ShouldSave(isInline, _settings);
 
-                        // Check if we should save this attachment
-                        if ((_settings.SaveInlineImages && isInline) || (_settings.SaveAllAttachments))
+                        SavedAttachment saved = null;
+                        if (shouldSave)
                         {
-                            SavedAttachment saved = SaveAttachment(attachment, targetFolder, isInline);
+                            saved = SaveAttachment(attachment, targetFolder, isInline);
                             if (saved != null)
                             {
                                 info.SavedAttachments.Add(saved);
                             }
                         }
+
+                        Logger.Instance.Debug($"Attachment '{attachment.FileName}' classified as {(isInline ? "inline" : "real")}; {(saved != null ? "saved" : "skipped")}.");
                     }
                     catch (System.Exception ex)
                     {
@@ -102,40 +106,76 @@ namespace SlingMD.Outlook.Services
         }
 
         /// <summary>
-        /// Determines if an attachment is an inline image based on its properties.
+        /// Reads MAPI signals from an attachment's COM object. Each read is isolated in
+        /// its own try/catch so a single unsupported property leaves that field at its default
+        /// instead of failing the whole read.
         /// </summary>
-        private bool IsInlineImage(Attachment attachment)
+        internal AttachmentSignals ReadSignals(Attachment attachment)
         {
+            AttachmentSignals signals = new AttachmentSignals();
+
             try
             {
-                // Non-empty ContentID indicates the attachment is referenced inline from the HTML body.
-                object contentId = attachment.PropertyAccessor.GetProperty(MapiPropertyTags.PrAttachContentId);
+                signals.IsEmbeddedItem = attachment.Type == OlAttachmentType.olEmbeddeditem;
+            }
+            catch
+            {
+            }
 
-                if (contentId != null && !string.IsNullOrEmpty(contentId.ToString()))
-                {
-                    return true;
-                }
+            try
+            {
+                object hidden = attachment.PropertyAccessor.GetProperty(MapiPropertyTags.PrAttachHidden);
+                signals.IsHidden = hidden != null && Convert.ToBoolean(hidden);
+            }
+            catch
+            {
+            }
 
-                // Also check if it's an embedded type (olEmbeddeditem = 4)
-                if (attachment.Type == OlAttachmentType.olEmbeddeditem)
+            try
+            {
+                object flags = attachment.PropertyAccessor.GetProperty(MapiPropertyTags.PrAttachFlags);
+                if (flags != null)
                 {
-                    return true;
-                }
-
-                // Check if filename suggests it's an image
-                string filename = attachment.FileName ?? "";
-                string ext = Path.GetExtension(filename).ToLowerInvariant();
-                if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".bmp" || ext == ".svg")
-                {
-                    return true;
+                    int flagsValue = Convert.ToInt32(flags);
+                    signals.HasMhtmlRef = (flagsValue & 0x4) != 0;
                 }
             }
             catch
             {
-                // If we can't determine, assume it's not inline
             }
 
-            return false;
+            try
+            {
+                object contentId = attachment.PropertyAccessor.GetProperty(MapiPropertyTags.PrAttachContentId);
+                signals.ContentId = contentId?.ToString();
+            }
+            catch
+            {
+            }
+
+            return signals;
+        }
+
+        /// <summary>
+        /// Pure classification: determines whether an attachment is inline based on its
+        /// previously-read MAPI signals.
+        /// </summary>
+        internal bool ClassifyFromSignals(AttachmentSignals signals)
+        {
+            return signals.IsEmbeddedItem
+                || signals.IsHidden
+                || signals.HasMhtmlRef
+                || !string.IsNullOrEmpty(signals.ContentId);
+        }
+
+        /// <summary>
+        /// Pure save decision based on the inline/real classification and current settings.
+        /// </summary>
+        internal bool ShouldSave(bool isInline, ObsidianSettings settings)
+        {
+            return (isInline && settings.SaveInlineImages)
+                || (!isInline && settings.SaveRealAttachments)
+                || settings.SaveAllAttachments;
         }
 
         /// <summary>

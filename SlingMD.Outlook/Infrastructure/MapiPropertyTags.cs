@@ -31,5 +31,16 @@ namespace SlingMD.Outlook.Infrastructure
         /// PR_INTERNET_MESSAGE_ID — RFC-2822 Message-ID header. Stable across Outlook stores.
         /// </summary>
         public const string PrInternetMessageId = "http://schemas.microsoft.com/mapi/proptag/0x1035001E";
+
+        /// <summary>
+        /// PR_ATTACH_HIDDEN — boolean flag indicating an attachment is hidden from the user
+        /// (e.g. an inline-image attachment that should not also be listed as a regular attachment).
+        /// </summary>
+        public const string PrAttachHidden = "http://schemas.microsoft.com/mapi/proptag/0x7FFE000B";
+
+        /// <summary>
+        /// PR_ATTACH_FLAGS — bitmask of attachment flags (e.g. ATT_INVISIBLE_IN_HTML, ATT_INVISIBLE_IN_RTF).
+        /// </summary>
+        public const string PrAttachFlags = "http://schemas.microsoft.com/mapi/proptag/0x37140003";
     }
 }
