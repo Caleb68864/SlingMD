@@ -146,7 +146,7 @@ namespace SlingMD.Outlook.Services
 
             if (Path.IsPathRooted(templateName) && File.Exists(templateName))
             {
-                return ReadTemplateCached(templateName);
+                return TryReadTemplate(templateName);
             }
 
             List<string> candidatePaths = BuildTemplateCandidatePaths(templateName);
@@ -154,11 +154,39 @@ namespace SlingMD.Outlook.Services
             {
                 if (File.Exists(path))
                 {
-                    return ReadTemplateCached(path);
+                    string content = TryReadTemplate(path);
+                    if (content != null)
+                    {
+                        return content;
+                    }
+                    // Fall through to the next candidate / built-in default rather than throwing.
                 }
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Reads a configured template, returning null (rather than throwing) if it exists but can't
+        /// be read (e.g. momentarily locked by an editor). Returning null lets the caller fall back
+        /// to the built-in default template instead of failing the whole export over a locked file.
+        /// </summary>
+        private string TryReadTemplate(string path)
+        {
+            try
+            {
+                return ReadTemplateCached(path);
+            }
+            catch (IOException ex)
+            {
+                SlingMD.Outlook.Helpers.Logger.Instance.Warning($"TemplateService: could not read template '{path}', using default: {ex.Message}");
+                return null;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                SlingMD.Outlook.Helpers.Logger.Instance.Warning($"TemplateService: no access to template '{path}', using default: {ex.Message}");
+                return null;
+            }
         }
 
         /// <summary>

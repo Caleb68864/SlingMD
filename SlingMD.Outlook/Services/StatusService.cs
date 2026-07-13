@@ -8,11 +8,25 @@ namespace SlingMD.Outlook.Services
     {
         private ProgressForm _progressForm;
         private bool _isDisposed;
+        private readonly bool _silent;
 
-        public StatusService()
+        public StatusService() : this(false)
         {
-            _progressForm = new ProgressForm();
-            _progressForm.Show();
+        }
+
+        /// <summary>
+        /// Creates the status service. When <paramref name="silent"/> is true no progress window is
+        /// shown and all updates are no-ops — used for batch/bulk processing where one visible
+        /// progress window per item would be a focus-stealing window storm (batch sling).
+        /// </summary>
+        public StatusService(bool silent)
+        {
+            _silent = silent;
+            if (!_silent)
+            {
+                _progressForm = new ProgressForm();
+                _progressForm.Show();
+            }
         }
 
         public void UpdateProgress(string message, int percentage)

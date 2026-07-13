@@ -27,6 +27,32 @@ namespace SlingMD.Outlook
         private Explorer _activeExplorer;
         private bool _startupComplete;
 
+        // Serializes top-level user-initiated operations. The ribbon handlers all run on the single
+        // Outlook UI thread but are `async void`, so a second click while one is still awaiting would
+        // otherwise start an overlapping operation (double-processing the same item, stacked dialogs).
+        // A non-atomic bool is safe because there is no true parallelism on this thread.
+        private bool _operationInProgress;
+
+        private bool TryBeginOperation()
+        {
+            if (_operationInProgress)
+            {
+                MessageBox.Show(
+                    "SlingMD is already processing. Please wait for the current operation to finish.",
+                    "SlingMD",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return false;
+            }
+            _operationInProgress = true;
+            return true;
+        }
+
+        private void EndOperation()
+        {
+            _operationInProgress = false;
+        }
+
         protected override Microsoft.Office.Core.IRibbonExtensibility CreateRibbonExtensibilityObject()
         {
             _ribbon = new SlingRibbon(this);
@@ -247,6 +273,11 @@ namespace SlingMD.Outlook
 
         public async void ProcessSelection()
         {
+            if (!TryBeginOperation())
+            {
+                return;
+            }
+
             Explorer explorer = null;
             Selection selection = null;
             object selected = null;
@@ -295,11 +326,17 @@ namespace SlingMD.Outlook
                 if (selected != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(selected);
                 if (selection != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(selection);
                 if (explorer != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(explorer);
+                EndOperation();
             }
         }
 
         public async void ProcessCurrentAppointment()
         {
+            if (!TryBeginOperation())
+            {
+                return;
+            }
+
             Inspector inspector = null;
             AppointmentItem appointment = null;
             try
@@ -347,6 +384,7 @@ namespace SlingMD.Outlook
             {
                 if (appointment != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(appointment);
                 if (inspector != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(inspector);
+                EndOperation();
             }
         }
 
@@ -362,6 +400,11 @@ namespace SlingMD.Outlook
         /// </summary>
         public async void SlingMultipleEmails()
         {
+            if (!TryBeginOperation())
+            {
+                return;
+            }
+
             Explorer explorer = null;
             Selection selection = null;
             List<MailItem> mails = new List<MailItem>();
@@ -413,49 +456,44 @@ namespace SlingMD.Outlook
                 bool useSubfolder = pick == BatchFolderPickerForm.PickerResult.UseSubfolder
                     && !string.IsNullOrEmpty(chosenFolder);
 
-                // Scope setting overrides to the batch: automated (no per-email prompts), a single
-                // Obsidian launch at the end (not one per email), and — when chosen — redirect the
-                // Inbox output path into the subfolder. All are restored in the finally.
-                string originalInboxFolder = _settings.InboxFolder;
-                bool originalAskForDates = _settings.AskForDates;
-                bool originalLaunchObsidian = _settings.LaunchObsidian;
+                // Route the batch WITHOUT mutating the shared live settings: when a subfolder is
+                // chosen, process against an isolated cloned settings whose InboxFolder points at the
+                // subfolder, via a dedicated processor. This keeps concurrent/background slings (which
+                // use the live _settings/_emailProcessor) writing to the real Inbox. bulkMode suppresses
+                // per-email progress windows, date prompts, and Obsidian launches.
+                string vaultRelativeTarget = _settings.InboxFolder;
+                EmailProcessor batchProcessor = _emailProcessor;
+                if (useSubfolder)
+                {
+                    string subName = System.IO.Path.GetFileName(
+                        chosenFolder.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar));
+                    ObsidianSettings batchSettings = _settings.Clone();
+                    batchSettings.InboxFolder = System.IO.Path.Combine(_settings.InboxFolder, subName);
+                    vaultRelativeTarget = batchSettings.InboxFolder;
+                    batchProcessor = new EmailProcessor(batchSettings);
+                }
 
                 int slung = 0;
-                try
+                foreach (MailItem selectedMail in mails)
                 {
-                    _settings.AskForDates = false;
-                    _settings.LaunchObsidian = false;
-                    if (useSubfolder)
+                    if (await batchProcessor.ProcessEmail(selectedMail, contactMode: ContactInteractionMode.Automated, bulkMode: true))
                     {
-                        string subName = System.IO.Path.GetFileName(
-                            chosenFolder.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar));
-                        _settings.InboxFolder = System.IO.Path.Combine(originalInboxFolder, subName);
-                    }
-
-                    foreach (MailItem selectedMail in mails)
-                    {
-                        if (await _emailProcessor.ProcessEmail(selectedMail, contactMode: ContactInteractionMode.Automated))
-                        {
-                            slung++;
-                        }
+                        slung++;
                     }
                 }
-                finally
-                {
-                    _settings.InboxFolder = originalInboxFolder;
-                    _settings.AskForDates = originalAskForDates;
-                    _settings.LaunchObsidian = originalLaunchObsidian;
-                }
 
-                if (originalLaunchObsidian && slung > 0)
+                // Launch Obsidian once, honoring the user's setting, using a vault-relative path
+                // (LaunchObsidian expects a path relative to the vault, not an absolute filesystem path).
+                if (_settings.LaunchObsidian && slung > 0)
                 {
-                    _fileService.LaunchObsidian(_settings.VaultName, useSubfolder ? chosenFolder : inboxPath);
+                    _fileService.LaunchObsidian(_settings.VaultName, vaultRelativeTarget);
                 }
 
                 int failed = mails.Count - slung;
+                string noun = mails.Count == 1 ? "email" : "emails";
                 string message = failed == 0
-                    ? $"Slung {slung} of {mails.Count} emails."
-                    : $"Slung {slung} of {mails.Count} emails. {failed} were skipped or failed (see any error messages).";
+                    ? $"Slung {slung} of {mails.Count} {noun}."
+                    : $"Slung {slung} of {mails.Count} {noun}. {failed} were skipped or failed (see any error messages).";
                 MessageBox.Show(message, "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (System.Exception ex)
@@ -473,6 +511,7 @@ namespace SlingMD.Outlook
                 }
                 if (selection != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(selection);
                 if (explorer != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(explorer);
+                EndOperation();
             }
         }
 
@@ -537,6 +576,11 @@ namespace SlingMD.Outlook
 
         public async void SaveTodaysAppointments()
         {
+            if (!TryBeginOperation())
+            {
+                return;
+            }
+
             int saved = 0;
             int skipped = 0;
             int errors = 0;
@@ -664,11 +708,17 @@ namespace SlingMD.Outlook
             finally
             {
                 if (session != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(session);
+                EndOperation();
             }
         }
 
         public async void SaveAppointmentRange(DateTime start, DateTime end)
         {
+            if (!TryBeginOperation())
+            {
+                return;
+            }
+
             int saved = 0;
             int skipped = 0;
             int errors = 0;
@@ -796,11 +846,17 @@ namespace SlingMD.Outlook
             finally
             {
                 if (session != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(session);
+                EndOperation();
             }
         }
 
         public async void CompleteThread()
         {
+            if (!TryBeginOperation())
+            {
+                return;
+            }
+
             Explorer explorer = null;
             Selection selection = null;
             MailItem mail = null;
@@ -884,6 +940,7 @@ namespace SlingMD.Outlook
                 if (mail != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(mail);
                 if (selection != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(selection);
                 if (explorer != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(explorer);
+                EndOperation();
             }
         }
 

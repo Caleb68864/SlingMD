@@ -468,6 +468,44 @@ namespace SlingMD.Outlook.Models
             {
                 throw new ArgumentException($"Invalid AutoSlingNotificationMode: {AutoSlingNotificationMode}. Must be Toast or Silent.");
             }
+
+            // Date-format strings are applied at export time via DateTime.ToString(format), which
+            // throws FormatException on an invalid custom format. Left unvalidated, one bad format
+            // would make every subsequent sling fail with an error dialog. Probe each here.
+            ValidateDateFormat(EmailDateFormat, "Email date format");
+            ValidateDateFormat(ContactDateFormat, "Contact date format");
+            ValidateDateFormat(AppointmentDateFormat, "Appointment date format");
+            ValidateDateFormat(DailyNoteLinkFormat?.Replace("[[", string.Empty).Replace("]]", string.Empty), "Daily note link format");
+        }
+
+        private static void ValidateDateFormat(string format, string label)
+        {
+            if (string.IsNullOrEmpty(format))
+            {
+                return;
+            }
+
+            try
+            {
+                // A single-character custom format needs the '%' escape to match runtime usage;
+                // but the throwing conditions (unknown specifiers, dangling '\') are the same.
+                DateTime.Now.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
+            }
+            catch (FormatException ex)
+            {
+                throw new ArgumentException($"{label} is not a valid date format: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Returns a deep copy of these settings. Used to run an operation (e.g. a batch sling that
+        /// redirects output into a subfolder) against an isolated settings instance without mutating
+        /// the shared live settings that concurrent/background operations read.
+        /// </summary>
+        public ObsidianSettings Clone()
+        {
+            string json = JsonConvert.SerializeObject(this);
+            return JsonConvert.DeserializeObject<ObsidianSettings>(json);
         }
 
         public void Save()

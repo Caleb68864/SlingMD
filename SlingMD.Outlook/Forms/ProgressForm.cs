@@ -95,9 +95,26 @@ namespace SlingMD.Outlook.Forms
 
         public void UpdateProgress(string message, int percentage)
         {
+            // A progress update can arrive from a background continuation while the owning
+            // StatusService is disposing this form; invoking on a destroyed handle throws
+            // ObjectDisposedException. Bail out instead.
+            if (IsDisposed || Disposing || !IsHandleCreated)
+            {
+                return;
+            }
+
             if (this.InvokeRequired)
             {
-                this.Invoke(new Action<string, int>(UpdateProgress), new object[] { message, percentage });
+                try
+                {
+                    this.Invoke(new Action<string, int>(UpdateProgress), new object[] { message, percentage });
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+                catch (InvalidOperationException)
+                {
+                }
                 return;
             }
 

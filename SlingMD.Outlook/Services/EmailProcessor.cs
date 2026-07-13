@@ -35,9 +35,13 @@ namespace SlingMD.Outlook.Services
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.SemaphoreSlim> _threadFolderLocks
             = new System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.SemaphoreSlim>(StringComparer.OrdinalIgnoreCase);
 
-        // Static cache to track processed email IDs and prevent O(n*m) file scanning on every email
+        // Static cache to track processed email IDs and prevent O(n*m) file scanning on every email.
+        // The cache is scoped to the inbox path it was built from; when the resolved inbox path
+        // changes (e.g. a batch sling redirects output to a subfolder) the cache is rebuilt so a
+        // subfolder-scoped id set is never reused for the main inbox (would miss real duplicates).
         private static readonly BoundedHashSet _processedEmailIds = new BoundedHashSet();
         private static DateTime _cacheLastBuilt = DateTime.MinValue;
+        private static string _cacheBuiltForPath = null;
         private static readonly object _cacheBuildLock = new object();
 
         private readonly ObsidianSettings _settings;
@@ -135,7 +139,8 @@ namespace SlingMD.Outlook.Services
         public async Task<bool> ProcessEmail(
             MailItem mail,
             System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken),
-            ContactInteractionMode contactMode = ContactInteractionMode.Interactive)
+            ContactInteractionMode contactMode = ContactInteractionMode.Interactive,
+            bool bulkMode = false)
         {
             // Declare variables at method level so they're accessible throughout the method
             List<string> contactNames = new List<string>();
@@ -150,8 +155,9 @@ namespace SlingMD.Outlook.Services
             bool shouldGroupThread = false;
             bool coreExportSucceeded = false;
 
-            // Get task options first if needed
-            if ((_settings.CreateOutlookTask || _settings.CreateObsidianTask) && _settings.AskForDates)
+            // Get task options first if needed. Never prompt in bulk mode — a batch of emails would
+            // otherwise pop one modal date dialog per email.
+            if (!bulkMode && (_settings.CreateOutlookTask || _settings.CreateObsidianTask) && _settings.AskForDates)
             {
                 using (var form = new TaskOptionsForm(_settings.DefaultDueDays, _settings.DefaultReminderDays, _settings.DefaultReminderHour, _settings.UseRelativeReminder))
                 {
@@ -207,7 +213,7 @@ namespace SlingMD.Outlook.Services
                 }
             }
 
-            using (var status = new StatusService())
+            using (var status = new StatusService(silent: bulkMode))
             {
                 try
                 {
@@ -603,8 +609,9 @@ namespace SlingMD.Outlook.Services
                 }
             }
             
-            // Launch Obsidian if enabled
-            if (_settings.LaunchObsidian)
+            // Launch Obsidian if enabled. Suppressed in bulk mode — the batch caller launches once
+            // at the end instead of once per email.
+            if (!bulkMode && _settings.LaunchObsidian)
             {
                 try
                 {
@@ -924,9 +931,10 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         private void EnsureEmailCacheIsBuilt(string inboxPath)
         {
-            // Only rebuild cache when it's older than CacheTtlMinutes (to pick up external changes)
-            // or when it's never been built.
-            if ((_clock.Now - _cacheLastBuilt).TotalMinutes < CacheTtlMinutes && _processedEmailIds.Count > 0)
+            // Fresh enough AND built from this same inbox path -> reuse. A different path (batch
+            // redirect) forces a rebuild so the id set always matches the folder being written to.
+            bool samePath = string.Equals(_cacheBuiltForPath, inboxPath, StringComparison.OrdinalIgnoreCase);
+            if (samePath && (_clock.Now - _cacheLastBuilt).TotalMinutes < CacheTtlMinutes && _processedEmailIds.Count > 0)
             {
                 return;
             }
@@ -934,12 +942,14 @@ namespace SlingMD.Outlook.Services
             lock (_cacheBuildLock)
             {
                 // Double-check after acquiring lock.
-                if ((_clock.Now - _cacheLastBuilt).TotalMinutes < CacheTtlMinutes && _processedEmailIds.Count > 0)
+                samePath = string.Equals(_cacheBuiltForPath, inboxPath, StringComparison.OrdinalIgnoreCase);
+                if (samePath && (_clock.Now - _cacheLastBuilt).TotalMinutes < CacheTtlMinutes && _processedEmailIds.Count > 0)
                 {
                     return;
                 }
 
                 _processedEmailIds.Clear();
+                _cacheBuiltForPath = inboxPath;
 
                 if (!Directory.Exists(inboxPath))
                 {
@@ -949,11 +959,37 @@ namespace SlingMD.Outlook.Services
                     return;
                 }
 
-                var mdFiles = Directory.GetFiles(inboxPath, "*.md", SearchOption.AllDirectories);
+                string[] mdFiles;
+                try
+                {
+                    mdFiles = Directory.GetFiles(inboxPath, "*.md", SearchOption.AllDirectories);
+                }
+                catch (System.Exception ex)
+                {
+                    // A permission-denied subfolder or a too-long descendant path fails the whole
+                    // recursive enumeration. Degrade to an empty cache rather than throwing.
+                    Logger.Instance.Warning($"EmailProcessor: could not enumerate inbox for dedup cache: {ex.Message}");
+                    _cacheLastBuilt = _clock.Now;
+                    return;
+                }
+
                 foreach (var file in mdFiles)
                 {
                     bool inFrontMatter = false;
-                    foreach (var line in File.ReadLines(file))
+                    System.Collections.Generic.IEnumerable<string> lines;
+                    try
+                    {
+                        // Materialize so a mid-enumeration read error on one file is caught here and
+                        // skipped, instead of aborting the entire cache build.
+                        lines = File.ReadAllLines(file);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Logger.Instance.Warning($"EmailProcessor: skipping unreadable note during dedup scan '{file}': {ex.Message}");
+                        continue;
+                    }
+
+                    foreach (var line in lines)
                     {
                         if (line.Trim() == "---")
                         {

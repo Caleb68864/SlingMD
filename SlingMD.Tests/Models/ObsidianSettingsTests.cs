@@ -340,6 +340,58 @@ namespace SlingMD.Tests.Models
         }
 
         [Fact]
+        public void Save_InvalidDateFormat_ThrowsArgumentException()
+        {
+            ObsidianSettingsTestable settings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath,
+                EmailDateFormat = @"yyyy\"  // dangling escape -> DateTime.ToString throws FormatException
+            };
+
+            ArgumentException ex = Assert.Throws<ArgumentException>(() => settings.Save());
+            Assert.Contains("date format", ex.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.False(File.Exists(_testSettingsPath), "Invalid settings must not be written to disk.");
+        }
+
+        [Fact]
+        public void Save_ValidCustomDateFormat_Succeeds()
+        {
+            ObsidianSettingsTestable settings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath,
+                EmailDateFormat = "MM/dd/yyyy HH:mm",
+                ContactDateFormat = "yyyy.MM.dd",
+                DailyNoteLinkFormat = "[[yyyy-MM-dd]]"
+            };
+
+            settings.Save();
+
+            Assert.True(File.Exists(_testSettingsPath));
+        }
+
+        [Fact]
+        public void Clone_ProducesIndependentDeepCopy()
+        {
+            ObsidianSettings original = new ObsidianSettings
+            {
+                InboxFolder = "Inbox",
+                AskForDates = true,
+                DefaultNoteTags = new List<string> { "A", "B" }
+            };
+
+            ObsidianSettings copy = original.Clone();
+            copy.InboxFolder = "Inbox/Sub";
+            copy.AskForDates = false;
+            copy.DefaultNoteTags.Add("C");
+
+            // Mutating the clone must not affect the original (deep copy, incl. the list).
+            Assert.Equal("Inbox", original.InboxFolder);
+            Assert.True(original.AskForDates);
+            Assert.Equal(2, original.DefaultNoteTags.Count);
+            Assert.Equal("Inbox/Sub", copy.InboxFolder);
+        }
+
+        [Fact]
         public void Load_OutOfRangeNumericValues_AreClampedToSupportedRange()
         {
             // A hand-edited or older-build JSON can contain integers outside the range the

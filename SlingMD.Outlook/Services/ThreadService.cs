@@ -240,8 +240,22 @@ namespace SlingMD.Outlook.Services
                 int maxFilenameLength = 240 - threadFolderPath.Length - ext.Length - 1;
                 if (maxFilenameLength > 10)
                 {
-                    nameNoExt = nameNoExt.Substring(0, maxFilenameLength);
+                    // Clamp the substring length to the actual name length so a short name with a
+                    // large budget can't throw ArgumentOutOfRangeException.
+                    nameNoExt = nameNoExt.Substring(0, Math.Min(nameNoExt.Length, maxFilenameLength));
                     newFileName = $"{nameNoExt}{ext}";
+                    threadPath = Path.Combine(threadFolderPath, newFileName);
+                }
+                else
+                {
+                    // The folder itself is so deep that no filename fits the budget. Fall back to a
+                    // minimal fixed-length name rather than moving a >260-char path (which throws
+                    // PathTooLongException and aborts the whole thread export).
+                    string ext2 = Path.GetExtension(newFileName);
+                    string shortId = new string(new string(newFileName.Where(char.IsLetterOrDigit).ToArray())
+                        .Reverse().Take(8).Reverse().ToArray());
+                    if (string.IsNullOrEmpty(shortId)) shortId = "note";
+                    newFileName = $"{shortId}{ext2}";
                     threadPath = Path.Combine(threadFolderPath, newFileName);
                 }
             }
@@ -470,22 +484,36 @@ namespace SlingMD.Outlook.Services
                     lastGeneratedName = newName;
                 }
 
+                bool moved = true;
                 if (!fd.file.Equals(newPath, StringComparison.OrdinalIgnoreCase))
                 {
-                    // Ensure no conflict before moving
-                    if (File.Exists(newPath))
+                    // Ensure no conflict before moving — keep bumping the counter until a free name
+                    // is found (a single bump could still collide with an existing _NNN from a prior
+                    // run), since File.Move refuses to overwrite and would throw.
+                    while (File.Exists(newPath))
                     {
-                        // If target exists and it's not the same file, add counter
                         counter++;
                         newName = $"{datePrefix}_{nameNoExt}_{counter:D3}{ext}";
                         newPath = Path.Combine(threadFolderPath, newName);
                     }
-                    File.Move(fd.file, newPath);
+
+                    try
+                    {
+                        File.Move(fd.file, newPath);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        // Skip this one file rather than aborting the whole resuffix pass (which
+                        // would leave the thread folder half-renamed).
+                        SlingMD.Outlook.Helpers.Logger.Instance.Warning(
+                            $"ThreadService: could not rename '{fd.file}' to '{newPath}': {ex.Message}");
+                        moved = false;
+                    }
                 }
 
                 if (currentEmailPath != null && fd.file.Equals(currentEmailPath, StringComparison.OrdinalIgnoreCase))
                 {
-                    newCurrentPath = newPath;
+                    newCurrentPath = moved ? newPath : fd.file;
                 }
             }
             return newCurrentPath;

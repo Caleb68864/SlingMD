@@ -30,6 +30,7 @@ namespace SlingMD.Outlook.Forms
         private Button _btnOk;
         private Button _btnSkip;
         private Button _btnCancel;
+        private Font _headerFont;
 
         public PickerResult Result { get; private set; } = PickerResult.Cancel;
 
@@ -50,12 +51,13 @@ namespace SlingMD.Outlook.Forms
         {
             this.SuspendLayout();
 
+            _headerFont = new Font(this.Font, FontStyle.Bold);
             _lblHeader = new Label
             {
-                Text = string.Format("Sling {0} emails to:", emailCount),
+                Text = string.Format("Sling {0} {1} to:", emailCount, emailCount == 1 ? "email" : "emails"),
                 AutoSize = true,
                 Location = new Point(12, 12),
-                Font = new Font(this.Font, FontStyle.Bold)
+                Font = _headerFont
             };
 
             _lblExisting = new Label
@@ -171,6 +173,35 @@ namespace SlingMD.Outlook.Forms
             }
         }
 
+        private static readonly string[] ReservedDeviceNames =
+        {
+            "CON", "PRN", "AUX", "NUL",
+            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+        };
+
+        /// <summary>
+        /// A single, safe folder-name segment: non-empty, no invalid/path chars, not '.'/'..' or
+        /// all-dots/spaces, no trailing dot/space, and not a Windows reserved device name.
+        /// </summary>
+        private static bool IsValidFolderName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return false;
+            if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return false;
+            if (name != name.Trim()) return false;
+            if (name.EndsWith(".")) return false;
+            if (name.Trim('.', ' ').Length == 0) return false; // ".", "..", "...", "  " etc.
+
+            string bare = name;
+            int dot = bare.IndexOf('.');
+            if (dot >= 0) bare = bare.Substring(0, dot);
+            foreach (string reserved in ReservedDeviceNames)
+            {
+                if (string.Equals(bare, reserved, StringComparison.OrdinalIgnoreCase)) return false;
+            }
+            return true;
+        }
+
         private void BtnOk_Click(object sender, EventArgs e)
         {
             string typed = (_txtNewFolder.Text ?? string.Empty).Trim();
@@ -187,11 +218,11 @@ namespace SlingMD.Outlook.Forms
                 return;
             }
 
-            char[] invalid = Path.GetInvalidFileNameChars();
-            if (folderName.IndexOfAny(invalid) >= 0)
+            if (!IsValidFolderName(folderName))
             {
                 MessageBox.Show(
-                    "Folder name contains invalid characters.",
+                    "Enter a single valid folder name — no invalid characters, no path separators, "
+                        + "not '.' or '..', and not a reserved name.",
                     "SlingMD",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
@@ -199,6 +230,22 @@ namespace SlingMD.Outlook.Forms
             }
 
             string fullPath = Path.Combine(_inboxPath, folderName);
+
+            // Defense in depth: ensure the resolved target really is directly under the inbox and did
+            // not escape via a crafted name (e.g. trailing-dot/space normalization).
+            string resolvedInbox = Path.GetFullPath(_inboxPath);
+            string resolvedTarget = Path.GetFullPath(fullPath);
+            string inboxPrefix = resolvedInbox.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            if (!resolvedTarget.StartsWith(inboxPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show(
+                    "That folder name would create a folder outside the Inbox. Pick a simple name.",
+                    "SlingMD",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
             try
             {
                 Directory.CreateDirectory(fullPath);
@@ -225,6 +272,20 @@ namespace SlingMD.Outlook.Forms
             Result = PickerResult.UseDefault;
             DialogResult = DialogResult.OK;
             Close();
+        }
+
+        /// <summary>
+        /// This form is built in code with no components container, so the bold header Font (a GDI
+        /// handle the control does not own) must be disposed explicitly.
+        /// </summary>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _headerFont?.Dispose();
+                _headerFont = null;
+            }
+            base.Dispose(disposing);
         }
     }
 }

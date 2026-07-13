@@ -43,10 +43,45 @@ namespace SlingMD.Outlook.Services
                 Directory.CreateDirectory(directory);
             }
 
-            // Write file with UTF-8 encoding without BOM
-            using (var writer = new StreamWriter(filePath, false, new UTF8Encoding(false)))
+            // Write atomically: fully materialize the content in a sibling temp file, then move it
+            // into place. A direct overwrite truncates the existing note the instant the stream
+            // opens, so an interrupted write (disk full, vault drive drops, lock) would leave a
+            // previously-good note empty/truncated. Temp-then-move preserves the old file until the
+            // new content is complete.
+            string tempPath = filePath + ".slingtmp";
+            try
             {
-                writer.Write(content);
+                using (var writer = new StreamWriter(tempPath, false, new UTF8Encoding(false)))
+                {
+                    writer.Write(content);
+                }
+
+                if (File.Exists(filePath))
+                {
+                    // File.Replace preserves the destination on failure and is atomic where supported.
+                    File.Replace(tempPath, filePath, null);
+                }
+                else
+                {
+                    File.Move(tempPath, filePath);
+                }
+            }
+            finally
+            {
+                // Clean up the temp file if the move/replace never happened.
+                try
+                {
+                    if (File.Exists(tempPath))
+                    {
+                        File.Delete(tempPath);
+                    }
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
             }
         }
 
