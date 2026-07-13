@@ -340,6 +340,38 @@ namespace SlingMD.Tests.Models
         }
 
         [Fact]
+        public void Load_OutOfRangeNumericValues_AreClampedToSupportedRange()
+        {
+            // A hand-edited or older-build JSON can contain integers outside the range the
+            // Settings/TaskOptions NumericUpDown controls allow. Load() must clamp them so the
+            // dialogs can open (an out-of-range NumericUpDown.Value assignment throws).
+            string json = @"{
+  ""VaultName"": ""V"",
+  ""VaultBasePath"": ""C:\\V"",
+  ""ObsidianDelaySeconds"": 999,
+  ""DefaultDueDays"": 999,
+  ""DefaultReminderDays"": -5,
+  ""DefaultReminderHour"": 40,
+  ""NoteTitleMaxLength"": 5,
+  ""AppointmentNoteTitleMaxLength"": 9000
+}";
+            File.WriteAllText(_testSettingsPath, json);
+
+            ObsidianSettingsTestable settings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath
+            };
+            settings.Load();
+
+            Assert.Equal(60, settings.ObsidianDelaySeconds);
+            Assert.Equal(365, settings.DefaultDueDays);
+            Assert.Equal(0, settings.DefaultReminderDays);
+            Assert.Equal(23, settings.DefaultReminderHour);
+            Assert.Equal(10, settings.NoteTitleMaxLength);
+            Assert.Equal(500, settings.AppointmentNoteTitleMaxLength);
+        }
+
+        [Fact]
         public void ContactNoteIncludeDetails_SavedAndLoaded_Correctly()
         {
             ObsidianSettingsTestable settings = new ObsidianSettingsTestable

@@ -294,6 +294,7 @@
     <Compile Include="Models\AutoSlingRule.cs" />
     <Compile Include="Models\WatchedFolder.cs" />
     <Compile Include="Models\AttachmentInfo.cs" />
+    <Compile Include="Models\AttachmentSignals.cs" />
     <Compile Include="Models\ContactName.cs" />
     <Compile Include="Models\MailItemSnapshot.cs" />
     <Compile Include="Models\SlingDecision.cs" />

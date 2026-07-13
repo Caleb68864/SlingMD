@@ -76,6 +76,7 @@
     <Compile Include="Helpers\BoundedHashSetTests.cs" />
     <Compile Include="Helpers\SafeComActionTests.cs" />
     <Compile Include="Forms\CalendarRangeDialogTests.cs" />
+    <Compile Include="Forms\SettingsFormPersistenceTests.cs" />
     <Compile Include="Models\ObsidianSettingsTests.cs" />
     <Compile Include="Models\ObsidianSettingsAppointmentTests.cs" />
     <Compile Include="Models\AutoSlingRuleTests.cs" />

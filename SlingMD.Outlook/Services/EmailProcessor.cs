@@ -54,6 +54,20 @@ namespace SlingMD.Outlook.Services
         private readonly NoteTitleBuilder _noteTitleBuilder;
         private readonly IClock _clock;
 
+        /// <summary>
+        /// Whether any attachment processing should run for an email given the current settings.
+        /// Kept as a single predicate so the two call sites in <see cref="ProcessEmail"/> can't
+        /// drift apart — omitting <see cref="ObsidianSettings.SaveRealAttachments"/> here was the
+        /// cause of issue #12, where real attachments were never saved under the default settings.
+        /// Once processing is enabled, <see cref="AttachmentService.ShouldSave"/> makes the
+        /// per-attachment inline/real decision.
+        /// </summary>
+        internal static bool ShouldProcessAttachments(ObsidianSettings settings)
+        {
+            return settings != null
+                && (settings.SaveRealAttachments || settings.SaveInlineImages || settings.SaveAllAttachments);
+        }
+
         public EmailProcessor(ObsidianSettings settings, IClock clock = null)
             : this(
                 settings,
@@ -113,7 +127,12 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         /// <param name="mail">The email that should be exported.</param>
         /// <param name="cancellationToken">Optional cancellation token to allow cancellation of long-running operations.</param>
-        public async Task ProcessEmail(
+        /// <returns>
+        /// <c>true</c> when the email's note was actually exported; <c>false</c> when it was skipped
+        /// (duplicate) or the core export failed. Callers that don't care may ignore the result;
+        /// batch callers (e.g. Complete-Thread) use it to report an honest success count.
+        /// </returns>
+        public async Task<bool> ProcessEmail(
             MailItem mail,
             System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken),
             ContactInteractionMode contactMode = ContactInteractionMode.Interactive)
@@ -314,7 +333,7 @@ namespace SlingMD.Outlook.Services
                     if (IsDuplicateEmail(_settings.GetInboxPath(), realInternetMessageId, realEntryId))
                     {
                         status.UpdateProgress("Duplicate email detected. Skipping note creation.", 100);
-                        return;
+                        return false;
                     }
 
                     if (shouldGroupThread)
@@ -406,7 +425,7 @@ namespace SlingMD.Outlook.Services
                             await _threadService.UpdateThreadNote(threadFolderPath, threadNotePath, conversationId, threadNoteName, mail);
 
                             // Process attachments if enabled (inside semaphore to prevent race condition with file resuffixing)
-                            if (_settings.SaveInlineImages || _settings.SaveAllAttachments)
+                            if (ShouldProcessAttachments(_settings))
                             {
                                 try
                                 {
@@ -455,7 +474,7 @@ namespace SlingMD.Outlook.Services
                         AddEmailToCache(realInternetMessageId, realEntryId);
 
                         // Process attachments if enabled
-                        if (_settings.SaveInlineImages || _settings.SaveAllAttachments)
+                        if (ShouldProcessAttachments(_settings))
                         {
                             try
                             {
@@ -508,7 +527,7 @@ namespace SlingMD.Outlook.Services
 
             if (!coreExportSucceeded)
             {
-                return;
+                return false;
             }
 
             // Process contacts outside the StatusService block
@@ -610,6 +629,8 @@ namespace SlingMD.Outlook.Services
                     MessageBox.Show($"Error launching Obsidian: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
+
+            return true;
         }
 
         private string CleanSubject(string subject) => _subjectFilenameCleaner.Clean(subject);

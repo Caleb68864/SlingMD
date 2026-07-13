@@ -9,9 +9,53 @@ namespace SlingMD.Outlook.Forms
         private ProgressBar progressBar;
         private Label lblStatus;
 
+        // A single reusable auto-close timer. Previously each UpdateProgress/ShowSuccess/ShowError
+        // created a fresh Timer that was never disposed (a per-export handle leak), and the timer
+        // could fire after StatusService disposed the form (Close on a disposed form). One shared,
+        // disposed, guarded timer fixes both.
+        private Timer _closeTimer;
+
         public ProgressForm()
         {
             InitializeComponent();
+        }
+
+        private void ScheduleClose(int delayMs)
+        {
+            if (IsDisposed || Disposing)
+            {
+                return;
+            }
+
+            if (_closeTimer == null)
+            {
+                _closeTimer = new Timer();
+                _closeTimer.Tick += CloseTimer_Tick;
+            }
+
+            _closeTimer.Stop();
+            _closeTimer.Interval = delayMs;
+            _closeTimer.Start();
+        }
+
+        private void CloseTimer_Tick(object sender, EventArgs e)
+        {
+            _closeTimer.Stop();
+            if (!IsDisposed && !Disposing)
+            {
+                this.Close();
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && _closeTimer != null)
+            {
+                _closeTimer.Stop();
+                _closeTimer.Dispose();
+                _closeTimer = null;
+            }
+            base.Dispose(disposing);
         }
 
         private void InitializeComponent()
@@ -59,20 +103,13 @@ namespace SlingMD.Outlook.Forms
 
             this.lblStatus.Text = message;
             this.progressBar.Value = Math.Max(0, Math.Min(100, percentage));
-            
+
             // Auto-close if we reach 100%
             if (percentage >= 100)
             {
-                Timer closeTimer = new Timer();
-                closeTimer.Interval = 1000; // 1 second delay
-                closeTimer.Tick += (s, e) => 
-                {
-                    closeTimer.Stop();
-                    this.Close();
-                };
-                closeTimer.Start();
+                ScheduleClose(1000);
             }
-            
+
             this.Refresh();
         }
 
@@ -80,17 +117,11 @@ namespace SlingMD.Outlook.Forms
         {
             UpdateProgress(message, 100);
             this.BackColor = Color.FromArgb(220, 255, 220);
-            
+
             if (autoClose)
             {
-                Timer closeTimer = new Timer();
-                closeTimer.Interval = 2000; // 2 second delay
-                closeTimer.Tick += (s, e) => 
-                {
-                    closeTimer.Stop();
-                    this.Close();
-                };
-                closeTimer.Start();
+                // Overrides the 1s timer that UpdateProgress(…,100) scheduled (single shared timer).
+                ScheduleClose(2000);
             }
         }
 
@@ -98,17 +129,15 @@ namespace SlingMD.Outlook.Forms
         {
             UpdateProgress(message, 100);
             this.BackColor = Color.FromArgb(255, 220, 220);
-            
+
             if (autoClose)
             {
-                Timer closeTimer = new Timer();
-                closeTimer.Interval = 3000; // 3 second delay
-                closeTimer.Tick += (s, e) => 
-                {
-                    closeTimer.Stop();
-                    this.Close();
-                };
-                closeTimer.Start();
+                ScheduleClose(3000);
+            }
+            else
+            {
+                // Keep the error visible: cancel the 1s auto-close that UpdateProgress scheduled.
+                _closeTimer?.Stop();
             }
         }
     }

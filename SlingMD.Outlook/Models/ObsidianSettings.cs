@@ -171,14 +171,20 @@ namespace SlingMD.Outlook.Models
         public AttachmentStorageMode AttachmentStorageMode { get; set; } = AttachmentStorageMode.SameAsNote;
 
         /// <summary>
-        /// Whether to save inline images from emails.
+        /// Whether to save inline images from emails (signature/embedded images).
+        /// Default false so that real-attachments-only is the out-of-the-box behavior (issue #12).
         /// </summary>
-        public bool SaveInlineImages { get; set; } = true;
+        public bool SaveInlineImages { get; set; } = false;
 
         /// <summary>
         /// Whether to save all email attachments (not just inline images).
         /// </summary>
         public bool SaveAllAttachments { get; set; } = false;
+
+        /// <summary>
+        /// Whether to save real (non-inline) file attachments alongside the note.
+        /// </summary>
+        public bool SaveRealAttachments { get; set; } = true;
 
         /// <summary>
         /// Whether to use Obsidian wikilinks (![[image.png]]) or standard markdown (![image.png](image.png)).
@@ -497,6 +503,15 @@ namespace SlingMD.Outlook.Models
             {
                 // Keep defaults if the saved file is malformed.
             }
+            catch (IOException)
+            {
+                // File locked/unreadable (e.g. transient AV or sharing lock). Keep defaults;
+                // never let a settings-read failure crash add-in startup.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // No permission to read (redirected/roaming profile). Keep defaults.
+            }
 
             NormalizeLoadedSettings();
         }
@@ -580,6 +595,25 @@ namespace SlingMD.Outlook.Models
             WatchedFolders = WatchedFolders ?? new List<WatchedFolder>();
             SentToObsidianCategory = string.IsNullOrWhiteSpace(SentToObsidianCategory) ? "Sent to Obsidian" : SentToObsidianCategory;
             BulkAmbiguousMatchLogPath = string.IsNullOrWhiteSpace(BulkAmbiguousMatchLogPath) ? "Logs/bulk-ambiguous-matches.md" : BulkAmbiguousMatchLogPath;
+
+            // Clamp numeric settings to their supported ranges so every consumer — the Settings
+            // dialog's NumericUpDown controls and the per-email TaskOptionsForm — receives an
+            // in-range value. An out-of-range value (from a hand-edited JSON file or an older
+            // build) would otherwise throw ArgumentOutOfRangeException when assigned to a control
+            // and prevent that dialog from opening.
+            ObsidianDelaySeconds = ClampInt(ObsidianDelaySeconds, 0, 60);
+            DefaultDueDays = ClampInt(DefaultDueDays, 0, 365);
+            DefaultReminderDays = ClampInt(DefaultReminderDays, 0, 365);
+            DefaultReminderHour = ClampInt(DefaultReminderHour, 0, 23);
+            NoteTitleMaxLength = ClampInt(NoteTitleMaxLength, 10, 500);
+            AppointmentNoteTitleMaxLength = ClampInt(AppointmentNoteTitleMaxLength, 10, 500);
+        }
+
+        private static int ClampInt(int value, int min, int max)
+        {
+            if (value < min) return min;
+            if (value > max) return max;
+            return value;
         }
 
         /// <summary>

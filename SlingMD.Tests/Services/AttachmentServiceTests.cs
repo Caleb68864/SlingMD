@@ -147,5 +147,129 @@ namespace SlingMD.Tests.Services
 
             Assert.Equal("![[image.png]]", link);
         }
+
+        // -----------------------------------------------------------------------------------------
+        // ClassifyFromSignals (internal helper) tests
+        // -----------------------------------------------------------------------------------------
+
+        [Fact]
+        public void ClassifyFromSignals_EmptySignals_ClassifiedAsReal()
+        {
+            AttachmentService service = BuildService(AttachmentStorageMode.SameAsNote);
+
+            bool isInline = service.ClassifyFromSignals(new AttachmentSignals());
+
+            Assert.False(isInline);
+        }
+
+        [Fact]
+        public void ClassifyFromSignals_IsHidden_ClassifiedAsInline()
+        {
+            AttachmentService service = BuildService(AttachmentStorageMode.SameAsNote);
+
+            bool isInline = service.ClassifyFromSignals(new AttachmentSignals { IsHidden = true });
+
+            Assert.True(isInline);
+        }
+
+        [Fact]
+        public void ClassifyFromSignals_HasMhtmlRef_ClassifiedAsInline()
+        {
+            AttachmentService service = BuildService(AttachmentStorageMode.SameAsNote);
+
+            bool isInline = service.ClassifyFromSignals(new AttachmentSignals { HasMhtmlRef = true });
+
+            Assert.True(isInline);
+        }
+
+        [Fact]
+        public void ClassifyFromSignals_IsEmbeddedItem_ClassifiedAsInline()
+        {
+            AttachmentService service = BuildService(AttachmentStorageMode.SameAsNote);
+
+            bool isInline = service.ClassifyFromSignals(new AttachmentSignals { IsEmbeddedItem = true });
+
+            Assert.True(isInline);
+        }
+
+        [Fact]
+        public void ClassifyFromSignals_NonEmptyContentId_ClassifiedAsInline()
+        {
+            AttachmentService service = BuildService(AttachmentStorageMode.SameAsNote);
+
+            bool isInline = service.ClassifyFromSignals(new AttachmentSignals { ContentId = "abc123" });
+
+            Assert.True(isInline);
+        }
+
+        // -----------------------------------------------------------------------------------------
+        // ShouldSave (internal helper) tests
+        // -----------------------------------------------------------------------------------------
+
+        [Fact]
+        public void ShouldSave_RealAttachmentWithSaveRealAttachmentsEnabled_ReturnsTrue()
+        {
+            AttachmentService service = BuildService(AttachmentStorageMode.SameAsNote);
+            ObsidianSettings settings = new ObsidianSettings
+            {
+                SaveRealAttachments = true,
+                SaveInlineImages = false,
+                SaveAllAttachments = false
+            };
+
+            bool shouldSave = service.ShouldSave(isInline: false, settings: settings);
+
+            Assert.True(shouldSave);
+        }
+
+        [Fact]
+        public void ShouldSave_InlineAttachmentWithSaveInlineImagesEnabled_ReturnsTrue()
+        {
+            AttachmentService service = BuildService(AttachmentStorageMode.SameAsNote);
+            ObsidianSettings settings = new ObsidianSettings
+            {
+                SaveRealAttachments = false,
+                SaveInlineImages = true,
+                SaveAllAttachments = false
+            };
+
+            bool shouldSave = service.ShouldSave(isInline: true, settings: settings);
+
+            Assert.True(shouldSave);
+        }
+
+        [Fact]
+        public void ShouldSave_SaveAllAttachmentsEnabled_OverridesOtherFlags()
+        {
+            AttachmentService service = BuildService(AttachmentStorageMode.SameAsNote);
+            ObsidianSettings settings = new ObsidianSettings
+            {
+                SaveRealAttachments = false,
+                SaveInlineImages = false,
+                SaveAllAttachments = true
+            };
+
+            bool shouldSave = service.ShouldSave(isInline: true, settings: settings);
+
+            Assert.True(shouldSave);
+        }
+
+        [Fact]
+        public void ShouldSave_AllFlagsFalse_ReturnsFalse()
+        {
+            AttachmentService service = BuildService(AttachmentStorageMode.SameAsNote);
+            ObsidianSettings settings = new ObsidianSettings
+            {
+                SaveRealAttachments = false,
+                SaveInlineImages = false,
+                SaveAllAttachments = false
+            };
+
+            bool shouldSaveReal = service.ShouldSave(isInline: false, settings: settings);
+            bool shouldSaveInline = service.ShouldSave(isInline: true, settings: settings);
+
+            Assert.False(shouldSaveReal);
+            Assert.False(shouldSaveInline);
+        }
     }
 }

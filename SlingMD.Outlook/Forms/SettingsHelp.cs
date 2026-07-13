@@ -677,10 +677,17 @@ namespace SlingMD.Outlook.Forms
                 },
                 new HelpEntry
                 {
+                    Id = "Attachments.SaveRealAttachments",
+                    Tab = "Attachments",
+                    Title = "Save real attachments",
+                    Summary = "Persists files a person actually attached to the email (documents, images, etc.) while excluding signature graphics and other inline/embedded body images. Uses Outlook's MAPI signals to tell them apart."
+                },
+                new HelpEntry
+                {
                     Id = "Attachments.SaveInlineImages",
                     Tab = "Attachments",
                     Title = "Save inline images",
-                    Summary = "Persists images embedded in the HTML body so they render in Obsidian."
+                    Summary = "Persists images embedded in the HTML body (including signature graphics) so they render in Obsidian. Off by default so signature images aren't saved."
                 },
                 new HelpEntry
                 {

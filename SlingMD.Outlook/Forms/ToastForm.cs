@@ -103,8 +103,18 @@ namespace SlingMD.Outlook.Forms
 
         private static void ShowToastOnUIThread(string message, bool isError, int durationMs)
         {
-            ToastForm toast = new ToastForm(message, isError, durationMs);
-            toast.Show();
+            // Reached directly (synchronous path) and via BeginInvoke (deferred). The outer try in
+            // ShowToast does not cover the deferred callback, and the constructor touches
+            // Screen.PrimaryScreen (null in some headless/RDP sessions), so guard here too.
+            try
+            {
+                ToastForm toast = new ToastForm(message, isError, durationMs);
+                toast.Show();
+            }
+            catch (System.Exception ex)
+            {
+                Helpers.Logger.Instance.Warning($"ToastForm: could not display toast: {ex.Message}");
+            }
         }
     }
 }

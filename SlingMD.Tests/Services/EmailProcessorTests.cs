@@ -40,6 +40,64 @@ namespace SlingMD.Tests.Services
             Assert.Null(caughtException);
         }
 
+        // -----------------------------------------------------------------------------------------
+        // ShouldProcessAttachments — the gate that decides whether ProcessAttachments runs.
+        // Regression coverage for issue #12: real attachments were never saved because the gate
+        // omitted SaveRealAttachments.
+        // -----------------------------------------------------------------------------------------
+
+        [Fact]
+        public void ShouldProcessAttachments_DefaultSettings_ReturnsTrue()
+        {
+            // Out-of-the-box defaults: SaveRealAttachments=true, SaveInlineImages/All=false.
+            ObsidianSettings settings = new ObsidianSettings();
+
+            Assert.True(settings.SaveRealAttachments);
+            Assert.True(EmailProcessor.ShouldProcessAttachments(settings));
+        }
+
+        [Fact]
+        public void ShouldProcessAttachments_OnlySaveRealAttachments_ReturnsTrue()
+        {
+            ObsidianSettings settings = new ObsidianSettings
+            {
+                SaveRealAttachments = true,
+                SaveInlineImages = false,
+                SaveAllAttachments = false
+            };
+
+            Assert.True(EmailProcessor.ShouldProcessAttachments(settings));
+        }
+
+        [Fact]
+        public void ShouldProcessAttachments_AllAttachmentFlagsFalse_ReturnsFalse()
+        {
+            ObsidianSettings settings = new ObsidianSettings
+            {
+                SaveRealAttachments = false,
+                SaveInlineImages = false,
+                SaveAllAttachments = false
+            };
+
+            Assert.False(EmailProcessor.ShouldProcessAttachments(settings));
+        }
+
+        [Theory]
+        [InlineData(true, false, false)]
+        [InlineData(false, true, false)]
+        [InlineData(false, false, true)]
+        public void ShouldProcessAttachments_AnySingleFlag_ReturnsTrue(bool real, bool inline, bool all)
+        {
+            ObsidianSettings settings = new ObsidianSettings
+            {
+                SaveRealAttachments = real,
+                SaveInlineImages = inline,
+                SaveAllAttachments = all
+            };
+
+            Assert.True(EmailProcessor.ShouldProcessAttachments(settings));
+        }
+
         /// <summary>
         /// Verifies that a second EmailProcessor constructed for a new export attempt
         /// starts with clean state independent of any prior instance.
