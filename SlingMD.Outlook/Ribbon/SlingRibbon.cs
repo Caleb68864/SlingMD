@@ -10,7 +10,7 @@ using SlingMD.Outlook.Forms;
 namespace SlingMD.Outlook.Ribbon
 {
     [ComVisible(true)]
-    public class SlingRibbon : Office.IRibbonExtensibility
+    public class SlingRibbon : Office.IRibbonExtensibility, IDisposable
     {
         private Office.IRibbonUI _ribbon;
         private readonly ThisAddIn _addIn;
@@ -258,10 +258,27 @@ namespace SlingMD.Outlook.Ribbon
         {
             var assembly = Assembly.GetExecutingAssembly();
             using (var stream = assembly.GetManifestResourceStream(resourceName))
-            using (var reader = new StreamReader(stream))
             {
-                return reader.ReadToEnd();
+                if (stream == null)
+                {
+                    // Office swallows exceptions from GetCustomUI; returning null here would make the
+                    // whole ribbon silently fail to load. Log and return empty so we fail loudly in
+                    // the log rather than silently losing the Sling buttons.
+                    Helpers.Logger.Instance.Error($"SlingRibbon: embedded ribbon resource not found: {resourceName}");
+                    return string.Empty;
+                }
+
+                using (var reader = new StreamReader(stream))
+                {
+                    return reader.ReadToEnd();
+                }
             }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
 
         protected virtual void Dispose(bool disposing)
@@ -270,6 +287,8 @@ namespace SlingMD.Outlook.Ribbon
             {
                 _slingLogo?.Dispose();
                 _completeThreadIcon?.Dispose();
+                _slingLogo = null;
+                _completeThreadIcon = null;
             }
         }
 

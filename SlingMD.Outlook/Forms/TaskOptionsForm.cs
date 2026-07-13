@@ -231,12 +231,22 @@ namespace SlingMD.Outlook.Forms
                 dtpDueDate.Value = DateTime.Now.Date.AddDays((double)numDueDays.Value);
                 dtpReminderDate.Value = DateTime.Now.Date.AddDays((double)numReminderDays.Value);
             }
-            // When switching to relative dates, update the numeric values based on current date pickers
+            // When switching to relative dates, update the numeric values based on current date pickers.
+            // Clamp to each control's [Minimum, Maximum]; a date picker set more than Maximum days out
+            // would otherwise make NumericUpDown.Value throw ArgumentOutOfRangeException on this UI thread.
             else
             {
-                numDueDays.Value = Math.Max(0, (dtpDueDate.Value.Date - DateTime.Now.Date).Days);
-                numReminderDays.Value = Math.Max(0, (dtpReminderDate.Value.Date - DateTime.Now.Date).Days);
+                numDueDays.Value = ClampToControl(numDueDays, (dtpDueDate.Value.Date - DateTime.Now.Date).Days);
+                numReminderDays.Value = ClampToControl(numReminderDays, (dtpReminderDate.Value.Date - DateTime.Now.Date).Days);
             }
+        }
+
+        private static decimal ClampToControl(NumericUpDown control, int value)
+        {
+            decimal clamped = value;
+            if (clamped < control.Minimum) clamped = control.Minimum;
+            else if (clamped > control.Maximum) clamped = control.Maximum;
+            return clamped;
         }
 
         private void UpdateHelpText()

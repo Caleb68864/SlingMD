@@ -76,6 +76,7 @@ namespace SlingMD.Outlook.Forms
         private CheckBox chkCreateObsidianTask;
         private CheckBox chkCreateOutlookTask;
         private CheckBox chkAskForDates;
+        private CheckBox chkUseRelativeReminder;
         private NumericUpDown numDefaultDueDays;
         private NumericUpDown numDefaultReminderDays;
         private NumericUpDown numDefaultReminderHour;
@@ -258,7 +259,7 @@ namespace SlingMD.Outlook.Forms
 
             Label lblDelay = new Label { Text = "Delay (seconds):", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
             generalTabLayout.Controls.Add(lblDelay, 0, gRow);
-            this.numDelay = new NumericUpDown { Minimum = 0, Maximum = 10, Anchor = AnchorStyles.Left };
+            this.numDelay = new NumericUpDown { Minimum = 0, Maximum = 60, Anchor = AnchorStyles.Left };
             generalTabLayout.Controls.Add(this.numDelay, 1, gRow++);
             BindHelp("General.Delay", lblDelay, numDelay);
 
@@ -319,7 +320,7 @@ namespace SlingMD.Outlook.Forms
             BindHelp("Email.NoteTitleFormat", lblNoteTitleFormat, txtNoteTitleFormat);
 
             this.lblNoteTitleMaxLength = new Label { Text = "Max Title Length:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
-            this.numNoteTitleMaxLength = new NumericUpDown { Minimum = 10, Maximum = 200, Anchor = AnchorStyles.Left };
+            this.numNoteTitleMaxLength = new NumericUpDown { Minimum = 10, Maximum = 500, Anchor = AnchorStyles.Left };
             emailTabLayout.Controls.Add(this.lblNoteTitleMaxLength, 0, eRow);
             emailTabLayout.Controls.Add(this.numNoteTitleMaxLength, 1, eRow++);
             BindHelp("Email.NoteTitleMaxLength", lblNoteTitleMaxLength, numNoteTitleMaxLength);
@@ -625,13 +626,13 @@ namespace SlingMD.Outlook.Forms
 
             Label lblDueInDays = new Label { Text = "Due in Days:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
             tasksTabLayout.Controls.Add(lblDueInDays, 0, tRow);
-            this.numDefaultDueDays = new NumericUpDown { Minimum = 0, Maximum = 30, Anchor = AnchorStyles.Left };
+            this.numDefaultDueDays = new NumericUpDown { Minimum = 0, Maximum = 365, Anchor = AnchorStyles.Left };
             tasksTabLayout.Controls.Add(this.numDefaultDueDays, 1, tRow++);
             BindHelp("Tasks.DueInDays", lblDueInDays, numDefaultDueDays);
 
             Label lblReminderDays = new Label { Text = "Reminder Days:", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
             tasksTabLayout.Controls.Add(lblReminderDays, 0, tRow);
-            this.numDefaultReminderDays = new NumericUpDown { Minimum = 0, Maximum = 30, Anchor = AnchorStyles.Left };
+            this.numDefaultReminderDays = new NumericUpDown { Minimum = 0, Maximum = 365, Anchor = AnchorStyles.Left };
             tasksTabLayout.Controls.Add(this.numDefaultReminderDays, 1, tRow++);
             BindHelp("Tasks.ReminderDays", lblReminderDays, numDefaultReminderDays);
 
@@ -640,6 +641,11 @@ namespace SlingMD.Outlook.Forms
             this.numDefaultReminderHour = new NumericUpDown { Minimum = 0, Maximum = 23, Anchor = AnchorStyles.Left };
             tasksTabLayout.Controls.Add(this.numDefaultReminderHour, 1, tRow++);
             BindHelp("Tasks.ReminderHour", lblReminderHour, numDefaultReminderHour);
+
+            tasksTabLayout.Controls.Add(new Label(), 0, tRow);
+            this.chkUseRelativeReminder = new CheckBox { Text = "Reminder days are relative to the due date", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
+            tasksTabLayout.Controls.Add(this.chkUseRelativeReminder, 1, tRow++);
+            BindHelpInline("Tasks.UseRelativeReminder", chkUseRelativeReminder);
 
             this.lblDefaultTaskTags = new Label { Text = "Default Task Tags:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
             this.txtDefaultTaskTags = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
@@ -978,7 +984,11 @@ namespace SlingMD.Outlook.Forms
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Margin = new Padding(12, 0, 0, 0)
             };
-            this.btnSave = new Button { Text = "Save", DialogResult = DialogResult.OK };
+            // Note: btnSave deliberately has no DialogResult. The form is only closed with
+            // DialogResult.OK from inside btnSave_Click AFTER _settings.Save() succeeds, so a
+            // validation/IO failure keeps the dialog open instead of silently discarding the
+            // user's changes (issue #13).
+            this.btnSave = new Button { Text = "Save" };
             this.btnSave.Click += btnSave_Click;
             this.btnCancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel };
             Button btnHelp = new Button { Text = "Help", Margin = new Padding(3, 3, 11, 3) };
@@ -1015,6 +1025,21 @@ namespace SlingMD.Outlook.Forms
             this.grpNoteCustomization = new GroupBox();
         }
 
+        /// <summary>
+        /// Assigns a persisted integer to a NumericUpDown, clamping to the control's
+        /// [Minimum, Maximum]. Without this, a saved value outside the control range (e.g. a
+        /// hand-edited ObsidianSettings.json, or a value valid per ObsidianSettings.Validate but
+        /// larger than the control allows) throws ArgumentOutOfRangeException while the form is
+        /// being constructed, which prevents the entire Settings dialog from opening.
+        /// </summary>
+        private static void SetClamped(NumericUpDown control, int value)
+        {
+            decimal clamped = value;
+            if (clamped < control.Minimum) clamped = control.Minimum;
+            else if (clamped > control.Maximum) clamped = control.Maximum;
+            control.Value = clamped;
+        }
+
         private void LoadSettings()
         {
             // General tab
@@ -1022,7 +1047,7 @@ namespace SlingMD.Outlook.Forms
             txtVaultPath.Text = _settings.VaultBasePath;
             chkLaunchObsidian.Checked = _settings.LaunchObsidian;
             chkShowCountdown.Checked = _settings.ShowCountdown;
-            numDelay.Value = _settings.ObsidianDelaySeconds;
+            SetClamped(numDelay, _settings.ObsidianDelaySeconds);
             txtTemplatesFolder.Text = _settings.TemplatesFolder ?? "Templates";
             chkIncludeDailyNoteLink.Checked = _settings.IncludeDailyNoteLink;
             txtDailyNoteLinkFormat.Text = _settings.DailyNoteLinkFormat ?? "[[yyyy-MM-dd]]";
@@ -1031,7 +1056,7 @@ namespace SlingMD.Outlook.Forms
             // Email tab
             txtInboxFolder.Text = _settings.InboxFolder;
             txtNoteTitleFormat.Text = _settings.NoteTitleFormat ?? "{Subject} - {Date}";
-            numNoteTitleMaxLength.Value = _settings.NoteTitleMaxLength > 0 ? _settings.NoteTitleMaxLength : 50;
+            SetClamped(numNoteTitleMaxLength, _settings.NoteTitleMaxLength > 0 ? _settings.NoteTitleMaxLength : 50);
             chkNoteTitleIncludeDate.Checked = _settings.NoteTitleIncludeDate;
             txtDefaultNoteTags.Text = string.Join(", ", _settings.DefaultNoteTags ?? new List<string>());
             lstPatterns.Items.Clear();
@@ -1045,11 +1070,11 @@ namespace SlingMD.Outlook.Forms
             // Appointments tab
             txtAppointmentsFolder.Text = _settings.AppointmentsFolder;
             txtAppointmentNoteTitleFormat.Text = _settings.AppointmentNoteTitleFormat;
-            numAppointmentTitleMaxLength.Value = _settings.AppointmentNoteTitleMaxLength > 0 ? _settings.AppointmentNoteTitleMaxLength : 50;
+            SetClamped(numAppointmentTitleMaxLength, _settings.AppointmentNoteTitleMaxLength > 0 ? _settings.AppointmentNoteTitleMaxLength : 50);
             txtAppointmentDefaultTags.Text = string.Join(", ", _settings.AppointmentDefaultNoteTags ?? new List<string>());
             chkAppointmentSaveAttachments.Checked = _settings.AppointmentSaveAttachments;
             chkCreateMeetingNotes.Checked = _settings.CreateMeetingNotes;
-            txtMeetingNoteTemplate.Text = _settings.MeetingNoteTemplate ?? string.Empty;
+            txtMeetingNoteTemplate.Text = _settings.MeetingNoteTemplateFile ?? "MeetingNoteTemplate.md";
             chkGroupRecurringMeetings.Checked = _settings.GroupRecurringMeetings;
             chkSaveCancelledAppointments.Checked = _settings.SaveCancelledAppointments;
             string apptTaskCreation = _settings.AppointmentTaskCreation ?? "None";
@@ -1082,9 +1107,10 @@ namespace SlingMD.Outlook.Forms
             chkCreateObsidianTask.Checked = _settings.CreateObsidianTask;
             chkCreateOutlookTask.Checked = _settings.CreateOutlookTask;
             chkAskForDates.Checked = _settings.AskForDates;
-            numDefaultDueDays.Value = _settings.DefaultDueDays;
-            numDefaultReminderDays.Value = _settings.DefaultReminderDays;
-            numDefaultReminderHour.Value = _settings.DefaultReminderHour;
+            SetClamped(numDefaultDueDays, _settings.DefaultDueDays);
+            SetClamped(numDefaultReminderDays, _settings.DefaultReminderDays);
+            SetClamped(numDefaultReminderHour, _settings.DefaultReminderHour);
+            chkUseRelativeReminder.Checked = _settings.UseRelativeReminder;
             txtDefaultTaskTags.Text = string.Join(", ", _settings.DefaultTaskTags ?? new List<string>());
             txtTaskTemplateFile.Text = _settings.TaskTemplateFile ?? "TaskTemplate.md";
 
@@ -1096,7 +1122,8 @@ namespace SlingMD.Outlook.Forms
 
             // Attachments tab
             txtAttachmentsFolder.Text = _settings.AttachmentsFolder ?? "Attachments";
-            cmbAttachmentStorageMode.SelectedIndex = (int)_settings.AttachmentStorageMode;
+            int storageModeIdx = (int)_settings.AttachmentStorageMode;
+            cmbAttachmentStorageMode.SelectedIndex = (storageModeIdx >= 0 && storageModeIdx < cmbAttachmentStorageMode.Items.Count) ? storageModeIdx : 0;
             txtAttachmentsFolder.Enabled = _settings.AttachmentStorageMode == AttachmentStorageMode.Centralized;
             chkSaveRealAttachments.Checked = _settings.SaveRealAttachments;
             chkSaveInlineImages.Checked = _settings.SaveInlineImages;
@@ -1181,7 +1208,7 @@ namespace SlingMD.Outlook.Forms
                 .ToList();
             _settings.AppointmentSaveAttachments = chkAppointmentSaveAttachments.Checked;
             _settings.CreateMeetingNotes = chkCreateMeetingNotes.Checked;
-            _settings.MeetingNoteTemplate = txtMeetingNoteTemplate.Text;
+            _settings.MeetingNoteTemplateFile = txtMeetingNoteTemplate.Text.Trim();
             _settings.GroupRecurringMeetings = chkGroupRecurringMeetings.Checked;
             _settings.SaveCancelledAppointments = chkSaveCancelledAppointments.Checked;
             _settings.AppointmentTaskCreation = cmbAppointmentTaskCreation.SelectedItem?.ToString() ?? "None";
@@ -1214,6 +1241,7 @@ namespace SlingMD.Outlook.Forms
             _settings.CreateObsidianTask = chkCreateObsidianTask.Checked;
             _settings.CreateOutlookTask = chkCreateOutlookTask.Checked;
             _settings.AskForDates = chkAskForDates.Checked;
+            _settings.UseRelativeReminder = chkUseRelativeReminder.Checked;
             _settings.DefaultDueDays = (int)numDefaultDueDays.Value;
             _settings.DefaultReminderDays = (int)numDefaultReminderDays.Value;
             _settings.DefaultReminderHour = (int)numDefaultReminderHour.Value;
@@ -1272,14 +1300,102 @@ namespace SlingMD.Outlook.Forms
                 _settings.WatchedFolders.Add(new WatchedFolder { FolderPath = folderPath, CustomTemplate = customTemplate, Enabled = folderEnabled });
             }
 
-            _settings.Save();
+            // Persist to disk. Only close the dialog (DialogResult.OK) when the save actually
+            // succeeds — otherwise the user would think their settings were saved when a
+            // validation or I/O error silently discarded them, which is exactly the "settings
+            // revert to defaults on restart" symptom reported in issue #13.
+            try
+            {
+                _settings.Save();
+            }
+            catch (ArgumentException ex)
+            {
+                ShowSaveFailed(
+                    "One of your settings is invalid, so nothing was saved:"
+                        + Environment.NewLine + Environment.NewLine
+                        + ex.Message
+                        + Environment.NewLine + Environment.NewLine
+                        + "Please correct the highlighted value and click Save again.",
+                    ex);
+                return;
+            }
+            catch (System.IO.IOException ex)
+            {
+                ShowSaveFailed(SaveIoFailureMessage(ex), ex);
+                return;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                ShowSaveFailed(SaveIoFailureMessage(ex), ex);
+                return;
+            }
+            catch (System.Exception ex)
+            {
+                // Anything unexpected must not close the dialog with a false "saved" — surface it.
+                ShowSaveFailed(
+                    "Your settings could not be saved due to an unexpected error:"
+                        + Environment.NewLine + Environment.NewLine
+                        + ex.Message,
+                    ex);
+                return;
+            }
+
+            this.DialogResult = DialogResult.OK;
+        }
+
+        private string SaveIoFailureMessage(System.Exception ex)
+        {
+            return "Your settings could not be written to disk, so they were not saved:"
+                + Environment.NewLine + Environment.NewLine
+                + ex.Message
+                + Environment.NewLine + Environment.NewLine
+                + "SlingMD saves settings to:" + Environment.NewLine
+                + System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "SlingMD.Outlook", "ObsidianSettings.json");
+        }
+
+        protected virtual void ShowSaveFailed(string message, System.Exception ex)
+        {
+            SlingMD.Outlook.Helpers.Logger.Instance.Error("Settings save failed: " + ex.Message, ex);
+            MessageBox.Show(
+                message,
+                "SlingMD - Settings Not Saved",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+
+        /// <summary>
+        /// Validates that <paramref name="pattern"/> is a compilable regular expression. Subject
+        /// cleanup patterns are applied at email-processing time where a bad pattern is swallowed
+        /// silently, so rejecting it here (rather than persisting a pattern that never works) gives
+        /// the user immediate, actionable feedback.
+        /// </summary>
+        private bool IsValidRegex(string pattern)
+        {
+            try
+            {
+                System.Text.RegularExpressions.Regex.Match(string.Empty, pattern);
+                return true;
+            }
+            catch (ArgumentException ex)
+            {
+                MessageBox.Show(
+                    "That is not a valid regular expression, so it was not added:"
+                        + Environment.NewLine + Environment.NewLine + ex.Message,
+                    "SlingMD - Invalid Pattern",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return false;
+            }
         }
 
         private void BtnAdd_Click(object sender, EventArgs e)
         {
             using (InputDialog form = new InputDialog("Add Pattern", "Enter regex pattern:"))
             {
-                if (form.ShowDialog() == DialogResult.OK && !string.IsNullOrWhiteSpace(form.InputText))
+                if (form.ShowDialog() == DialogResult.OK && !string.IsNullOrWhiteSpace(form.InputText)
+                    && IsValidRegex(form.InputText))
                 {
                     lstPatterns.Items.Add(form.InputText);
                 }
@@ -1292,7 +1408,8 @@ namespace SlingMD.Outlook.Forms
             {
                 using (InputDialog form = new InputDialog("Edit Pattern", "Edit regex pattern:", lstPatterns.SelectedItem.ToString()))
                 {
-                    if (form.ShowDialog() == DialogResult.OK && !string.IsNullOrWhiteSpace(form.InputText))
+                    if (form.ShowDialog() == DialogResult.OK && !string.IsNullOrWhiteSpace(form.InputText)
+                        && IsValidRegex(form.InputText))
                     {
                         int index = lstPatterns.SelectedIndex;
                         lstPatterns.Items[index] = form.InputText;
@@ -1324,6 +1441,20 @@ namespace SlingMD.Outlook.Forms
         {
             lnkBuyMeACoffee.LinkVisited = true;
             SupportService.OpenBuyMeACoffeeLink(this);
+        }
+
+        /// <summary>
+        /// This form is built entirely in code (no designer components container), so the manually
+        /// created ToolTip — which owns a native window handle — must be disposed explicitly.
+        /// Otherwise each open/close of the Settings dialog leaks a handle.
+        /// </summary>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                toolTip?.Dispose();
+            }
+            base.Dispose(disposing);
         }
     }
 }

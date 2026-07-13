@@ -117,6 +117,11 @@ namespace SlingMD.Outlook.Services
 
         private async System.Threading.Tasks.Task ProcessSingleEmail(string entryId)
         {
+            // This runs on the NewMailEx event for every inbound email while Auto-Sling is on, so
+            // the MailItem and NameSpace COM objects obtained here MUST be released or they leak
+            // continuously and unattended for the whole session.
+            NameSpace session = null;
+            MailItem mail = null;
             try
             {
                 if (_processedEntryIds.Contains(entryId))
@@ -124,10 +129,10 @@ namespace SlingMD.Outlook.Services
                     return;
                 }
 
-                MailItem mail = null;
+                session = _outlookApp.Session;
                 try
                 {
-                    mail = _outlookApp.Session.GetItemFromID(entryId) as MailItem;
+                    mail = session.GetItemFromID(entryId) as MailItem;
                 }
                 catch (System.Exception ex)
                 {
@@ -147,7 +152,7 @@ namespace SlingMD.Outlook.Services
 
                 // Self-send guard: skip emails where the sender is the current user
                 string currentUserAddress = SafeComAction.Execute(
-                    () => _outlookApp.Session.CurrentUser.Address,
+                    () => session.CurrentUser.Address,
                     "AutoSlingService.ProcessSingleEmail: self-send guard",
                     string.Empty);
                 string senderEmailAddress = SafeComAction.Execute(
@@ -199,6 +204,11 @@ namespace SlingMD.Outlook.Services
             catch (System.Exception ex)
             {
                 _notificationService.NotifyError("AutoSlingService: error processing email.", ex.Message);
+            }
+            finally
+            {
+                if (mail != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(mail);
+                if (session != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(session);
             }
         }
 

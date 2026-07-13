@@ -35,52 +35,64 @@ namespace SlingMD.Outlook
 
         private void ThisAddIn_Startup(object sender, System.EventArgs e)
         {
-            bool isFirstLaunchAfterInstall;
-
-            _settings = LoadSettings(out isFirstLaunchAfterInstall);
-            ValidateStartupHealth();
-            _emailProcessor = new EmailProcessor(_settings);
-            _appointmentProcessor = new AppointmentProcessor(_settings);
-            _contactProcessor = new ContactProcessor(_settings);
-            _fileService = new FileService(_settings);
-            _notificationService = new NotificationService(_settings);
-
-            if (isFirstLaunchAfterInstall && !_settings.HasShownSupportPrompt)
-            {
-                ShowFirstRunSupportPrompt();
-            }
-
+            // The whole startup path is guarded: an exception escaping a VSTO Startup handler can
+            // cause Outlook to hard-disable the add-in (LoadBehavior=2) so the user must manually
+            // re-enable it. Degrading to "loaded but some features off" is strictly better.
             try
             {
-                _activeExplorer = Application.ActiveExplorer();
-                if (_activeExplorer != null)
+                bool isFirstLaunchAfterInstall;
+
+                _settings = LoadSettings(out isFirstLaunchAfterInstall);
+                ValidateStartupHealth();
+                _emailProcessor = new EmailProcessor(_settings);
+                _appointmentProcessor = new AppointmentProcessor(_settings);
+                _contactProcessor = new ContactProcessor(_settings);
+                _fileService = new FileService(_settings);
+                _notificationService = new NotificationService(_settings);
+
+                if (isFirstLaunchAfterInstall && !_settings.HasShownSupportPrompt)
                 {
-                    _activeExplorer.SelectionChange += Explorer_SelectionChange;
+                    ShowFirstRunSupportPrompt();
                 }
+
+                try
+                {
+                    _activeExplorer = Application.ActiveExplorer();
+                    if (_activeExplorer != null)
+                    {
+                        _activeExplorer.SelectionChange += Explorer_SelectionChange;
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Warning($"ThisAddIn.Startup: could not hook explorer selection change: {ex.Message}");
+                }
+
+                if (_settings.WatchedFolders != null && _settings.WatchedFolders.Count > 0)
+                {
+                    _folderMonitorService = new FolderMonitorService(_settings, _emailProcessor, _notificationService, Application);
+                    _folderMonitorService.StartWatching(_settings.WatchedFolders);
+                }
+
+                _startupComplete = true;
+
+                _autoSlingService = new AutoSlingService(_settings, _emailProcessor, _notificationService);
+                _autoSlingService.Start(Application);
+
+                if (_settings.EnableFlagToSling)
+                {
+                    _flagMonitorService = new FlagMonitorService(_settings, _emailProcessor, _notificationService);
+                    _flagMonitorService.Start(Application);
+                }
+
+                _ribbon?.UpdateSlingButtonLabel(GetSelectedItemLabel());
             }
             catch (System.Exception ex)
             {
-                Logger.Instance.Warning($"ThisAddIn.Startup: could not hook explorer selection change: {ex.Message}");
+                Logger.Instance.Error($"ThisAddIn.Startup failed; add-in will load in a degraded state: {ex.Message}", ex);
+                // Ensure the add-in still considers itself started so callbacks don't NRE.
+                _startupComplete = true;
             }
-
-            if (_settings.WatchedFolders != null && _settings.WatchedFolders.Count > 0)
-            {
-                _folderMonitorService = new FolderMonitorService(_settings, _emailProcessor, _notificationService, Application);
-                _folderMonitorService.StartWatching(_settings.WatchedFolders);
-            }
-
-            _startupComplete = true;
-
-            _autoSlingService = new AutoSlingService(_settings, _emailProcessor, _notificationService);
-            _autoSlingService.Start(Application);
-
-            if (_settings.EnableFlagToSling)
-            {
-                _flagMonitorService = new FlagMonitorService(_settings, _emailProcessor, _notificationService);
-                _flagMonitorService.Start(Application);
-            }
-
-            _ribbon?.UpdateSlingButtonLabel(GetSelectedItemLabel());
         }
 
         private void Explorer_SelectionChange()
@@ -95,33 +107,40 @@ namespace SlingMD.Outlook
                 return "Sling";
             }
 
+            // This runs on every selection change, so COM objects obtained here must be released
+            // or they accumulate for the whole session (a classic cause of Outlook failing to
+            // close). Each `.Selection` property access mints a fresh COM object.
+            Explorer explorer = null;
+            Selection selection = null;
+            object selected = null;
             try
             {
-                Explorer explorer = Application.ActiveExplorer();
-                if (explorer == null || explorer.Selection.Count == 0)
+                explorer = Application.ActiveExplorer();
+                if (explorer == null)
                 {
                     return "Sling";
                 }
 
-                object selected = null;
-                try
+                selection = explorer.Selection;
+                if (selection == null || selection.Count == 0)
                 {
-                    selected = explorer.Selection[1];
-                    if (selected is MailItem) return "Sling Email";
-                    if (selected is AppointmentItem) return "Sling Appointment";
-                    if (selected is ContactItem) return "Sling Contact";
+                    return "Sling";
                 }
-                finally
-                {
-                    if (selected != null)
-                    {
-                        System.Runtime.InteropServices.Marshal.ReleaseComObject(selected);
-                    }
-                }
+
+                selected = selection[1];
+                if (selected is MailItem) return "Sling Email";
+                if (selected is AppointmentItem) return "Sling Appointment";
+                if (selected is ContactItem) return "Sling Contact";
             }
             catch (System.Exception ex)
             {
                 Logger.Instance.Warning($"ThisAddIn.GetSelectedItemLabel: {ex.Message}");
+            }
+            finally
+            {
+                if (selected != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(selected);
+                if (selection != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(selection);
+                if (explorer != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(explorer);
             }
 
             return "Sling";
@@ -136,12 +155,25 @@ namespace SlingMD.Outlook
             if (_activeExplorer != null)
             {
                 _activeExplorer.SelectionChange -= Explorer_SelectionChange;
+                System.Runtime.InteropServices.Marshal.ReleaseComObject(_activeExplorer);
                 _activeExplorer = null;
             }
 
+            _ribbon?.Dispose();
+
             if (_settings != null)
             {
-                _settings.Save();
+                // Persist any late in-memory changes on the way out. This must never throw during
+                // shutdown, and a failure here must not surface as a crash — the settings the user
+                // saved via the dialog are already on disk (SettingsForm saves explicitly).
+                try
+                {
+                    _settings.Save();
+                }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Warning($"ThisAddIn.Shutdown: could not save settings: {ex.Message}");
+                }
             }
         }
 
@@ -215,16 +247,20 @@ namespace SlingMD.Outlook
 
         public async void ProcessSelection()
         {
+            Explorer explorer = null;
+            Selection selection = null;
+            object selected = null;
             try
             {
-                Explorer explorer = Application.ActiveExplorer();
-                if (explorer.Selection.Count == 0)
+                explorer = Application.ActiveExplorer();
+                selection = explorer?.Selection;
+                if (selection == null || selection.Count == 0)
                 {
                     MessageBox.Show("Please select an email, appointment, or contact first.", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
-                object selected = explorer.Selection[1];
+                selected = selection[1];
                 MailItem mail = selected as MailItem;
                 AppointmentItem appointment = selected as AppointmentItem;
                 ContactItem contact = selected as ContactItem;
@@ -254,20 +290,28 @@ namespace SlingMD.Outlook
             {
                 MessageBox.Show($"Error saving item: {ex.Message}", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+            finally
+            {
+                if (selected != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(selected);
+                if (selection != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(selection);
+                if (explorer != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(explorer);
+            }
         }
 
         public async void ProcessCurrentAppointment()
         {
+            Inspector inspector = null;
+            AppointmentItem appointment = null;
             try
             {
-                Inspector inspector = Application.ActiveInspector();
+                inspector = Application.ActiveInspector();
                 if (inspector == null)
                 {
                     MessageBox.Show("No item is currently open.", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
-                AppointmentItem appointment = inspector.CurrentItem as AppointmentItem;
+                appointment = inspector.CurrentItem as AppointmentItem;
                 if (appointment == null)
                 {
                     MessageBox.Show("The open item is not an appointment.", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -299,6 +343,11 @@ namespace SlingMD.Outlook
             {
                 MessageBox.Show($"Error saving appointment: {ex.Message}", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+            finally
+            {
+                if (appointment != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(appointment);
+                if (inspector != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(inspector);
+            }
         }
 
         public void ProcessSelectedEmail()
@@ -313,15 +362,21 @@ namespace SlingMD.Outlook
             int errors = 0;
 
             MAPIFolder contactsFolder = null;
+            NameSpace session = null;
             try
             {
                 try
                 {
-                    contactsFolder = Application.Session.GetDefaultFolder(OlDefaultFolders.olFolderContacts);
+                    session = Application.Session;
+                    contactsFolder = session.GetDefaultFolder(OlDefaultFolders.olFolderContacts);
                     _contactProcessor.ProcessAddressBook(contactsFolder, out saved, out skipped, out errors);
                 }
                 finally
                 {
+                    if (session != null)
+                    {
+                        System.Runtime.InteropServices.Marshal.ReleaseComObject(session);
+                    }
                     if (contactsFolder != null)
                     {
                         System.Runtime.InteropServices.Marshal.ReleaseComObject(contactsFolder);
@@ -366,9 +421,11 @@ namespace SlingMD.Outlook
             int errors = 0;
             int total = 0;
 
+            NameSpace session = null;
             try
             {
-                Accounts accounts = Application.Session.Accounts;
+                session = Application.Session;
+                Accounts accounts = session.Accounts;
                 try
                 {
                     foreach (Account account in accounts)
@@ -376,9 +433,11 @@ namespace SlingMD.Outlook
                         MAPIFolder calendar = null;
                         Items items = null;
                         Items restricted = null;
+                        NameSpace accountSession = null;
                         try
                         {
-                            calendar = account.Session.GetDefaultFolder(OlDefaultFolders.olFolderCalendar);
+                            accountSession = account.Session;
+                            calendar = accountSession.GetDefaultFolder(OlDefaultFolders.olFolderCalendar);
                             items = calendar.Items;
                             items.IncludeRecurrences = true;
                             items.Sort("[Start]");
@@ -435,6 +494,8 @@ namespace SlingMD.Outlook
                             if (restricted != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(restricted);
                             if (items != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(items);
                             if (calendar != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(calendar);
+                            if (accountSession != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(accountSession);
+                            if (account != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(account);
                         }
                     }
                 }
@@ -479,6 +540,10 @@ namespace SlingMD.Outlook
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
+            finally
+            {
+                if (session != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(session);
+            }
         }
 
         public async void SaveAppointmentRange(DateTime start, DateTime end)
@@ -488,9 +553,11 @@ namespace SlingMD.Outlook
             int errors = 0;
             int total = 0;
 
+            NameSpace session = null;
             try
             {
-                Accounts accounts = Application.Session.Accounts;
+                session = Application.Session;
+                Accounts accounts = session.Accounts;
                 try
                 {
                     foreach (Account account in accounts)
@@ -498,9 +565,11 @@ namespace SlingMD.Outlook
                         MAPIFolder calendar = null;
                         Items items = null;
                         Items restricted = null;
+                        NameSpace accountSession = null;
                         try
                         {
-                            calendar = account.Session.GetDefaultFolder(OlDefaultFolders.olFolderCalendar);
+                            accountSession = account.Session;
+                            calendar = accountSession.GetDefaultFolder(OlDefaultFolders.olFolderCalendar);
                             items = calendar.Items;
                             items.IncludeRecurrences = true;
                             items.Sort("[Start]");
@@ -556,6 +625,8 @@ namespace SlingMD.Outlook
                             if (restricted != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(restricted);
                             if (items != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(items);
                             if (calendar != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(calendar);
+                            if (accountSession != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(accountSession);
+                            if (account != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(account);
                         }
                     }
                 }
@@ -601,20 +672,28 @@ namespace SlingMD.Outlook
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
+            finally
+            {
+                if (session != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(session);
+            }
         }
 
         public async void CompleteThread()
         {
+            Explorer explorer = null;
+            Selection selection = null;
+            MailItem mail = null;
             try
             {
-                Explorer explorer = Application.ActiveExplorer();
-                if (explorer == null || explorer.Selection.Count == 0)
+                explorer = Application.ActiveExplorer();
+                selection = explorer?.Selection;
+                if (explorer == null || selection == null || selection.Count == 0)
                 {
                     MessageBox.Show("Please select an email first.", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
-                MailItem mail = explorer.Selection[1] as MailItem;
+                mail = selection[1] as MailItem;
                 if (mail == null)
                 {
                     MessageBox.Show("Please select an email to complete its thread.", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -627,10 +706,12 @@ namespace SlingMD.Outlook
 
                 ThreadCompletionService completionService = new ThreadCompletionService(_fileService, _settings);
                 MAPIFolder inbox = null;
+                NameSpace session = null;
                 List<MailItem> missingEmails;
                 try
                 {
-                    inbox = Application.Session.GetDefaultFolder(OlDefaultFolders.olFolderInbox);
+                    session = Application.Session;
+                    inbox = session.GetDefaultFolder(OlDefaultFolders.olFolderInbox);
                     missingEmails = completionService.FindMissingEmails(conversationId, inbox, threadService.GetConversationId);
                 }
                 finally
@@ -638,6 +719,10 @@ namespace SlingMD.Outlook
                     if (inbox != null)
                     {
                         System.Runtime.InteropServices.Marshal.ReleaseComObject(inbox);
+                    }
+                    if (session != null)
+                    {
+                        System.Runtime.InteropServices.Marshal.ReleaseComObject(session);
                     }
                 }
 
@@ -652,19 +737,32 @@ namespace SlingMD.Outlook
                     if (dialog.ShowDialog() == DialogResult.OK)
                     {
                         List<MailItem> selected = dialog.SelectedEmails;
-                        int processed = 0;
+                        int slung = 0;
                         foreach (MailItem selectedMail in selected)
                         {
-                            await _emailProcessor.ProcessEmail(selectedMail);
-                            processed++;
+                            if (await _emailProcessor.ProcessEmail(selectedMail))
+                            {
+                                slung++;
+                            }
                         }
-                        MessageBox.Show($"Slung {processed} emails from this thread.", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                        int failedOrSkipped = selected.Count - slung;
+                        string message = failedOrSkipped == 0
+                            ? $"Slung {slung} of {selected.Count} emails from this thread."
+                            : $"Slung {slung} of {selected.Count} emails from this thread. {failedOrSkipped} were skipped or failed (see any error messages above).";
+                        MessageBox.Show(message, "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
                 }
             }
             catch (System.Exception ex)
             {
                 MessageBox.Show($"Error completing thread: {ex.Message}", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                if (mail != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(mail);
+                if (selection != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(selection);
+                if (explorer != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(explorer);
             }
         }
 
