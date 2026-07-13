@@ -37,7 +37,7 @@ namespace SlingMD.Outlook.Services
         private readonly NotificationService _notificationService;
         private readonly SlingDecisionEngine _slingDecisionEngine;
         private readonly EmailAddressParser _emailAddressParser;
-        private readonly BoundedHashSet _processedEntryIds = new BoundedHashSet();
+        private readonly BoundedHashSet _processedEntryIds;
 
         private Application _outlookApp;
         private ApplicationEvents_11_NewMailExEventHandler _newMailExHandler;
@@ -46,11 +46,16 @@ namespace SlingMD.Outlook.Services
         public AutoSlingService(
             ObsidianSettings settings,
             EmailProcessor emailProcessor,
-            NotificationService notificationService)
+            NotificationService notificationService,
+            BoundedHashSet processedEntryIds = null)
         {
             _settings = settings;
             _emailProcessor = emailProcessor;
             _notificationService = notificationService;
+            // A shared, caller-owned set dedupes across all monitors (an email that lands in both the
+            // Inbox and a watched folder fires two monitors) and survives settings-save recreation.
+            // Falls back to a private set when not supplied (e.g. unit tests).
+            _processedEntryIds = processedEntryIds ?? new BoundedHashSet();
             _slingDecisionEngine = new SlingDecisionEngine();
             _emailAddressParser = new EmailAddressParser();
         }
@@ -193,9 +198,15 @@ namespace SlingMD.Outlook.Services
                     return;
                 }
 
-                _processedEntryIds.Add(entryId);
+                // Atomically reserve this id before the await. If another monitor (or a prior event
+                // for the same id) already reserved it, Add returns false and we skip — the race-safe
+                // cross-monitor duplicate guard. Runs synchronously before any await.
+                if (!_processedEntryIds.Add(entryId))
+                {
+                    return;
+                }
 
-                await _emailProcessor.ProcessEmail(mail, contactMode: ContactInteractionMode.Automated);
+                await _emailProcessor.ProcessEmail(mail, contactMode: ContactInteractionMode.Automated, bulkMode: true);
 
                 string subject = SafeComAction.Execute(() => mail.Subject, "AutoSlingService.ProcessSingleEmail: Subject", "Unknown");
                 string ruleLabel = eligibility.MatchedRule != null ? $" [{eligibility.MatchedRule.Type}:{eligibility.MatchedRule.Pattern}]" : string.Empty;

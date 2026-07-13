@@ -27,6 +27,15 @@ namespace SlingMD.Outlook
         private Explorer _activeExplorer;
         private bool _startupComplete;
 
+        // Shared across all monitor services (and preserved when they are recreated on settings save)
+        // so an email seen by more than one monitor is processed only once.
+        private readonly SlingMD.Outlook.Helpers.BoundedHashSet _autoSlingProcessedIds = new SlingMD.Outlook.Helpers.BoundedHashSet();
+
+        // A control created on the UI thread so (a) a WindowsFormsSynchronizationContext is installed
+        // on the main thread — making async monitor continuations resume on the UI/STA thread instead
+        // of a thread-pool thread — and (b) background notifications can marshal onto the UI thread.
+        private Control _uiMarshaler;
+
         // Serializes top-level user-initiated operations. The ribbon handlers all run on the single
         // Outlook UI thread but are `async void`, so a second click while one is still awaiting would
         // otherwise start an overlapping operation (double-processing the same item, stacked dialogs).
@@ -53,6 +62,33 @@ namespace SlingMD.Outlook
             _operationInProgress = false;
         }
 
+        private void InitializeUiMarshaler()
+        {
+            try
+            {
+                _uiMarshaler = new Control();
+                // Accessing Handle forces window-handle creation on this (UI/STA) thread, giving a
+                // valid BeginInvoke target and causing WinForms to install a
+                // WindowsFormsSynchronizationContext on the thread when one isn't already present.
+                if (_uiMarshaler.Handle == IntPtr.Zero)
+                {
+                    // Never expected; handle access above always creates it.
+                }
+
+                if (System.Threading.SynchronizationContext.Current == null)
+                {
+                    System.Threading.SynchronizationContext.SetSynchronizationContext(
+                        new WindowsFormsSynchronizationContext());
+                }
+
+                Forms.ToastForm.SetUiMarshaler(_uiMarshaler);
+            }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Warning($"ThisAddIn: could not initialize UI marshaler: {ex.Message}");
+            }
+        }
+
         protected override Microsoft.Office.Core.IRibbonExtensibility CreateRibbonExtensibilityObject()
         {
             _ribbon = new SlingRibbon(this);
@@ -67,6 +103,12 @@ namespace SlingMD.Outlook
             try
             {
                 bool isFirstLaunchAfterInstall;
+
+                // Runs on the Outlook main (STA) thread. Create a marshaling control here so a
+                // WindowsFormsSynchronizationContext is installed on this thread — without it, async
+                // continuations in the background monitors would resume on a thread-pool thread and
+                // touch Outlook COM / create WinForms windows off the STA thread.
+                InitializeUiMarshaler();
 
                 _settings = LoadSettings(out isFirstLaunchAfterInstall);
                 ValidateStartupHealth();
@@ -96,18 +138,18 @@ namespace SlingMD.Outlook
 
                 if (_settings.WatchedFolders != null && _settings.WatchedFolders.Count > 0)
                 {
-                    _folderMonitorService = new FolderMonitorService(_settings, _emailProcessor, _notificationService, Application);
+                    _folderMonitorService = new FolderMonitorService(_settings, _emailProcessor, _notificationService, Application, _autoSlingProcessedIds);
                     _folderMonitorService.StartWatching(_settings.WatchedFolders);
                 }
 
                 _startupComplete = true;
 
-                _autoSlingService = new AutoSlingService(_settings, _emailProcessor, _notificationService);
+                _autoSlingService = new AutoSlingService(_settings, _emailProcessor, _notificationService, _autoSlingProcessedIds);
                 _autoSlingService.Start(Application);
 
                 if (_settings.EnableFlagToSling)
                 {
-                    _flagMonitorService = new FlagMonitorService(_settings, _emailProcessor, _notificationService);
+                    _flagMonitorService = new FlagMonitorService(_settings, _emailProcessor, _notificationService, _autoSlingProcessedIds);
                     _flagMonitorService.Start(Application);
                 }
 
@@ -186,6 +228,12 @@ namespace SlingMD.Outlook
             }
 
             _ribbon?.Dispose();
+
+            if (_uiMarshaler != null)
+            {
+                _uiMarshaler.Dispose();
+                _uiMarshaler = null;
+            }
 
             if (_settings != null)
             {
@@ -971,18 +1019,20 @@ namespace SlingMD.Outlook
                         _folderMonitorService = null;
                         if (_settings.WatchedFolders != null && _settings.WatchedFolders.Count > 0)
                         {
-                            _folderMonitorService = new FolderMonitorService(_settings, _emailProcessor, _notificationService, Application);
+                            _folderMonitorService = new FolderMonitorService(_settings, _emailProcessor, _notificationService, Application, _autoSlingProcessedIds);
                             _folderMonitorService.StartWatching(_settings.WatchedFolders);
                         }
 
-                        // Restart auto-sling and flag monitor with updated settings
-                        _autoSlingService = new AutoSlingService(_settings, _emailProcessor, _notificationService);
+                        // Restart auto-sling and flag monitor with updated settings. The shared
+                        // processed-id set is reused (not recreated), so an item already slung by a
+                        // monitor before the settings change isn't re-slung after the restart.
+                        _autoSlingService = new AutoSlingService(_settings, _emailProcessor, _notificationService, _autoSlingProcessedIds);
                         _autoSlingService.Start(Application);
 
                         _flagMonitorService = null;
                         if (_settings.EnableFlagToSling)
                         {
-                            _flagMonitorService = new FlagMonitorService(_settings, _emailProcessor, _notificationService);
+                            _flagMonitorService = new FlagMonitorService(_settings, _emailProcessor, _notificationService, _autoSlingProcessedIds);
                             _flagMonitorService.Start(Application);
                         }
                     }

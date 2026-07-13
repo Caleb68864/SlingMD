@@ -73,6 +73,18 @@ namespace SlingMD.Outlook.Forms
             base.Dispose(disposing);
         }
 
+        // A marshaling control created on the add-in's UI thread at startup. Toasts are shown from
+        // background monitor continuations that may resume off the UI thread; this gives a reliable
+        // way to marshal onto the UI thread instead of guessing via Application.OpenForms[0] (which
+        // may be empty or a form that is mid-close).
+        private static Control _uiMarshaler;
+
+        /// <summary>Registers the UI-thread marshaling control (called once at add-in startup).</summary>
+        public static void SetUiMarshaler(Control control)
+        {
+            _uiMarshaler = control;
+        }
+
         /// <summary>
         /// Shows a non-blocking toast notification. Safe to call from any thread.
         /// </summary>
@@ -80,20 +92,25 @@ namespace SlingMD.Outlook.Forms
         {
             try
             {
-                Form ownerForm = null;
-                if (Application.OpenForms.Count > 0)
+                Control marshaler = _uiMarshaler;
+                if (marshaler != null && !marshaler.IsDisposed && marshaler.IsHandleCreated && marshaler.InvokeRequired)
                 {
-                    ownerForm = Application.OpenForms[0];
+                    marshaler.BeginInvoke(new Action(() => ShowToastOnUIThread(message, isError, durationMs)));
+                    return;
                 }
 
-                if (ownerForm != null && ownerForm.InvokeRequired)
+                // Fallback (no marshaler registered): use an open form if one is available.
+                if (marshaler == null && Application.OpenForms.Count > 0)
                 {
-                    ownerForm.BeginInvoke(new Action(() => ShowToastOnUIThread(message, isError, durationMs)));
+                    Form ownerForm = Application.OpenForms[0];
+                    if (ownerForm != null && ownerForm.InvokeRequired)
+                    {
+                        ownerForm.BeginInvoke(new Action(() => ShowToastOnUIThread(message, isError, durationMs)));
+                        return;
+                    }
                 }
-                else
-                {
-                    ShowToastOnUIThread(message, isError, durationMs);
-                }
+
+                ShowToastOnUIThread(message, isError, durationMs);
             }
             catch
             {

@@ -13,6 +13,10 @@ namespace SlingMD.Outlook.Services
         private readonly EmailProcessor _emailProcessor;
         private readonly NotificationService _notificationService;
         private readonly Dictionary<string, OlFlagStatus> _lastKnownFlagStatus;
+        // Shared, caller-owned processed-id set: dedupes flag-slings against the other monitors and
+        // survives settings-save recreation (which clears _lastKnownFlagStatus and would otherwise
+        // let a still-flagged item re-transition and be slung again).
+        private readonly BoundedHashSet _processedEntryIds;
 
         private MAPIFolder _inboxFolder;
         private Items _inboxItems;
@@ -21,12 +25,14 @@ namespace SlingMD.Outlook.Services
         public FlagMonitorService(
             ObsidianSettings settings,
             EmailProcessor emailProcessor,
-            NotificationService notificationService)
+            NotificationService notificationService,
+            BoundedHashSet processedEntryIds = null)
         {
             _settings = settings;
             _emailProcessor = emailProcessor;
             _notificationService = notificationService;
             _lastKnownFlagStatus = new Dictionary<string, OlFlagStatus>(StringComparer.OrdinalIgnoreCase);
+            _processedEntryIds = processedEntryIds ?? new BoundedHashSet();
         }
 
         public void Start(Application outlookApp)
@@ -133,7 +139,14 @@ namespace SlingMD.Outlook.Services
                     return;
                 }
 
-                await _emailProcessor.ProcessEmail(mail, contactMode: ContactInteractionMode.Automated);
+                // Atomically reserve before processing so the same email isn't slung twice — by a
+                // repeated ItemChange, by another monitor, or after a settings-save reset.
+                if (!_processedEntryIds.Add(entryId))
+                {
+                    return;
+                }
+
+                await _emailProcessor.ProcessEmail(mail, contactMode: ContactInteractionMode.Automated, bulkMode: true);
 
                 try
                 {

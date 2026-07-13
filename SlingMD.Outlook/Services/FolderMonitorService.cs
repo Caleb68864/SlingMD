@@ -18,17 +18,20 @@ namespace SlingMD.Outlook.Services
         private Dictionary<string, MAPIFolder> _watchedFolderObjects;
         private Dictionary<string, Items> _watchedFolderItems;
 
-        // Duplicate cache to prevent processing the same email twice
-        private readonly BoundedHashSet _processedEntryIds = new BoundedHashSet();
+        // Duplicate cache to prevent processing the same email twice. Shared, caller-owned, so it
+        // dedupes across all monitors (e.g. an email in both the Inbox and a watched folder) and
+        // survives settings-save recreation. Falls back to a private set when not supplied.
+        private readonly BoundedHashSet _processedEntryIds;
 
         private volatile bool _shuttingDown;
 
-        public FolderMonitorService(ObsidianSettings settings, EmailProcessor emailProcessor, NotificationService notificationService, Application outlookApp)
+        public FolderMonitorService(ObsidianSettings settings, EmailProcessor emailProcessor, NotificationService notificationService, Application outlookApp, BoundedHashSet processedEntryIds = null)
         {
             _settings = settings;
             _emailProcessor = emailProcessor;
             _notificationService = notificationService;
             _outlookApp = outlookApp;
+            _processedEntryIds = processedEntryIds ?? new BoundedHashSet();
             _watchedFolderObjects = new Dictionary<string, MAPIFolder>(StringComparer.OrdinalIgnoreCase);
             _watchedFolderItems = new Dictionary<string, Items>(StringComparer.OrdinalIgnoreCase);
         }
@@ -164,12 +167,14 @@ namespace SlingMD.Outlook.Services
                     return;
                 }
 
-                if (!string.IsNullOrEmpty(entryId))
+                // Atomically reserve before the await; Add returns false if another monitor already
+                // claimed this id (race-safe cross-monitor duplicate guard).
+                if (!string.IsNullOrEmpty(entryId) && !_processedEntryIds.Add(entryId))
                 {
-                    _processedEntryIds.Add(entryId);
+                    return;
                 }
 
-                await _emailProcessor.ProcessEmail(mail, contactMode: ContactInteractionMode.Automated);
+                await _emailProcessor.ProcessEmail(mail, contactMode: ContactInteractionMode.Automated, bulkMode: true);
 
                 string subject = SafeComAction.Execute(
                     () => mail.Subject ?? string.Empty,
