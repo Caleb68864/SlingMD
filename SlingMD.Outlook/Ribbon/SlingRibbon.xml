@@ -9,6 +9,12 @@
                   size="large"
                   onAction="OnSlingButtonClick"
                   getImage="GetSlingButtonImage" />
+          <button id="SlingMultipleButton"
+                  label="Sling Multiple"
+                  size="large"
+                  imageMso="MoveToFolder"
+                  onAction="OnSlingMultipleClick"
+                  supertip="Sling all selected emails to a chosen Inbox subfolder (or the default Inbox)"/>
           <button id="CompleteThreadButton"
                   label="Complete Thread"
                   size="large"

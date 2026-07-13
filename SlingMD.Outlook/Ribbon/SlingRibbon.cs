@@ -151,6 +151,18 @@ namespace SlingMD.Outlook.Ribbon
             }
         }
 
+        public void OnSlingMultipleClick(Office.IRibbonControl control)
+        {
+            try
+            {
+                _addIn.SlingMultipleEmails();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error slinging emails: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         public void OnSaveTodaysClick(Office.IRibbonControl control)
         {
             try

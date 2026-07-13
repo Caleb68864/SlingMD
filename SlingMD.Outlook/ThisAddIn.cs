@@ -355,6 +355,127 @@ namespace SlingMD.Outlook
             ProcessSelection();
         }
 
+        /// <summary>
+        /// Slings every selected email at once. Prompts (via <see cref="BatchFolderPickerForm"/>) for
+        /// an Inbox subfolder to route the batch into (or the default Inbox), then processes each email
+        /// automatically — no per-email contact/task dialogs and a single Obsidian launch at the end.
+        /// </summary>
+        public async void SlingMultipleEmails()
+        {
+            Explorer explorer = null;
+            Selection selection = null;
+            List<MailItem> mails = new List<MailItem>();
+            try
+            {
+                explorer = Application.ActiveExplorer();
+                selection = explorer?.Selection;
+                if (selection == null || selection.Count == 0)
+                {
+                    MessageBox.Show("Please select one or more emails first.", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                for (int i = 1; i <= selection.Count; i++)
+                {
+                    object item = selection[i];
+                    MailItem selectedMail = item as MailItem;
+                    if (selectedMail != null)
+                    {
+                        mails.Add(selectedMail);
+                    }
+                    else if (item != null)
+                    {
+                        System.Runtime.InteropServices.Marshal.ReleaseComObject(item);
+                    }
+                }
+
+                if (mails.Count == 0)
+                {
+                    MessageBox.Show("None of the selected items are emails.", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                string inboxPath = _settings.GetInboxPath();
+                BatchFolderPickerForm.PickerResult pick;
+                string chosenFolder;
+                using (BatchFolderPickerForm picker = new BatchFolderPickerForm(mails.Count, inboxPath))
+                {
+                    picker.ShowDialog();
+                    pick = picker.Result;
+                    chosenFolder = picker.SelectedFolderPath;
+                }
+
+                if (pick == BatchFolderPickerForm.PickerResult.Cancel)
+                {
+                    return;
+                }
+
+                bool useSubfolder = pick == BatchFolderPickerForm.PickerResult.UseSubfolder
+                    && !string.IsNullOrEmpty(chosenFolder);
+
+                // Scope setting overrides to the batch: automated (no per-email prompts), a single
+                // Obsidian launch at the end (not one per email), and — when chosen — redirect the
+                // Inbox output path into the subfolder. All are restored in the finally.
+                string originalInboxFolder = _settings.InboxFolder;
+                bool originalAskForDates = _settings.AskForDates;
+                bool originalLaunchObsidian = _settings.LaunchObsidian;
+
+                int slung = 0;
+                try
+                {
+                    _settings.AskForDates = false;
+                    _settings.LaunchObsidian = false;
+                    if (useSubfolder)
+                    {
+                        string subName = System.IO.Path.GetFileName(
+                            chosenFolder.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar));
+                        _settings.InboxFolder = System.IO.Path.Combine(originalInboxFolder, subName);
+                    }
+
+                    foreach (MailItem selectedMail in mails)
+                    {
+                        if (await _emailProcessor.ProcessEmail(selectedMail, contactMode: ContactInteractionMode.Automated))
+                        {
+                            slung++;
+                        }
+                    }
+                }
+                finally
+                {
+                    _settings.InboxFolder = originalInboxFolder;
+                    _settings.AskForDates = originalAskForDates;
+                    _settings.LaunchObsidian = originalLaunchObsidian;
+                }
+
+                if (originalLaunchObsidian && slung > 0)
+                {
+                    _fileService.LaunchObsidian(_settings.VaultName, useSubfolder ? chosenFolder : inboxPath);
+                }
+
+                int failed = mails.Count - slung;
+                string message = failed == 0
+                    ? $"Slung {slung} of {mails.Count} emails."
+                    : $"Slung {slung} of {mails.Count} emails. {failed} were skipped or failed (see any error messages).";
+                MessageBox.Show(message, "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (System.Exception ex)
+            {
+                MessageBox.Show($"Error slinging emails: {ex.Message}", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                foreach (MailItem selectedMail in mails)
+                {
+                    if (selectedMail != null)
+                    {
+                        System.Runtime.InteropServices.Marshal.ReleaseComObject(selectedMail);
+                    }
+                }
+                if (selection != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(selection);
+                if (explorer != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(explorer);
+            }
+        }
+
         public void SlingAllContacts()
         {
             int saved = 0;
