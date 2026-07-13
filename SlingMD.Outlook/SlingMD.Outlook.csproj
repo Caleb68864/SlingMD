@@ -247,6 +247,9 @@
     can be found.
   -->
   <ItemGroup>
+    <Compile Include="Forms\BatchFolderPickerForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Forms\CalendarRangeDialog.cs">
       <SubType>Form</SubType>
     </Compile>
