@@ -13,6 +13,12 @@ namespace SlingMD.Outlook.Services
         private readonly EmailProcessor _emailProcessor;
         private readonly NotificationService _notificationService;
         private readonly Dictionary<string, OlFlagStatus> _lastKnownFlagStatus;
+
+        // Upper bound on the flag-status history. Without a cap the dictionary grows by one entry per
+        // distinct inbox item that ever raises ItemChange — an unbounded, session-long leak. When the
+        // cap is hit we clear it: at worst a stale item re-evaluates its transition, and the shared
+        // _processedEntryIds set still prevents an actual re-sling.
+        private const int MaxTrackedFlagItems = 5000;
         // Shared, caller-owned processed-id set: dedupes flag-slings against the other monitors and
         // survives settings-save recreation (which clears _lastKnownFlagStatus and would otherwise
         // let a still-flagged item re-transition and be slung again).
@@ -125,6 +131,13 @@ namespace SlingMD.Outlook.Services
                 if (!_lastKnownFlagStatus.TryGetValue(entryId, out previousFlagStatus))
                 {
                     previousFlagStatus = OlFlagStatus.olNoFlag;
+                }
+
+                // Bound memory growth. All access here is on the Outlook STA thread (synchronous,
+                // before the await), so no locking is needed.
+                if (_lastKnownFlagStatus.Count >= MaxTrackedFlagItems && !_lastKnownFlagStatus.ContainsKey(entryId))
+                {
+                    _lastKnownFlagStatus.Clear();
                 }
 
                 _lastKnownFlagStatus[entryId] = currentFlagStatus;

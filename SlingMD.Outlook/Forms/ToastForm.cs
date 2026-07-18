@@ -93,24 +93,49 @@ namespace SlingMD.Outlook.Forms
             try
             {
                 Control marshaler = _uiMarshaler;
-                if (marshaler != null && !marshaler.IsDisposed && marshaler.IsHandleCreated && marshaler.InvokeRequired)
+                if (marshaler != null && !marshaler.IsDisposed && marshaler.IsHandleCreated)
                 {
-                    marshaler.BeginInvoke(new Action(() => ShowToastOnUIThread(message, isError, durationMs)));
+                    if (marshaler.InvokeRequired)
+                    {
+                        marshaler.BeginInvoke(new Action(() => ShowToastOnUIThread(message, isError, durationMs)));
+                    }
+                    else
+                    {
+                        // !InvokeRequired means we are already on the marshaler's UI thread.
+                        ShowToastOnUIThread(message, isError, durationMs);
+                    }
                     return;
                 }
 
-                // Fallback (no marshaler registered): use an open form if one is available.
-                if (marshaler == null && Application.OpenForms.Count > 0)
+                // No usable marshaler: try an open form on its UI thread.
+                if (Application.OpenForms.Count > 0)
                 {
                     Form ownerForm = Application.OpenForms[0];
-                    if (ownerForm != null && ownerForm.InvokeRequired)
+                    if (ownerForm != null && !ownerForm.IsDisposed && ownerForm.IsHandleCreated)
                     {
-                        ownerForm.BeginInvoke(new Action(() => ShowToastOnUIThread(message, isError, durationMs)));
+                        if (ownerForm.InvokeRequired)
+                        {
+                            ownerForm.BeginInvoke(new Action(() => ShowToastOnUIThread(message, isError, durationMs)));
+                        }
+                        else
+                        {
+                            ShowToastOnUIThread(message, isError, durationMs);
+                        }
                         return;
                     }
                 }
 
-                ShowToastOnUIThread(message, isError, durationMs);
+                // Last resort: only construct the Form directly when we can prove we are on a WinForms
+                // UI thread. Otherwise (e.g. a background continuation with no marshaler) constructing
+                // a Form off-thread is a crash risk, so drop the toast to a log entry instead.
+                if (System.Threading.SynchronizationContext.Current is WindowsFormsSynchronizationContext)
+                {
+                    ShowToastOnUIThread(message, isError, durationMs);
+                }
+                else
+                {
+                    Helpers.Logger.Instance.Warning($"ToastForm: no UI-thread available, dropping toast: {message}");
+                }
             }
             catch
             {

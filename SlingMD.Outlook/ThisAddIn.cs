@@ -62,7 +62,13 @@ namespace SlingMD.Outlook
             _operationInProgress = false;
         }
 
-        private void InitializeUiMarshaler()
+        /// <summary>
+        /// Creates the STA marshaling control and installs a WindowsFormsSynchronizationContext so
+        /// background-monitor async continuations resume on the Outlook STA thread. Returns true only
+        /// when both are in place; the caller must NOT start the monitors when this returns false,
+        /// because their post-await COM/UI access would then run off-STA (crash / undefined behavior).
+        /// </summary>
+        private bool InitializeUiMarshaler()
         {
             try
             {
@@ -70,10 +76,7 @@ namespace SlingMD.Outlook
                 // Accessing Handle forces window-handle creation on this (UI/STA) thread, giving a
                 // valid BeginInvoke target and causing WinForms to install a
                 // WindowsFormsSynchronizationContext on the thread when one isn't already present.
-                if (_uiMarshaler.Handle == IntPtr.Zero)
-                {
-                    // Never expected; handle access above always creates it.
-                }
+                IntPtr handle = _uiMarshaler.Handle;
 
                 if (System.Threading.SynchronizationContext.Current == null)
                 {
@@ -82,10 +85,18 @@ namespace SlingMD.Outlook
                 }
 
                 Forms.ToastForm.SetUiMarshaler(_uiMarshaler);
+
+                bool ready = handle != IntPtr.Zero && System.Threading.SynchronizationContext.Current != null;
+                if (!ready)
+                {
+                    Logger.Instance.Warning("ThisAddIn: UI marshaler initialized without a usable handle/sync context; background monitors will be disabled.");
+                }
+                return ready;
             }
             catch (System.Exception ex)
             {
                 Logger.Instance.Warning($"ThisAddIn: could not initialize UI marshaler: {ex.Message}");
+                return false;
             }
         }
 
@@ -107,8 +118,9 @@ namespace SlingMD.Outlook
                 // Runs on the Outlook main (STA) thread. Create a marshaling control here so a
                 // WindowsFormsSynchronizationContext is installed on this thread — without it, async
                 // continuations in the background monitors would resume on a thread-pool thread and
-                // touch Outlook COM / create WinForms windows off the STA thread.
-                InitializeUiMarshaler();
+                // touch Outlook COM / create WinForms windows off the STA thread. If this fails we
+                // must not start the monitors at all (see below).
+                bool marshalerReady = InitializeUiMarshaler();
 
                 _settings = LoadSettings(out isFirstLaunchAfterInstall);
                 ValidateStartupHealth();
@@ -136,21 +148,32 @@ namespace SlingMD.Outlook
                     Logger.Instance.Warning($"ThisAddIn.Startup: could not hook explorer selection change: {ex.Message}");
                 }
 
-                if (_settings.WatchedFolders != null && _settings.WatchedFolders.Count > 0)
-                {
-                    _folderMonitorService = new FolderMonitorService(_settings, _emailProcessor, _notificationService, Application, _autoSlingProcessedIds);
-                    _folderMonitorService.StartWatching(_settings.WatchedFolders);
-                }
-
                 _startupComplete = true;
 
-                _autoSlingService = new AutoSlingService(_settings, _emailProcessor, _notificationService, _autoSlingProcessedIds);
-                _autoSlingService.Start(Application);
-
-                if (_settings.EnableFlagToSling)
+                // The background monitors rely on the marshaler to bounce their async continuations
+                // back onto the STA thread before touching COM/UI. If the marshaler isn't ready,
+                // starting them would resume off-STA — disable them and run in a degraded (manual
+                // Sling still works) mode rather than risk crashing Outlook.
+                if (marshalerReady)
                 {
-                    _flagMonitorService = new FlagMonitorService(_settings, _emailProcessor, _notificationService, _autoSlingProcessedIds);
-                    _flagMonitorService.Start(Application);
+                    if (_settings.WatchedFolders != null && _settings.WatchedFolders.Count > 0)
+                    {
+                        _folderMonitorService = new FolderMonitorService(_settings, _emailProcessor, _notificationService, Application, _autoSlingProcessedIds);
+                        _folderMonitorService.StartWatching(_settings.WatchedFolders);
+                    }
+
+                    _autoSlingService = new AutoSlingService(_settings, _emailProcessor, _notificationService, _autoSlingProcessedIds);
+                    _autoSlingService.Start(Application);
+
+                    if (_settings.EnableFlagToSling)
+                    {
+                        _flagMonitorService = new FlagMonitorService(_settings, _emailProcessor, _notificationService, _autoSlingProcessedIds);
+                        _flagMonitorService.Start(Application);
+                    }
+                }
+                else
+                {
+                    Logger.Instance.Warning("ThisAddIn.Startup: UI marshaler unavailable — auto-sling, flag, and folder monitors are disabled for this session. Manual Sling is unaffected.");
                 }
 
                 _ribbon?.UpdateSlingButtonLabel(GetSelectedItemLabel());
@@ -216,6 +239,12 @@ namespace SlingMD.Outlook
 
         private void ThisAddIn_Shutdown(object sender, System.EventArgs e)
         {
+            // Signal shutdown FIRST so any in-flight OnItemChange/OnItemAdded continuation sees
+            // _shuttingDown and bails out before touching COM objects we're about to release
+            // (mirrors ShowSettings). Then stop/unhook and release the handles.
+            _flagMonitorService?.SignalShutdown();
+            _folderMonitorService?.SignalShutdown();
+
             _autoSlingService?.Shutdown();
             _flagMonitorService?.Stop();
             _folderMonitorService?.StopWatching();
