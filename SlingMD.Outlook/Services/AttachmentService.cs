@@ -118,39 +118,61 @@ namespace SlingMD.Outlook.Services
             {
                 signals.IsEmbeddedItem = attachment.Type == OlAttachmentType.olEmbeddeditem;
             }
-            catch
+            catch (System.Exception ex)
             {
+                Logger.Instance.Debug($"AttachmentService.ReadSignals: could not read attachment Type: {ex.Message}");
             }
 
+            // attachment.PropertyAccessor mints a COM object; obtain it once, reuse it for all three
+            // MAPI reads, and release it — the previous code accessed it three times (leaking two)
+            // and swallowed every failure with a bare catch (hiding Convert/COM diagnostics).
+            PropertyAccessor pa = null;
             try
             {
-                object hidden = attachment.PropertyAccessor.GetProperty(MapiPropertyTags.PrAttachHidden);
-                signals.IsHidden = hidden != null && Convert.ToBoolean(hidden);
+                pa = attachment.PropertyAccessor;
             }
-            catch
+            catch (System.Exception ex)
             {
+                Logger.Instance.Debug($"AttachmentService.ReadSignals: PropertyAccessor unavailable: {ex.Message}");
             }
 
-            try
+            if (pa != null)
             {
-                object flags = attachment.PropertyAccessor.GetProperty(MapiPropertyTags.PrAttachFlags);
-                if (flags != null)
+                try
                 {
-                    int flagsValue = Convert.ToInt32(flags);
-                    signals.HasMhtmlRef = (flagsValue & 0x4) != 0;
+                    object hidden = pa.GetProperty(MapiPropertyTags.PrAttachHidden);
+                    signals.IsHidden = hidden != null && Convert.ToBoolean(hidden);
                 }
-            }
-            catch
-            {
-            }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Debug($"AttachmentService.ReadSignals: PrAttachHidden unavailable: {ex.Message}");
+                }
 
-            try
-            {
-                object contentId = attachment.PropertyAccessor.GetProperty(MapiPropertyTags.PrAttachContentId);
-                signals.ContentId = contentId?.ToString();
-            }
-            catch
-            {
+                try
+                {
+                    object flags = pa.GetProperty(MapiPropertyTags.PrAttachFlags);
+                    if (flags != null)
+                    {
+                        int flagsValue = Convert.ToInt32(flags);
+                        signals.HasMhtmlRef = (flagsValue & 0x4) != 0;
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Debug($"AttachmentService.ReadSignals: PrAttachFlags unavailable: {ex.Message}");
+                }
+
+                try
+                {
+                    object contentId = pa.GetProperty(MapiPropertyTags.PrAttachContentId);
+                    signals.ContentId = contentId?.ToString();
+                }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Debug($"AttachmentService.ReadSignals: PrAttachContentId unavailable: {ex.Message}");
+                }
+
+                System.Runtime.InteropServices.Marshal.ReleaseComObject(pa);
             }
 
             return signals;

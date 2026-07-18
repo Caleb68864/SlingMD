@@ -54,6 +54,41 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
+        public void CleanFileName_InvalidCleanupPattern_DoesNotThrow_AndStillCleans()
+        {
+            // An invalid regex could reach SubjectCleanupPatterns via hand-edited JSON (Load does not
+            // validate). CleanFileName must skip the bad pattern rather than abort the export.
+            ObsidianSettings settings = new ObsidianSettings
+            {
+                VaultBasePath = _testDir,
+                VaultName = "TestVault",
+                SubjectCleanupPatterns = new List<string> { "[unclosed", @"\[EXTERNAL\]\s*" }
+            };
+            FileService fileService = new FileService(settings);
+
+            string result = fileService.CleanFileName("[EXTERNAL] Hello");
+
+            // The valid pattern still applied; no exception from the invalid one.
+            Assert.Equal("Hello", result);
+        }
+
+        [Fact]
+        public void CleanFileName_NullCleanupPatterns_DoesNotThrow()
+        {
+            ObsidianSettings settings = new ObsidianSettings
+            {
+                VaultBasePath = _testDir,
+                VaultName = "TestVault",
+                SubjectCleanupPatterns = null
+            };
+            FileService fileService = new FileService(settings);
+
+            string result = fileService.CleanFileName("Plain subject");
+
+            Assert.Equal("Plain subject", result);
+        }
+
+        [Fact]
         public void WriteUtf8File_CreatesDirectoryAndFile()
         {
             // Arrange

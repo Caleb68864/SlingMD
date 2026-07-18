@@ -353,7 +353,12 @@ namespace SlingMD.Outlook.Services
                         {
                             // Write the new note for the current email to the thread folder with -eid{id} suffix
                             string emailId = !string.IsNullOrEmpty(realInternetMessageId) ? realInternetMessageId : realEntryId;
-                            string safeId = new string(emailId.Where(char.IsLetterOrDigit).ToArray());
+                            // Both ids can be empty (unsaved item with no InternetMessageID); guard so
+                            // the LINQ below can't NRE and abort the export. An empty safeId still
+                            // produces a usable, if less unique, "-eid" suffix.
+                            string safeId = string.IsNullOrEmpty(emailId)
+                                ? string.Empty
+                                : new string(emailId.Where(char.IsLetterOrDigit).ToArray());
                             string baseName = BuildEmailBaseFileName(mail, subjectClean, senderClean, fileDateTime, true);
                             string tempFileName = $"{baseName}-eid{safeId}.md";
                             string tempFilePath = Path.Combine(threadFolderPath, tempFileName);
@@ -792,7 +797,7 @@ namespace SlingMD.Outlook.Services
                 SenderShortName = senderClean,
                 SenderEmail = _contactService.GetSenderEmail(mail),
                 Date = mail.ReceivedTime.ToString("yyyy-MM-dd"),
-                Timestamp = _dateFormatter.Format(mail.ReceivedTime, _settings.EmailDateFormat),
+                Timestamp = _dateFormatter.FormatOrDefault(mail.ReceivedTime, _settings.EmailDateFormat, _dateFormatter.Format(mail.ReceivedTime, "yyyy-MM-dd HH:mm:ss")),
                 Body = mail.Body ?? string.Empty,
                 TaskBlock = taskBlock,
                 FileName = fileNameNoExt + ".md",
@@ -900,7 +905,7 @@ namespace SlingMD.Outlook.Services
                 { "to", toLinked },
                 { "toEmail", toEmails },
                 { "threadId", conversationId },
-                { "date", _dateFormatter.Format(receivedTime, _settings.EmailDateFormat) },
+                { "date", _dateFormatter.FormatOrDefault(receivedTime, _settings.EmailDateFormat, _dateFormatter.Format(receivedTime, "yyyy-MM-dd HH:mm:ss")) },
                 { "internetMessageId", realInternetMessageId },
                 { "entryId", realEntryId }
             };
@@ -908,7 +913,10 @@ namespace SlingMD.Outlook.Services
             if (_settings.IncludeDailyNoteLink)
             {
                 string dailyLinkFormat = _settings.DailyNoteLinkFormat ?? "[[yyyy-MM-dd]]";
-                string dailyNoteLink = receivedTime.ToString(dailyLinkFormat.Replace("[[", string.Empty).Replace("]]", string.Empty));
+                string rawDailyFormat = dailyLinkFormat.Replace("[[", string.Empty).Replace("]]", string.Empty);
+                // A malformed DailyNoteLinkFormat (e.g. from hand-edited JSON) would otherwise throw
+                // FormatException and fail the whole export; fall back to a safe ISO date.
+                string dailyNoteLink = _dateFormatter.FormatOrDefault(receivedTime, rawDailyFormat, _dateFormatter.Format(receivedTime, "yyyy-MM-dd"));
                 metadata.Add("dailyNoteLink", "[[" + dailyNoteLink + "]]");
             }
 

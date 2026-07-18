@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using SlingMD.Outlook.Helpers;
 using SlingMD.Outlook.Models;
 using SlingMD.Outlook.Services.Formatting;
 using System.Text.RegularExpressions;
@@ -122,9 +124,24 @@ namespace SlingMD.Outlook.Services
 
             // First pass - apply all settings cleanup patterns. (Settings-driven, kept here so
             // CleanFileName remains a one-stop shop for callers that pass raw subjects.)
-            foreach (var pattern in _settings.SubjectCleanupPatterns)
+            // Each pattern is user-supplied and may be invalid (loadable via hand-edited JSON that
+            // bypasses Validate) or catastrophically backtracking, so guard both: a timeout bounds
+            // ReDoS and ArgumentException skips a bad pattern — either way the sling still completes.
+            // This mirrors SubjectCleanerService / FilenameSubjectNormalizer.
+            foreach (string pattern in _settings.SubjectCleanupPatterns ?? new List<string>())
             {
-                cleaned = Regex.Replace(cleaned, pattern, "", RegexOptions.IgnoreCase);
+                try
+                {
+                    cleaned = Regex.Replace(cleaned, pattern, "", RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(200));
+                }
+                catch (ArgumentException ex)
+                {
+                    Logger.Instance.Warning($"FileService.CleanFileName: skipping invalid cleanup pattern '{pattern}': {ex.Message}");
+                }
+                catch (RegexMatchTimeoutException ex)
+                {
+                    Logger.Instance.Warning($"FileService.CleanFileName: cleanup pattern '{pattern}' timed out, skipping: {ex.Message}");
+                }
             }
 
             // Second pass - delegate the pure filesystem-safety logic (invalid chars, prefix
