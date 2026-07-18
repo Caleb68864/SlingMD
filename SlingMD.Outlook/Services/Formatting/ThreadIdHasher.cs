@@ -37,6 +37,13 @@ namespace SlingMD.Outlook.Services.Formatting
             }
 
             string normalizedSubject = _cleaner.NormalizeForGrouping(conversationTopic);
+            if (string.IsNullOrEmpty(normalizedSubject))
+            {
+                // A prefix-only/tag-only topic (e.g. "Re:", "[EXTERNAL]") normalizes to empty. Hashing
+                // the empty string would give every such email the SAME thread id (MD5 of ""),
+                // collapsing unrelated conversations into one folder. Fall back to the raw topic.
+                normalizedSubject = conversationTopic.Trim();
+            }
 
             using (MD5 md5 = MD5.Create())
             {

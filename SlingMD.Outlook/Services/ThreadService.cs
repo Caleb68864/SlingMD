@@ -120,7 +120,7 @@ namespace SlingMD.Outlook.Services
             }
             firstSender = _fileService.CleanFileName(firstSender);
             firstRecipient = _fileService.CleanFileName(firstRecipient);
-            string timestamp = mail.ReceivedTime.ToString("yyyy-MM-dd HHmm");
+            string timestamp = mail.ReceivedTime.ToString("yyyy-MM-dd HHmm", System.Globalization.CultureInfo.InvariantCulture);
             return $"{timestamp}-{threadSubject.Trim()}-{firstSender}-{firstRecipient}".Replace("--", "-");
         }
 
@@ -335,9 +335,14 @@ namespace SlingMD.Outlook.Services
                                     {
                                         earliestEmailDate = emailDate;
 
-                                        // Check if this email is in a thread folder
+                                        // Check if this email is in a thread folder. Compare full,
+                                        // separator-normalized paths case-insensitively so a casing or
+                                        // trailing-slash difference doesn't misclassify an inbox note.
                                         string directory = Path.GetDirectoryName(file);
-                                        if (directory != inboxPath)
+                                        if (!string.Equals(
+                                                Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar),
+                                                Path.GetFullPath(inboxPath).TrimEnd(Path.DirectorySeparatorChar),
+                                                StringComparison.OrdinalIgnoreCase))
                                         {
                                             earliestEmailThreadName = Path.GetFileName(directory);
                                         }
@@ -410,13 +415,13 @@ namespace SlingMD.Outlook.Services
         /// <returns><c>true</c> if the date could be parsed; otherwise <c>false</c>.</returns>
         public static bool TryParseThreadDate(string value, out DateTime result)
         {
-            if (DateTime.TryParseExact(value, "yyyy-MM-dd HH:mm:ss", null,
+            if (DateTime.TryParseExact(value, "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture,
                     System.Globalization.DateTimeStyles.None, out result))
             {
                 return true;
             }
 
-            if (DateTime.TryParseExact(value, "yyyy-MM-dd HH:mm", null,
+            if (DateTime.TryParseExact(value, "yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture,
                     System.Globalization.DateTimeStyles.None, out result))
             {
                 return true;
@@ -448,7 +453,7 @@ namespace SlingMD.Outlook.Services
                     if (inFrontMatter && line.Trim().StartsWith("date:", StringComparison.OrdinalIgnoreCase))
                     {
                         var value = line.Trim().Substring("date:".Length).Trim().Trim('"');
-                        if (DateTime.TryParseExact(value, "yyyy-MM-dd HH:mm:ss", null, System.Globalization.DateTimeStyles.None, out var parsed))
+                        if (DateTime.TryParseExact(value, "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsed))
                             date = parsed;
                         else if (DateTime.TryParse(value, out var fallback))
                             date = fallback;
@@ -478,7 +483,7 @@ namespace SlingMD.Outlook.Services
                 nameNoExt = _legacyFilenameStripper.Strip(nameNoExt);
 
                 // Include seconds in date prefix to reduce collision probability
-                string datePrefix = fd.date.ToString("yyyy-MM-dd_HHmmss");
+                string datePrefix = fd.date.ToString("yyyy-MM-dd_HHmmss", System.Globalization.CultureInfo.InvariantCulture);
                 string newName = $"{datePrefix}_{nameNoExt}{ext}";
                 string newPath = Path.Combine(threadFolderPath, newName);
 

@@ -73,11 +73,16 @@ namespace SlingMD.Outlook.Services.Formatting
 
                 try
                 {
-                    cleaned = Regex.Replace(cleaned, rule.Pattern, rule.Replacement ?? string.Empty, RegexOptions.IgnoreCase);
+                    // 200ms timeout bounds a catastrophically-backtracking (ReDoS) user pattern.
+                    cleaned = Regex.Replace(cleaned, rule.Pattern, rule.Replacement ?? string.Empty, RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(200));
                 }
                 catch (ArgumentException)
                 {
                     // Skip an invalid user-supplied pattern silently rather than blow up the whole sling.
+                }
+                catch (RegexMatchTimeoutException)
+                {
+                    // Skip a pattern that exceeds the backtracking budget rather than hang.
                 }
             }
 

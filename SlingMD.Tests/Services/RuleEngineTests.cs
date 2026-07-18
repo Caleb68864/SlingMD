@@ -88,6 +88,46 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
+        public void ShouldAutoSling_CategoryRule_MatchesOneOfSeveralCommaSeparatedCategories()
+        {
+            List<AutoSlingRule> rules = new List<AutoSlingRule>
+            {
+                new AutoSlingRule { Type = "Category", Pattern = "Important", Enabled = true }
+            };
+
+            bool result = _ruleEngine.ShouldAutoSling("john@acme.com", "acme.com", "Work, Important, Personal", rules);
+
+            Assert.True(result);
+        }
+
+        [Fact]
+        public void ShouldAutoSling_CategoryRule_DoesNotMatchSubstringOfAnotherCategory()
+        {
+            // Pattern "Red" must NOT match category "Redirected" (the old IndexOf substring bug).
+            List<AutoSlingRule> rules = new List<AutoSlingRule>
+            {
+                new AutoSlingRule { Type = "Category", Pattern = "Red", Enabled = true }
+            };
+
+            bool result = _ruleEngine.ShouldAutoSling("john@acme.com", "acme.com", "Redirected", rules);
+
+            Assert.False(result);
+        }
+
+        [Fact]
+        public void ShouldAutoSling_RuleType_IsCaseInsensitive()
+        {
+            List<AutoSlingRule> rules = new List<AutoSlingRule>
+            {
+                new AutoSlingRule { Type = "sender", Pattern = "john@acme.com", Enabled = true }
+            };
+
+            bool result = _ruleEngine.ShouldAutoSling("john@acme.com", "acme.com", "", rules);
+
+            Assert.True(result);
+        }
+
+        [Fact]
         public void ShouldAutoSling_DisabledRule_ReturnsFalse()
         {
             List<AutoSlingRule> rules = new List<AutoSlingRule>

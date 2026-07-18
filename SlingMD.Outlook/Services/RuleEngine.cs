@@ -33,25 +33,30 @@ namespace SlingMD.Outlook.Services
                     continue;
                 }
 
-                switch (rule.Type)
+                // Normalize the rule type so a hand-edited "sender"/"CATEGORY" still matches (the
+                // XML contract promises case-insensitivity; the switch was previously exact-case and
+                // silently disabled any off-case rule).
+                switch ((rule.Type ?? string.Empty).Trim().ToLowerInvariant())
                 {
-                    case "Sender":
+                    case "sender":
                         if (string.Equals(senderEmail, rule.Pattern, StringComparison.OrdinalIgnoreCase))
                         {
                             return rule;
                         }
                         break;
 
-                    case "Domain":
+                    case "domain":
                         if (string.Equals(senderDomain, rule.Pattern, StringComparison.OrdinalIgnoreCase))
                         {
                             return rule;
                         }
                         break;
 
-                    case "Category":
-                        if (!string.IsNullOrEmpty(categories) &&
-                            categories.IndexOf(rule.Pattern, StringComparison.OrdinalIgnoreCase) >= 0)
+                    case "category":
+                        // Outlook categories are a comma-separated list. Compare each category for
+                        // equality rather than a substring IndexOf, so pattern "Red" no longer matches
+                        // category "Redirected" (or spans two comma-joined names).
+                        if (CategoryMatches(categories, rule.Pattern))
                         {
                             return rule;
                         }
@@ -60,6 +65,28 @@ namespace SlingMD.Outlook.Services
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Returns true when <paramref name="pattern"/> equals one of the comma-separated categories
+        /// in <paramref name="categories"/> (case-insensitive, whitespace-trimmed).
+        /// </summary>
+        private static bool CategoryMatches(string categories, string pattern)
+        {
+            if (string.IsNullOrEmpty(categories) || string.IsNullOrEmpty(pattern))
+            {
+                return false;
+            }
+
+            foreach (string category in categories.Split(','))
+            {
+                if (string.Equals(category.Trim(), pattern.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

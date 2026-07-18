@@ -40,6 +40,21 @@ namespace SlingMD.Tests.Services.Formatting
         }
 
         [Fact]
+        public void Hash_PrefixOnlyTopicsThatNormalizeToEmpty_DoNotAllCollide()
+        {
+            // "Re:" and "Fwd:" both normalize to an empty string. Hashing the empty string would give
+            // them the same thread id, collapsing unrelated conversations; the raw-topic fallback
+            // keeps them distinct.
+            ThreadIdHasher hasher = Hasher();
+            string re = hasher.Hash("Re:");
+            string fwd = hasher.Hash("Fwd:");
+
+            Assert.Equal(20, re.Length);
+            Assert.Equal(20, fwd.Length);
+            Assert.NotEqual(re, fwd);
+        }
+
+        [Fact]
         public void Hash_DifferentSubjects_ProduceDifferentHashes()
         {
             ThreadIdHasher hasher = Hasher();

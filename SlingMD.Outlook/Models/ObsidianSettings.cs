@@ -450,6 +450,29 @@ namespace SlingMD.Outlook.Models
                 }
             }
 
+            // Validate the filename normalization patterns too — previously only SubjectCleanupPatterns
+            // was checked, so a malformed FilenameSubjectPatterns entry saved cleanly and then failed
+            // silently at runtime with no user feedback.
+            if (FilenameSubjectPatterns != null)
+            {
+                foreach (FilenameSubjectRule rule in FilenameSubjectPatterns)
+                {
+                    if (rule == null || string.IsNullOrEmpty(rule.Pattern))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        System.Text.RegularExpressions.Regex.IsMatch("test", rule.Pattern);
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        throw new ArgumentException($"Invalid filename pattern '{rule.Pattern}': {ex.Message}");
+                    }
+                }
+            }
+
             ValidateFolderName(AppointmentsFolder, "Appointments folder", invalidFileNameChars);
 
             if (AppointmentNoteTitleMaxLength < 10 || AppointmentNoteTitleMaxLength > 500)
