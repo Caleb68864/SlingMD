@@ -520,7 +520,38 @@ namespace SlingMD.Outlook.Models
                 Directory.CreateDirectory(settingsDir);
             }
 
-            File.WriteAllText(settingsPath, json);
+            // Write atomically: a direct File.WriteAllText truncates the existing file the instant
+            // the stream opens, so a crash / AV lock / disk-full mid-write leaves a truncated or
+            // empty JSON file — and Load() then silently falls back to defaults, losing every saved
+            // setting (issue #13 symptom). Write to a temp file first, then swap it into place.
+            string tempPath = settingsPath + ".tmp";
+            try
+            {
+                File.WriteAllText(tempPath, json);
+
+                if (File.Exists(settingsPath))
+                {
+                    // Atomic replace preserving the original on failure.
+                    File.Replace(tempPath, settingsPath, null);
+                }
+                else
+                {
+                    File.Move(tempPath, settingsPath);
+                }
+            }
+            finally
+            {
+                // Best-effort cleanup if the swap failed and left the temp file behind.
+                try
+                {
+                    if (File.Exists(tempPath))
+                    {
+                        File.Delete(tempPath);
+                    }
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
         }
 
         public void Load()
@@ -688,9 +719,22 @@ namespace SlingMD.Outlook.Models
 
         private static void ValidateFolderName(string value, string label, char[] invalidChars)
         {
-            if (!string.IsNullOrWhiteSpace(value) && value.IndexOfAny(invalidChars) >= 0)
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return;
+            }
+
+            if (value.IndexOfAny(invalidChars) >= 0)
             {
                 throw new ArgumentException($"{label} contains invalid characters: {value}");
+            }
+
+            // "." / ".." are not caught by GetInvalidFileNameChars but escape the vault when combined
+            // via Path.Combine (e.g. InboxFolder = ".." would resolve to the vault's parent).
+            string trimmed = value.Trim();
+            if (trimmed == "." || trimmed == "..")
+            {
+                throw new ArgumentException($"{label} cannot be a relative traversal segment: {value}");
             }
         }
 

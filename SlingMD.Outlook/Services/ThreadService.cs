@@ -261,12 +261,23 @@ namespace SlingMD.Outlook.Services
             }
 
             _fileService.EnsureDirectoryExists(threadFolderPath);
-            if (File.Exists(threadPath))
+            try
             {
-                File.Delete(threadPath);
+                if (File.Exists(threadPath))
+                {
+                    File.Delete(threadPath);
+                }
+                File.Move(emailPath, threadPath);
+                return threadPath;
             }
-            File.Move(emailPath, threadPath);
-            return threadPath;
+            catch (System.Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                // A locked source/target (open in Obsidian, transient AV) must not abort the whole
+                // thread export. Leave the note in the inbox and return its current path so the
+                // caller keeps working with a real file, consistent with ResuffixThreadNotes.
+                Helpers.Logger.Instance.Warning($"ThreadService.MoveToThreadFolder: could not move '{emailPath}' to '{threadPath}': {ex.Message}");
+                return File.Exists(emailPath) ? emailPath : threadPath;
+            }
         }
 
         /// <summary>

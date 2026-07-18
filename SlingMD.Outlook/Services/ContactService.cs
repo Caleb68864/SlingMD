@@ -608,7 +608,9 @@ namespace SlingMD.Outlook.Services
                 sb.AppendLine(string.Join(", ", wikiLinks));
                 sb.AppendLine();
 
-                File.AppendAllText(logPath, sb.ToString(), Encoding.UTF8);
+                // Use BOM-less UTF-8 (matching FileService); Encoding.UTF8 would prepend a BOM when
+                // the log is first created, rendering as a stray  glyph at the top in Obsidian.
+                File.AppendAllText(logPath, sb.ToString(), new UTF8Encoding(false));
             }
             catch (System.Exception ex)
             {
@@ -666,7 +668,20 @@ namespace SlingMD.Outlook.Services
                 return;
             }
 
-            string existingContent = File.ReadAllText(filePath);
+            // The note exists but may be locked (open in Obsidian, transient AV). A failed read here
+            // must not abort the whole email export — fall back to writing the freshly rendered note.
+            string existingContent;
+            try
+            {
+                existingContent = File.ReadAllText(filePath);
+            }
+            catch (System.Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Logger.Instance.Warning($"ContactService.CreateContactNote: could not read existing note '{filePath}', rewriting fresh: {ex.Message}");
+                _fileService.WriteUtf8File(filePath, renderedContent);
+                return;
+            }
+
             if (context.IncludeDetails)
             {
                 // Rich contact: preserve user-authored Notes section, refresh everything else

@@ -655,6 +655,40 @@ namespace SlingMD.Tests.Models
             Assert.False(settings.EnableFlagToSling);
             Assert.Equal("Sent to Obsidian", settings.SentToObsidianCategory);
         }
+
+        [Theory]
+        [InlineData("..")]
+        [InlineData(".")]
+        public void Save_RejectsTraversalFolderName(string traversal)
+        {
+            ObsidianSettingsTestable settings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath,
+                InboxFolder = traversal
+            };
+
+            Assert.Throws<ArgumentException>(() => settings.Save());
+        }
+
+        [Fact]
+        public void Save_IsAtomic_LeavesNoTempFileBehind()
+        {
+            ObsidianSettingsTestable settings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath,
+                VaultName = "Atomic"
+            };
+
+            settings.Save();
+            settings.Save(); // second save exercises the File.Replace (target exists) path
+
+            Assert.True(File.Exists(_testSettingsPath));
+            Assert.False(File.Exists(_testSettingsPath + ".tmp"), "No temp file should remain after save");
+
+            ObsidianSettingsTestable reloaded = new ObsidianSettingsTestable { TestSettingsPath = _testSettingsPath };
+            reloaded.Load();
+            Assert.Equal("Atomic", reloaded.VaultName);
+        }
     }
 
     public class ObsidianSettingsTestable : ObsidianSettings

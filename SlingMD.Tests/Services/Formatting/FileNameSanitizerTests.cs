@@ -98,9 +98,39 @@ namespace SlingMD.Tests.Services.Formatting
         public void Sanitize_HandlesColonSpace_StripsPrefix_LeavesSpace()
         {
             // ":" is invalid on Windows → underscore. "Re: foo" → "Re_ foo" → prefix strip → " foo".
-            // Leading whitespace is preserved (Trim only strips '-' and '_'); the orchestrator
+            // Leading whitespace is preserved (Trim only strips '-', '_', '.'); the orchestrator
             // does its own Trim() afterwards.
             Assert.Equal(" foo", _sanitizer.Sanitize("Re: foo"));
+        }
+
+        [Theory]
+        [InlineData("CON")]
+        [InlineData("con")]
+        [InlineData("NUL")]
+        [InlineData("COM1")]
+        [InlineData("LPT9")]
+        [InlineData("aux")]
+        public void Sanitize_ReservedDeviceName_IsPrefixedWithUnderscore(string reserved)
+        {
+            // A reserved Windows device name cannot be created as a file; prefix it so the sling
+            // doesn't abort with an I/O error.
+            Assert.Equal("_" + reserved, _sanitizer.Sanitize(reserved));
+        }
+
+        [Fact]
+        public void Sanitize_NonReservedLookalike_IsUnchanged()
+        {
+            // Only exact reserved names are escaped, not names that merely contain them.
+            Assert.Equal("CONTOSO", _sanitizer.Sanitize("CONTOSO"));
+            Assert.Equal("Confirmation", _sanitizer.Sanitize("Confirmation"));
+        }
+
+        [Fact]
+        public void Sanitize_PreservesTrailingDotInSuffix()
+        {
+            // Trailing dots are legitimate in names (e.g. "Jr.") and must not be stripped, since this
+            // value doubles as a contact/display name used for matching.
+            Assert.Equal("Robert Smith Jr.", _sanitizer.Sanitize("Robert Smith Jr."));
         }
     }
 }

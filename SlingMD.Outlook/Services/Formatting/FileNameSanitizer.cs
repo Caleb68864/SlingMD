@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 
@@ -13,6 +14,18 @@ namespace SlingMD.Outlook.Services.Formatting
     {
         private static readonly Regex LeadingPrefixRegex = new Regex(@"^(?:RE_|FWD_|FW_|Re_|Fwd_)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex SeparatorRunRegex = new Regex(@"[-_]{2,}", RegexOptions.Compiled);
+
+        /// <summary>
+        /// Reserved Windows device names. A file named exactly one of these (any casing, with or
+        /// without an extension) cannot be created — the OS routes it to the device — so a subject
+        /// that reduces to e.g. "CON" or "NUL" would otherwise abort the sling with an I/O error.
+        /// </summary>
+        private static readonly HashSet<string> ReservedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "CON", "PRN", "AUX", "NUL",
+            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+        };
 
         /// <summary>
         /// Sanitizes <paramref name="input"/> for use as a filename: replaces invalid filename
@@ -46,8 +59,18 @@ namespace SlingMD.Outlook.Services.Formatting
             // Collapse runs of separators.
             cleaned = SeparatorRunRegex.Replace(cleaned, "-");
 
-            // Trim residual leading/trailing separators.
-            return cleaned.Trim('-', '_');
+            // Trim residual leading/trailing separators. Dots are intentionally NOT trimmed:
+            // legitimate names end in a dot ("Robert Smith Jr.") and this value doubles as a
+            // display/contact name, so stripping it would corrupt name matching.
+            cleaned = cleaned.Trim('-', '_');
+
+            // Guard against reserved device names (compared without any extension).
+            if (ReservedNames.Contains(cleaned))
+            {
+                cleaned = "_" + cleaned;
+            }
+
+            return cleaned;
         }
     }
 }
