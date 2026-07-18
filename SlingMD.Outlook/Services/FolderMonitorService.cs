@@ -191,6 +191,12 @@ namespace SlingMD.Outlook.Services
 
         private bool IsSelfSent(MailItem mail)
         {
+            // Each of these property accesses (.Session, .CurrentUser, .AddressEntry) mints a live
+            // COM object. IsSelfSent runs on every inbound item for the whole session, so failing to
+            // release them accumulates handles and prevents Outlook from closing. Release in finally.
+            NameSpace session = null;
+            Recipient currentUser = null;
+            AddressEntry currentEntry = null;
             try
             {
                 if (_outlookApp == null)
@@ -198,13 +204,14 @@ namespace SlingMD.Outlook.Services
                     return false;
                 }
 
-                Recipient currentUser = _outlookApp.Session.CurrentUser;
+                session = _outlookApp.Session;
+                currentUser = session?.CurrentUser;
                 if (currentUser == null)
                 {
                     return false;
                 }
 
-                AddressEntry currentEntry = currentUser.AddressEntry;
+                currentEntry = currentUser.AddressEntry;
                 if (currentEntry == null)
                 {
                     return false;
@@ -241,6 +248,12 @@ namespace SlingMD.Outlook.Services
             {
                 Logger.Instance.Warning($"FolderMonitorService.IsSelfSent: {ex.Message}");
                 return false;
+            }
+            finally
+            {
+                if (currentEntry != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(currentEntry);
+                if (currentUser != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(currentUser);
+                if (session != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(session);
             }
         }
 

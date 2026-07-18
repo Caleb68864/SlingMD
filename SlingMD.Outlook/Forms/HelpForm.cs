@@ -18,6 +18,15 @@ namespace SlingMD.Outlook.Forms
         private SplitContainer _split;
         private Label _matchCount;
 
+        // RichTextBox.SelectionFont copies the font into the RTF but does not take ownership, so a
+        // fresh `new Font(...)` per render leaked a GDI handle on every topic selection. Cache the
+        // small set of distinct fonts once and dispose them in Dispose.
+        private readonly Font _fontTitle = new Font("Segoe UI", 14F, FontStyle.Bold);
+        private readonly Font _fontSubtitle = new Font("Segoe UI", 9F, FontStyle.Italic);
+        private readonly Font _fontBody = new Font("Segoe UI", 10F, FontStyle.Regular);
+        private readonly Font _fontBodyBold = new Font("Segoe UI", 10F, FontStyle.Bold);
+        private readonly Font _fontMono = new Font("Consolas", 10F);
+
         public HelpForm()
         {
             InitializeComponent();
@@ -48,11 +57,13 @@ namespace SlingMD.Outlook.Forms
             this.StartPosition = FormStartPosition.CenterParent;
             this.MinimumSize = new Size(600, 400);
 
-            System.IO.Stream iconStream = System.Reflection.Assembly.GetExecutingAssembly()
-                .GetManifestResourceStream("SlingMD.Outlook.Resources.SlingMD.ico");
-            if (iconStream != null)
+            using (System.IO.Stream iconStream = System.Reflection.Assembly.GetExecutingAssembly()
+                .GetManifestResourceStream("SlingMD.Outlook.Resources.SlingMD.ico"))
             {
-                this.Icon = new System.Drawing.Icon(iconStream);
+                if (iconStream != null)
+                {
+                    this.Icon = new System.Drawing.Icon(iconStream);
+                }
             }
 
             TableLayoutPanel root = new TableLayoutPanel
@@ -255,13 +266,13 @@ namespace SlingMD.Outlook.Forms
             }
 
             // Title
-            _detail.SelectionFont = new Font("Segoe UI", 14F, FontStyle.Bold);
+            _detail.SelectionFont = _fontTitle;
             _detail.AppendText(entry.Title + Environment.NewLine);
-            _detail.SelectionFont = new Font("Segoe UI", 9F, FontStyle.Italic);
+            _detail.SelectionFont = _fontSubtitle;
             _detail.SelectionColor = SystemColors.GrayText;
             _detail.AppendText(entry.Tab + " tab" + Environment.NewLine + Environment.NewLine);
 
-            _detail.SelectionFont = new Font("Segoe UI", 10F, FontStyle.Regular);
+            _detail.SelectionFont = _fontBody;
             _detail.SelectionColor = SystemColors.ControlText;
 
             if (!string.IsNullOrWhiteSpace(entry.Summary))
@@ -275,19 +286,19 @@ namespace SlingMD.Outlook.Forms
 
             if (!string.IsNullOrWhiteSpace(entry.Default))
             {
-                _detail.SelectionFont = new Font("Segoe UI", 10F, FontStyle.Bold);
+                _detail.SelectionFont = _fontBodyBold;
                 _detail.AppendText("Default: ");
-                _detail.SelectionFont = new Font("Consolas", 10F);
+                _detail.SelectionFont = _fontMono;
                 _detail.AppendText(entry.Default + Environment.NewLine + Environment.NewLine);
-                _detail.SelectionFont = new Font("Segoe UI", 10F, FontStyle.Regular);
+                _detail.SelectionFont = _fontBody;
             }
 
             if (entry.Tokens != null && entry.Tokens.Count > 0)
             {
-                _detail.SelectionFont = new Font("Segoe UI", 10F, FontStyle.Bold);
+                _detail.SelectionFont = _fontBodyBold;
                 _detail.AppendText("Tokens" + Environment.NewLine);
                 int pad = entry.Tokens.Keys.Max(k => k.Length);
-                _detail.SelectionFont = new Font("Consolas", 10F);
+                _detail.SelectionFont = _fontMono;
                 foreach (KeyValuePair<string, string> token in entry.Tokens)
                 {
                     _detail.AppendText("  " + token.Key.PadRight(pad) + "   " + token.Value + Environment.NewLine);
@@ -297,10 +308,10 @@ namespace SlingMD.Outlook.Forms
 
             if (entry.Examples != null && entry.Examples.Count > 0)
             {
-                _detail.SelectionFont = new Font("Segoe UI", 10F, FontStyle.Bold);
+                _detail.SelectionFont = _fontBodyBold;
                 _detail.AppendText("Examples" + Environment.NewLine);
                 int pad = entry.Examples.Max(ex => (ex.Input ?? string.Empty).Length);
-                _detail.SelectionFont = new Font("Consolas", 10F);
+                _detail.SelectionFont = _fontMono;
                 foreach (HelpExample ex in entry.Examples)
                 {
                     string input = ex.Input ?? string.Empty;
@@ -310,6 +321,23 @@ namespace SlingMD.Outlook.Forms
 
             _detail.SelectionStart = 0;
             _detail.ScrollToCaret();
+        }
+
+        /// <summary>
+        /// Disposes the cached GDI fonts. This form is built entirely in code (no designer
+        /// components container), so the fonts must be released explicitly.
+        /// </summary>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _fontTitle?.Dispose();
+                _fontSubtitle?.Dispose();
+                _fontBody?.Dispose();
+                _fontBodyBold?.Dispose();
+                _fontMono?.Dispose();
+            }
+            base.Dispose(disposing);
         }
     }
 }

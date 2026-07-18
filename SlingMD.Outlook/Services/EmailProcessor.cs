@@ -736,14 +736,21 @@ namespace SlingMD.Outlook.Services
         {
             string entryId = mail.EntryID;
             string internetMessageId = null;
+            PropertyAccessor pa = null;
             try
             {
-                // Try to get InternetMessageID via PropertyAccessor (works for most accounts)
-                internetMessageId = mail.PropertyAccessor.GetProperty(MapiPropertyTags.PrInternetMessageId) as string;
+                // Try to get InternetMessageID via PropertyAccessor (works for most accounts).
+                // The accessor is a COM object that must be released or it leaks per slung email.
+                pa = mail.PropertyAccessor;
+                internetMessageId = pa.GetProperty(MapiPropertyTags.PrInternetMessageId) as string;
             }
             catch (System.Exception ex)
             {
                 Logger.Instance.Debug($"PropertyAccessor method failed for InternetMessageID: {ex.Message}");
+            }
+            finally
+            {
+                if (pa != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(pa);
             }
             // Fallback to property if available
             if (string.IsNullOrEmpty(internetMessageId))

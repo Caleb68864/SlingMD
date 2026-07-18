@@ -908,6 +908,7 @@ namespace SlingMD.Outlook
             Explorer explorer = null;
             Selection selection = null;
             MailItem mail = null;
+            List<MailItem> missingEmails = null;
             try
             {
                 explorer = Application.ActiveExplorer();
@@ -932,7 +933,6 @@ namespace SlingMD.Outlook
                 ThreadCompletionService completionService = new ThreadCompletionService(_fileService, _settings);
                 MAPIFolder inbox = null;
                 NameSpace session = null;
-                List<MailItem> missingEmails;
                 try
                 {
                     session = Application.Session;
@@ -985,6 +985,15 @@ namespace SlingMD.Outlook
             }
             finally
             {
+                // FindMissingEmails returns live MailItem COM objects we own; release each so a
+                // multi-email thread doesn't leak one handle per email on every Complete-Thread run.
+                if (missingEmails != null)
+                {
+                    foreach (MailItem missing in missingEmails)
+                    {
+                        if (missing != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(missing);
+                    }
+                }
                 if (mail != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(mail);
                 if (selection != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(selection);
                 if (explorer != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(explorer);

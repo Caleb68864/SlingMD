@@ -1014,11 +1014,13 @@ namespace SlingMD.Outlook.Forms
             this.Text = "Obsidian Settings";
             this.ClientSize = new Size(760, 820);
 
-            System.IO.Stream iconStream = System.Reflection.Assembly.GetExecutingAssembly()
-                .GetManifestResourceStream("SlingMD.Outlook.Resources.SlingMD.ico");
-            if (iconStream != null)
+            using (System.IO.Stream iconStream = System.Reflection.Assembly.GetExecutingAssembly()
+                .GetManifestResourceStream("SlingMD.Outlook.Resources.SlingMD.ico"))
             {
-                this.Icon = new Icon(iconStream);
+                if (iconStream != null)
+                {
+                    this.Icon = new Icon(iconStream);
+                }
             }
 
             // grpNoteCustomization is kept as a field reference (unused in tabs, legacy field kept for compatibility)

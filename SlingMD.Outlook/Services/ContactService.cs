@@ -149,13 +149,26 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         public string GetSenderEmail(MailItem mail)
         {
+            // mail.PropertyAccessor mints a COM object that must be released, or one leaks per email
+            // (GetSenderEmail runs 2-3x per slung email). The fallback read is also guarded so a
+            // COMException on SenderEmailAddress can't escape and abort the whole export.
+            PropertyAccessor pa = null;
             try
             {
-                return mail.PropertyAccessor.GetProperty(MapiPropertyTags.PrSmtpAddress);
+                pa = mail.PropertyAccessor;
+                return (string)pa.GetProperty(MapiPropertyTags.PrSmtpAddress);
             }
-            catch
+            catch (System.Exception ex)
             {
-                return mail.SenderEmailAddress;
+                Logger.Instance.Warning($"ContactService.GetSenderEmail: PropertyAccessor failed, falling back to SenderEmailAddress: {ex.Message}");
+                return SafeComAction.Execute(
+                    () => mail.SenderEmailAddress ?? string.Empty,
+                    "ContactService.GetSenderEmail: SenderEmailAddress fallback",
+                    string.Empty);
+            }
+            finally
+            {
+                if (pa != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(pa);
             }
         }
 
@@ -207,9 +220,11 @@ namespace SlingMD.Outlook.Services
                 {
                     if (recipient.Type == (int)type)
                     {
+                        PropertyAccessor pa = null;
                         try
                         {
-                            string email = recipient.PropertyAccessor.GetProperty(MapiPropertyTags.PrSmtpAddress);
+                            pa = recipient.PropertyAccessor;
+                            string email = (string)pa.GetProperty(MapiPropertyTags.PrSmtpAddress);
                             if (!string.IsNullOrEmpty(email))
                             {
                                 emails.Add(email);
@@ -221,6 +236,12 @@ namespace SlingMD.Outlook.Services
                             {
                                 emails.Add(recipient.Address);
                             }
+                        }
+                        finally
+                        {
+                            // recipient.PropertyAccessor is a distinct COM object from recipient;
+                            // release it here or one leaks per To/CC recipient on every email.
+                            if (pa != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(pa);
                         }
                     }
                 }
@@ -242,13 +263,21 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         public string GetSMTPEmailAddress(Recipient recipient)
         {
+            PropertyAccessor pa = null;
             try
             {
-                return recipient.PropertyAccessor.GetProperty(MapiPropertyTags.PrSmtpAddress) as string ?? recipient.Address;
+                pa = recipient.PropertyAccessor;
+                return pa.GetProperty(MapiPropertyTags.PrSmtpAddress) as string ?? recipient.Address;
             }
             catch
             {
                 return recipient.Address;
+            }
+            finally
+            {
+                // Release the PropertyAccessor COM object (distinct from recipient) to avoid a
+                // per-recipient leak on every appointment/meeting note build.
+                if (pa != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(pa);
             }
         }
 

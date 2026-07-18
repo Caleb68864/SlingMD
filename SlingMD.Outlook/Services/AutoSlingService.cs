@@ -127,6 +127,7 @@ namespace SlingMD.Outlook.Services
             // continuously and unattended for the whole session.
             NameSpace session = null;
             MailItem mail = null;
+            Recipient currentUser = null;
             try
             {
                 if (_processedEntryIds.Contains(entryId))
@@ -155,11 +156,19 @@ namespace SlingMD.Outlook.Services
                     return;
                 }
 
-                // Self-send guard: skip emails where the sender is the current user
-                string currentUserAddress = SafeComAction.Execute(
-                    () => session.CurrentUser.Address,
-                    "AutoSlingService.ProcessSingleEmail: self-send guard",
-                    string.Empty);
+                // Self-send guard: skip emails where the sender is the current user.
+                // session.CurrentUser mints a Recipient COM object; hold it in a local so it can be
+                // released in finally (reading .Address inline would leak it on every inbound email).
+                currentUser = SafeComAction.Execute(
+                    () => session.CurrentUser,
+                    "AutoSlingService.ProcessSingleEmail: CurrentUser",
+                    (Recipient)null);
+                string currentUserAddress = currentUser != null
+                    ? SafeComAction.Execute(
+                        () => currentUser.Address,
+                        "AutoSlingService.ProcessSingleEmail: self-send guard",
+                        string.Empty)
+                    : string.Empty;
                 string senderEmailAddress = SafeComAction.Execute(
                     () => mail.SenderEmailAddress,
                     "AutoSlingService.ProcessSingleEmail: SenderEmailAddress",
@@ -218,6 +227,7 @@ namespace SlingMD.Outlook.Services
             }
             finally
             {
+                if (currentUser != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(currentUser);
                 if (mail != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(mail);
                 if (session != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(session);
             }
