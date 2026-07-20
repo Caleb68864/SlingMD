@@ -39,8 +39,8 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook e
 
 ## Installation
 
-1. Go to the [Releases](./Releases) folder in this repository
-2. Download the newest versioned ZIP from the [Releases](./Releases) folder (for example, `SlingMD.Outlook_1_1_0_7.zip` at the time of writing)
+1. Go to the [Releases page](https://github.com/Caleb68864/SlingMD/releases/latest) for the newest version
+2. Download the versioned ZIP attached to that release (currently `SlingMD.Outlook_1_2_3_0.zip`)
 3. **Important Security Step - Unblock the ZIP File**:
    - Right-click the downloaded ZIP file
    - Click "Properties"
@@ -344,6 +344,15 @@ This project is licensed under the terms included in the [LICENSE](LICENSE) file
 If you encounter any issues or have questions, please open an issue in the GitHub repository.
 
 ## Changelog
+
+### Version 1.2.3.0
+- **Settings persistence fixed** ([#13](https://github.com/Caleb68864/SlingMD/issues/13)) — settings on the Contacts, Tasks, Threading, and Developer tabs now survive an Outlook restart. The Settings dialog no longer closes when a save fails; it reports the specific error instead
+- **Attachments fixed** ([#12](https://github.com/Caleb68864/SlingMD/issues/12)) — real attachments are now saved under default settings
+- **Atomic settings writes** — settings are written to a temp file and swapped into place, so an interrupted write can no longer truncate the file and silently reset every setting
+- **Numeric settings clamped on load**, so an out-of-range value can no longer prevent the Settings dialog from opening
+- **Resource leaks fixed** — Outlook COM objects (Explorer, Selection, MailItem, Session) and GDI bitmaps are now released across the ribbon, auto-sling, and bulk paths
+- **Hardening sweep** — file I/O and path safety, exception and null safety in the export path, background-monitor thread safety, and input validation
+- **Release packaging verifies binaries** — the packaging script rebuilds and refuses to publish unless the shipped DLL matches the freshly built one byte-for-byte
 
 ### Version 1.2.2 (pre-release)
 - **Searchable settings help** — new `Help` button in the Settings footer opens a pop-out window with live search, tab-grouped TreeView, and a detail pane showing each setting's summary, description, default, token reference, and worked examples
