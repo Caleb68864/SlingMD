@@ -534,6 +534,296 @@ namespace SlingMD.Outlook
         }
 
         /// <summary>
+        /// Copies the selected email bodies, optionally with YAML metadata and optionally expanded
+        /// to every message Outlook exposes in each selected email's conversation.
+        /// </summary>
+        public void CopySelectedEmailsToClipboard(bool includeFrontmatter, bool includeThreads)
+        {
+            if (!TryBeginOperation())
+            {
+                return;
+            }
+
+            Explorer explorer = null;
+            Selection selection = null;
+            Dictionary<string, ClipboardEmail> snapshots = new Dictionary<string, ClipboardEmail>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                explorer = Application.ActiveExplorer();
+                selection = explorer?.Selection;
+                if (selection == null || selection.Count == 0)
+                {
+                    MessageBox.Show("Please select one or more emails first.", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                for (int index = 1; index <= selection.Count; index++)
+                {
+                    object selectedItem = null;
+                    try
+                    {
+                        selectedItem = selection[index];
+                        MailItem mail = selectedItem as MailItem;
+                        if (mail == null)
+                        {
+                            continue;
+                        }
+
+                        if (includeThreads)
+                        {
+                            AddConversationSnapshots(mail, snapshots);
+                        }
+                        else
+                        {
+                            AddClipboardSnapshot(mail, snapshots);
+                        }
+                    }
+                    finally
+                    {
+                        if (selectedItem != null)
+                        {
+                            System.Runtime.InteropServices.Marshal.ReleaseComObject(selectedItem);
+                        }
+                    }
+                }
+
+                if (snapshots.Count == 0)
+                {
+                    MessageBox.Show("None of the selected items are emails.", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                ClipboardEmailService clipboardService = new ClipboardEmailService();
+                string content = clipboardService.Format(snapshots.Values, includeFrontmatter);
+
+                if (clipboardService.ExceedsClipboardWarningSize(content))
+                {
+                    double sizeInMegabytes = System.Text.Encoding.Unicode.GetByteCount(content) / (1024d * 1024d);
+                    DialogResult largeContentChoice = MessageBox.Show(
+                        $"The generated text is {sizeInMegabytes:F1} MB. Very large clipboard contents may fail or be truncated by the receiving application."
+                            + Environment.NewLine + Environment.NewLine
+                            + "Choose Yes to save it as a text file, No to try the clipboard anyway, or Cancel to do nothing.",
+                        "Large Clipboard Content",
+                        MessageBoxButtons.YesNoCancel,
+                        MessageBoxIcon.Warning);
+
+                    if (largeContentChoice == DialogResult.Cancel)
+                    {
+                        return;
+                    }
+
+                    if (largeContentChoice == DialogResult.Yes)
+                    {
+                        SaveClipboardContentToFile(content, snapshots.Count, includeThreads);
+                        return;
+                    }
+                }
+
+                try
+                {
+                    Clipboard.SetText(content);
+                }
+                catch (System.Runtime.InteropServices.ExternalException ex)
+                {
+                    Logger.Instance.Debug($"Windows rejected clipboard content: {ex.Message}");
+                    OfferClipboardFileFallback(content, snapshots.Count, includeThreads);
+                    return;
+                }
+                catch (OutOfMemoryException ex)
+                {
+                    Logger.Instance.Debug($"Clipboard content exceeded available memory: {ex.Message}");
+                    OfferClipboardFileFallback(content, snapshots.Count, includeThreads);
+                    return;
+                }
+
+                string scope = includeThreads ? "thread email" : "selected email";
+                string noun = snapshots.Count == 1 ? scope : scope + "s";
+                MessageBox.Show($"Copied {snapshots.Count} {noun} to the clipboard.", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (System.Exception ex)
+            {
+                MessageBox.Show($"Error copying email contents: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                if (selection != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(selection);
+                if (explorer != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(explorer);
+                EndOperation();
+            }
+        }
+
+        private static void OfferClipboardFileFallback(string content, int emailCount, bool includesThreads)
+        {
+            DialogResult choice = MessageBox.Show(
+                "Windows could not place all of the generated email content on the clipboard. Save it as a UTF-8 text file instead?",
+                "Clipboard Copy Failed",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+            if (choice == DialogResult.Yes)
+            {
+                SaveClipboardContentToFile(content, emailCount, includesThreads);
+            }
+        }
+
+        private static bool SaveClipboardContentToFile(string content, int emailCount, bool includesThreads)
+        {
+            string scope = includesThreads ? "email-threads" : "emails";
+            string defaultFileName = $"SlingMD-{scope}-{DateTime.Now:yyyy-MM-dd-HHmmss}.txt";
+            using (SaveFileDialog dialog = new SaveFileDialog())
+            {
+                dialog.Title = $"Save {emailCount} Email{(emailCount == 1 ? string.Empty : "s")}";
+                dialog.Filter = "Text files (*.txt)|*.txt|Markdown files (*.md)|*.md|All files (*.*)|*.*";
+                dialog.DefaultExt = "txt";
+                dialog.AddExtension = true;
+                dialog.FileName = defaultFileName;
+                dialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                dialog.OverwritePrompt = true;
+
+                if (dialog.ShowDialog() != DialogResult.OK)
+                {
+                    return false;
+                }
+
+                File.WriteAllText(dialog.FileName, content ?? string.Empty, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                MessageBox.Show(
+                    $"Saved {emailCount} email{(emailCount == 1 ? string.Empty : "s")} to:{Environment.NewLine}{dialog.FileName}",
+                    "SlingMD",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return true;
+            }
+        }
+
+        private static void AddConversationSnapshots(MailItem selectedMail, Dictionary<string, ClipboardEmail> snapshots)
+        {
+            Conversation conversation = null;
+            SimpleItems roots = null;
+            try
+            {
+                conversation = selectedMail.GetConversation();
+                if (conversation == null)
+                {
+                    AddClipboardSnapshot(selectedMail, snapshots);
+                    return;
+                }
+
+                roots = conversation.GetRootItems();
+                AddConversationItems(roots, conversation, snapshots);
+            }
+            catch (System.Exception ex)
+            {
+                // Conversation expansion is unavailable for some stores/items. The selected mail is
+                // still useful, so fall back to it rather than failing the entire clipboard action.
+                Logger.Instance.Debug($"Could not expand Outlook conversation: {ex.Message}");
+                AddClipboardSnapshot(selectedMail, snapshots);
+            }
+            finally
+            {
+                if (roots != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(roots);
+                if (conversation != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(conversation);
+            }
+        }
+
+        private static void AddConversationItems(SimpleItems items, Conversation conversation, Dictionary<string, ClipboardEmail> snapshots)
+        {
+            if (items == null)
+            {
+                return;
+            }
+
+            object item = items.GetFirst();
+            while (item != null)
+            {
+                object current = item;
+                try
+                {
+                    MailItem mail = current as MailItem;
+                    if (mail != null)
+                    {
+                        AddClipboardSnapshot(mail, snapshots);
+                    }
+
+                    SimpleItems children = null;
+                    try
+                    {
+                        children = conversation.GetChildren(current);
+                        AddConversationItems(children, conversation, snapshots);
+                    }
+                    finally
+                    {
+                        if (children != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(children);
+                    }
+
+                    item = items.GetNext();
+                }
+                finally
+                {
+                    System.Runtime.InteropServices.Marshal.ReleaseComObject(current);
+                }
+            }
+        }
+
+        private static void AddClipboardSnapshot(MailItem mail, Dictionary<string, ClipboardEmail> snapshots)
+        {
+            ClipboardEmail snapshot = CreateClipboardSnapshot(mail);
+            string key = !string.IsNullOrWhiteSpace(snapshot.EntryId)
+                ? snapshot.EntryId
+                : snapshot.ConversationId + "|" + snapshot.SentOn.Ticks + "|" + snapshot.Subject;
+            if (!snapshots.ContainsKey(key))
+            {
+                snapshots.Add(key, snapshot);
+            }
+        }
+
+        private static ClipboardEmail CreateClipboardSnapshot(MailItem mail)
+        {
+            ClipboardEmail snapshot = new ClipboardEmail
+            {
+                EntryId = mail.EntryID ?? string.Empty,
+                ConversationId = mail.ConversationID ?? string.Empty,
+                Subject = mail.Subject ?? string.Empty,
+                SenderName = mail.SenderName ?? string.Empty,
+                SenderEmail = mail.SenderEmailAddress ?? string.Empty,
+                SentOn = mail.SentOn,
+                ReceivedTime = mail.ReceivedTime,
+                Body = mail.Body ?? string.Empty
+            };
+
+            Recipients recipients = null;
+            try
+            {
+                recipients = mail.Recipients;
+                foreach (Recipient recipient in recipients)
+                {
+                    try
+                    {
+                        string display = string.IsNullOrWhiteSpace(recipient.Address)
+                            ? recipient.Name
+                            : $"{recipient.Name} <{recipient.Address}>";
+                        if (recipient.Type == (int)OlMailRecipientType.olCC)
+                        {
+                            snapshot.Cc.Add(display);
+                        }
+                        else if (recipient.Type == (int)OlMailRecipientType.olTo)
+                        {
+                            snapshot.To.Add(display);
+                        }
+                    }
+                    finally
+                    {
+                        System.Runtime.InteropServices.Marshal.ReleaseComObject(recipient);
+                    }
+                }
+            }
+            finally
+            {
+                if (recipients != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(recipients);
+            }
+
+            return snapshot;
+        }
+
+        /// <summary>
         /// Removes a folder the picker created when the sling it was created for wrote nothing —
         /// a duplicate email, for instance, returns early without producing a note. Without this
         /// the vault accumulates empty folders from slings that visibly did nothing.

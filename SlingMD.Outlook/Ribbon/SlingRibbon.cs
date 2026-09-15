@@ -228,6 +228,26 @@ namespace SlingMD.Outlook.Ribbon
             }
         }
 
+        public void OnCopySelectedContentsClick(Office.IRibbonControl control)
+        {
+            _addIn.CopySelectedEmailsToClipboard(includeFrontmatter: false, includeThreads: false);
+        }
+
+        public void OnCopySelectedFrontmatterClick(Office.IRibbonControl control)
+        {
+            _addIn.CopySelectedEmailsToClipboard(includeFrontmatter: true, includeThreads: false);
+        }
+
+        public void OnCopyThreadsContentsClick(Office.IRibbonControl control)
+        {
+            _addIn.CopySelectedEmailsToClipboard(includeFrontmatter: false, includeThreads: true);
+        }
+
+        public void OnCopyThreadsFrontmatterClick(Office.IRibbonControl control)
+        {
+            _addIn.CopySelectedEmailsToClipboard(includeFrontmatter: true, includeThreads: true);
+        }
+
         public void OnSlingAllContactsClick(Office.IRibbonControl control)
         {
             try
@@ -306,4 +326,4 @@ namespace SlingMD.Outlook.Ribbon
 
         #endregion
     }
-} 
+}

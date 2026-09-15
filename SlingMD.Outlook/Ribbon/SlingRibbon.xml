@@ -21,6 +21,17 @@
                   getImage="GetCompleteThreadImage"
                   onAction="OnCompleteThreadClick"
                   supertip="Find and sling missing emails from the current email's thread"/>
+          <menu id="CopyEmailMenu"
+                label="Copy Email"
+                size="large"
+                imageMso="Copy"
+                supertip="Copy selected emails or their complete threads for pasting into an AI session">
+            <button id="CopySelectedContentsButton" label="Selected: Contents" onAction="OnCopySelectedContentsClick"/>
+            <button id="CopySelectedFrontmatterButton" label="Selected: Contents + Metadata" onAction="OnCopySelectedFrontmatterClick"/>
+            <menuSeparator id="CopyEmailSeparator"/>
+            <button id="CopyThreadsContentsButton" label="Complete Thread(s): Contents" onAction="OnCopyThreadsContentsClick"/>
+            <button id="CopyThreadsFrontmatterButton" label="Complete Thread(s): Contents + Metadata" onAction="OnCopyThreadsFrontmatterClick"/>
+          </menu>
         </group>
         <group id="SettingsGroup" label="Settings">
           <button id="SettingsButton"
@@ -54,4 +65,4 @@
       </tab>
     </tabs>
   </ribbon>
-</customUI> 
+</customUI>

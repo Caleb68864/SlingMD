@@ -88,6 +88,7 @@
     <Compile Include="Services\FileServiceTests.cs" />
     <Compile Include="Services\RuleEngineTests.cs" />
     <Compile Include="Services\ContactServiceTests.cs" />
+    <Compile Include="Services\ClipboardEmailServiceTests.cs" />
     <Compile Include="Services\ContactServiceMeetingTests.cs" />
     <Compile Include="Services\EmailProcessorTests.cs" />
     <Compile Include="Services\AppointmentProcessorTests.cs" />
