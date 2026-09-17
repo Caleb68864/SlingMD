@@ -858,7 +858,7 @@ namespace SlingMD.Outlook.Services
                 SenderEmail = _contactService.GetSenderEmail(mail),
                 Date = mail.ReceivedTime.ToString("yyyy-MM-dd"),
                 Timestamp = _dateFormatter.FormatOrDefault(mail.ReceivedTime, _settings.EmailDateFormat, _dateFormatter.Format(mail.ReceivedTime, "yyyy-MM-dd HH:mm:ss")),
-                Body = mail.Body ?? string.Empty,
+                Body = HtmlToMarkdownConverter.Convert(mail.HTMLBody, mail.Body),
                 TaskBlock = taskBlock,
                 FileName = fileNameNoExt + ".md",
                 FileNameWithoutExtension = fileNameNoExt,
@@ -1147,6 +1147,5 @@ namespace SlingMD.Outlook.Services
         }
     }
 }
-
 
 
