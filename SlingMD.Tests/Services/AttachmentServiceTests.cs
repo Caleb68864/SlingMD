@@ -271,5 +271,43 @@ namespace SlingMD.Tests.Services
             Assert.False(shouldSaveReal);
             Assert.False(shouldSaveInline);
         }
+
+        [Fact]
+        public void ResolveInlineImageLinks_ReplacesCidWithSavedImage()
+        {
+            AttachmentService service = BuildService(AttachmentStorageMode.SubfolderPerNote);
+            AttachmentInfo info = new AttachmentInfo();
+            info.SavedAttachments.Add(new SavedAttachment
+            {
+                FullPath = @"C:\Vault\MyVault\Inbox\email\logo.png",
+                ContentId = "<logo@example>",
+                IsInline = true
+            });
+
+            string result = service.ResolveInlineImageLinks(
+                "Before ![Logo](cid:logo@example) after", info,
+                @"C:\Vault\MyVault\Inbox\email.md");
+
+            Assert.Equal("Before ![[email/logo.png]] after", result);
+        }
+
+        [Fact]
+        public void ResolveInlineImageLinks_MarkdownMode_PreservesAltText()
+        {
+            AttachmentService service = BuildService(AttachmentStorageMode.SameAsNote, useWikilinks: false);
+            AttachmentInfo info = new AttachmentInfo();
+            info.SavedAttachments.Add(new SavedAttachment
+            {
+                FullPath = @"C:\Vault\MyVault\Inbox\logo.png",
+                ContentId = "logo@example",
+                IsInline = true
+            });
+
+            string result = service.ResolveInlineImageLinks(
+                "![Company logo](cid:logo@example)", info,
+                @"C:\Vault\MyVault\Inbox\email.md");
+
+            Assert.Equal("![Company logo](logo.png)", result);
+        }
     }
 }

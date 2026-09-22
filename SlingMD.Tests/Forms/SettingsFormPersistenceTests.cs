@@ -115,7 +115,7 @@ namespace SlingMD.Tests.Forms
                     AttachmentsFolder = "MyAttachments",
                     AttachmentStorageMode = AttachmentStorageMode.Centralized,
                     SaveRealAttachments = false,             // default true -> flip
-                    SaveInlineImages = true,                 // default false -> flip
+                    SaveInlineImages = false,                // default true -> flip
                     SaveAllAttachments = true,               // default false -> flip
                     UseObsidianWikilinks = false             // default true -> flip
                 };
@@ -172,7 +172,7 @@ namespace SlingMD.Tests.Forms
                 Assert.Equal("MyAttachments", reloaded.AttachmentsFolder);
                 Assert.Equal(AttachmentStorageMode.Centralized, reloaded.AttachmentStorageMode);
                 Assert.False(reloaded.SaveRealAttachments);
-                Assert.True(reloaded.SaveInlineImages);
+                Assert.False(reloaded.SaveInlineImages);
                 Assert.True(reloaded.SaveAllAttachments);
                 Assert.False(reloaded.UseObsidianWikilinks);
             });

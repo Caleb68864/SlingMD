@@ -25,6 +25,7 @@ namespace SlingMD.Outlook.Models
         public string Filename { get; set; }
         public string FullPath { get; set; }
         public bool IsInline { get; set; }
+        public string ContentId { get; set; }
         public long SizeBytes { get; set; }
     }
 

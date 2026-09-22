@@ -696,7 +696,7 @@ namespace SlingMD.Outlook.Forms
                     Id = "Attachments.SaveInlineImages",
                     Tab = "Attachments",
                     Title = "Save inline images",
-                    Summary = "Persists images embedded in the HTML body (including signature graphics) so they render in Obsidian. Off by default so signature images aren't saved."
+                    Summary = "Persists images embedded in the HTML body (including signature graphics) and links them from the note. On by default."
                 },
                 new HelpEntry
                 {

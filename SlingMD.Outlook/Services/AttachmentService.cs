@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using Microsoft.Office.Interop.Outlook;
 using SlingMD.Outlook.Infrastructure;
 using SlingMD.Outlook.Models;
@@ -69,6 +70,7 @@ namespace SlingMD.Outlook.Services
                             saved = SaveAttachment(attachment, targetFolder, isInline);
                             if (saved != null)
                             {
+                                saved.ContentId = signals.ContentId;
                                 info.SavedAttachments.Add(saved);
                             }
                         }
@@ -198,6 +200,35 @@ namespace SlingMD.Outlook.Services
             return (isInline && settings.SaveInlineImages)
                 || (!isInline && settings.SaveRealAttachments)
                 || settings.SaveAllAttachments;
+        }
+
+        /// <summary>Points HTML body cid images at the files saved in the vault.</summary>
+        internal string ResolveInlineImageLinks(string content, AttachmentInfo info, string noteFilePath)
+        {
+            if (string.IsNullOrEmpty(content) || info == null)
+            {
+                return content;
+            }
+
+            foreach (SavedAttachment saved in info.SavedAttachments)
+            {
+                if (!saved.IsInline || string.IsNullOrWhiteSpace(saved.ContentId))
+                {
+                    continue;
+                }
+
+                string contentId = saved.ContentId.Trim().Trim('<', '>');
+                string target = BuildAttachmentLinkTarget(saved.FullPath, noteFilePath);
+                string escapedTarget = Uri.EscapeUriString(target).Replace("#", "%23");
+                string pattern = @"!\[([^\]]*)\]\(cid:" + Regex.Escape(contentId) + @"\)";
+                content = Regex.Replace(content, pattern, match =>
+                    _settings.UseObsidianWikilinks
+                        ? $"![[{target}]]"
+                        : $"![{match.Groups[1].Value}]({escapedTarget})",
+                    RegexOptions.IgnoreCase);
+            }
+
+            return content;
         }
 
         /// <summary>

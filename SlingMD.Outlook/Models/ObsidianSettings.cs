@@ -180,9 +180,9 @@ namespace SlingMD.Outlook.Models
 
         /// <summary>
         /// Whether to save inline images from emails (signature/embedded images).
-        /// Default false so that real-attachments-only is the out-of-the-box behavior (issue #12).
+        /// Enabled by default so embedded email images appear in exported notes.
         /// </summary>
-        public bool SaveInlineImages { get; set; } = false;
+        public bool SaveInlineImages { get; set; } = true;
 
         /// <summary>
         /// Whether to save all email attachments (not just inline images).
@@ -811,5 +811,4 @@ namespace SlingMD.Outlook.Models
         }
     }
 }
-
 

@@ -463,6 +463,12 @@ namespace SlingMD.Outlook.Services
                                 {
                                     status.UpdateProgress("Processing attachments", 77);
                                     var attachmentInfo = _attachmentService.ProcessAttachments(mail, filePath);
+                                    string noteContent = File.ReadAllText(filePath);
+                                    string linkedContent = _attachmentService.ResolveInlineImageLinks(noteContent, attachmentInfo, filePath);
+                                    if (linkedContent != noteContent)
+                                    {
+                                        _fileService.WriteUtf8File(filePath, linkedContent);
+                                    }
 
                                     if (attachmentInfo.SavedAttachments.Count > 0)
                                     {
@@ -475,7 +481,7 @@ namespace SlingMD.Outlook.Services
                                             string wikilink = _attachmentService.GenerateWikilink(
                                                 attachment.FullPath,
                                                 filePath,
-                                                attachment.IsInline
+                                                false
                                             );
                                             attachmentSection.AppendLine(wikilink);
                                         }
@@ -535,6 +541,12 @@ namespace SlingMD.Outlook.Services
                             {
                                 status.UpdateProgress("Processing attachments", 77);
                                 var attachmentInfo = _attachmentService.ProcessAttachments(mail, filePath);
+                                string noteContent = File.ReadAllText(filePath);
+                                string linkedContent = _attachmentService.ResolveInlineImageLinks(noteContent, attachmentInfo, filePath);
+                                if (linkedContent != noteContent)
+                                {
+                                    _fileService.WriteUtf8File(filePath, linkedContent);
+                                }
 
                                 if (attachmentInfo.SavedAttachments.Count > 0)
                                 {
@@ -547,7 +559,7 @@ namespace SlingMD.Outlook.Services
                                         string wikilink = _attachmentService.GenerateWikilink(
                                             attachment.FullPath,
                                             filePath,
-                                            attachment.IsInline
+                                            false
                                         );
                                         attachmentSection.AppendLine(wikilink);
                                     }
@@ -1147,5 +1159,3 @@ namespace SlingMD.Outlook.Services
         }
     }
 }
-
-

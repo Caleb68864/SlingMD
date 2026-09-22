@@ -49,10 +49,11 @@ namespace SlingMD.Tests.Services
         [Fact]
         public void ShouldProcessAttachments_DefaultSettings_ReturnsTrue()
         {
-            // Out-of-the-box defaults: SaveRealAttachments=true, SaveInlineImages/All=false.
+            // Out-of-the-box defaults save both file attachments and inline images.
             ObsidianSettings settings = new ObsidianSettings();
 
             Assert.True(settings.SaveRealAttachments);
+            Assert.True(settings.SaveInlineImages);
             Assert.True(EmailProcessor.ShouldProcessAttachments(settings));
         }
 
