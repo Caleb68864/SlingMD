@@ -170,8 +170,10 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         /// <param name="emailPath">Absolute path of the markdown file to move.</param>
         /// <param name="threadFolderPath">Destination folder for the thread.</param>
+        /// <param name="threadNoteName">Thread name (without the <c>0-</c> prefix). When supplied, the moved
+        /// note receives the <c>threadNote</c> front-matter field that notes written straight into a thread get.</param>
         /// <returns>The absolute path of the moved file in its new location.</returns>
-        public string MoveToThreadFolder(string emailPath, string threadFolderPath)
+        public string MoveToThreadFolder(string emailPath, string threadFolderPath, string threadNoteName = null)
         {
             string fileName = Path.GetFileName(emailPath);
             string newFileName = fileName;
@@ -278,7 +280,6 @@ namespace SlingMD.Outlook.Services
                     threadPath = resolved;
                 }
                 File.Move(emailPath, threadPath);
-                return threadPath;
             }
             catch (System.Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {
@@ -288,6 +289,191 @@ namespace SlingMD.Outlook.Services
                 Helpers.Logger.Instance.Warning($"ThreadService.MoveToThreadFolder: could not move '{emailPath}' to '{threadPath}': {ex.Message}");
                 return File.Exists(emailPath) ? emailPath : threadPath;
             }
+
+            // The note was written as a standalone email, so bring along what it owns and give it
+            // the field that ties it to the thread summary.
+            RelocateNoteCompanions(emailPath, threadPath);
+            if (!string.IsNullOrEmpty(threadNoteName))
+            {
+                try
+                {
+                    string content = File.ReadAllText(threadPath);
+                    string updated = AddThreadNoteField(content, threadNoteName);
+                    if (updated != content)
+                    {
+                        _fileService.WriteUtf8File(threadPath, updated);
+                    }
+                }
+                catch (System.Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                {
+                    Helpers.Logger.Instance.Warning($"ThreadService.MoveToThreadFolder: could not add threadNote to '{threadPath}': {ex.Message}");
+                }
+            }
+            return threadPath;
+        }
+
+        /// <summary>
+        /// Inserts a <c>threadNote</c> field at the end of the note's front-matter unless one is already present.
+        /// </summary>
+        internal static string AddThreadNoteField(string content, string threadNoteName)
+        {
+            if (string.IsNullOrEmpty(content) || string.IsNullOrEmpty(threadNoteName) || !content.StartsWith("---"))
+            {
+                return content;
+            }
+
+            Match closing = Regex.Match(content, @"\r?\n---[ \t]*(?:\r?\n|$)");
+            if (!closing.Success)
+            {
+                return content;
+            }
+
+            string frontMatter = content.Substring(0, closing.Index);
+            if (Regex.IsMatch(frontMatter, @"(?:^|\n)threadNote:", RegexOptions.IgnoreCase))
+            {
+                return content;
+            }
+
+            string newLine = closing.Value.StartsWith("\r") ? "\r\n" : "\n";
+            return frontMatter + newLine + $"threadNote: \"[[0-{threadNoteName}]]\"" + content.Substring(closing.Index);
+        }
+
+        /// <summary>
+        /// Keeps a note's attachments and self-references intact after the note file has been moved
+        /// or renamed from <paramref name="oldNotePath"/> to <paramref name="newNotePath"/>:
+        /// the per-note attachment folder follows the note under its new name, attachments stored
+        /// beside the note follow it into a new directory, and links inside the note are rewritten
+        /// to match. Failures are logged and never abort the export.
+        /// </summary>
+        internal void RelocateNoteCompanions(string oldNotePath, string newNotePath)
+        {
+            try
+            {
+                string oldDir = Path.GetDirectoryName(oldNotePath);
+                string newDir = Path.GetDirectoryName(newNotePath);
+                string oldName = Path.GetFileNameWithoutExtension(oldNotePath);
+                string newName = Path.GetFileNameWithoutExtension(newNotePath);
+                bool sameDir = string.Equals(oldDir, newDir, StringComparison.OrdinalIgnoreCase);
+                if (sameDir && string.Equals(oldName, newName, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                string content = File.ReadAllText(newNotePath);
+                string updated = content;
+
+                string oldFolder = Path.Combine(oldDir, oldName);
+                string newFolder = Path.Combine(newDir, newName);
+
+                // The note was grouped with its attachments (it lived in a folder of its own name).
+                // What is left in that folder becomes the note's attachment folder at the new
+                // location, and the bare links that worked while they were siblings gain the folder.
+                bool wasGrouped = !sameDir
+                    && string.Equals(Path.GetFileName(oldDir), oldName, StringComparison.OrdinalIgnoreCase);
+                if (wasGrouped)
+                {
+                    if (!Directory.EnumerateFileSystemEntries(oldDir).Any())
+                    {
+                        Directory.Delete(oldDir);
+                    }
+                    else if (!Directory.Exists(newFolder)
+                        && !File.Exists(newFolder)
+                        && Directory.GetFiles(oldDir, "*.md", SearchOption.TopDirectoryOnly).Length == 0)
+                    {
+                        Directory.Move(oldDir, newFolder);
+                        string newEscaped = Uri.EscapeUriString(newName).Replace("#", "%23");
+                        foreach (string attachment in Directory.GetFiles(newFolder).Select(Path.GetFileName))
+                        {
+                            // Inline images are linked URL-escaped in markdown mode; the attachment
+                            // list is not.
+                            string escaped = Uri.EscapeUriString(attachment).Replace("#", "%23");
+                            updated = updated
+                                .Replace("[[" + attachment + "]]", "[[" + newName + "/" + attachment + "]]")
+                                .Replace("](" + escaped + ")", "](" + newEscaped + "/" + escaped + ")");
+                            if (escaped != attachment)
+                            {
+                                updated = updated.Replace("](" + attachment + ")", "](" + newName + "/" + attachment + ")");
+                            }
+                        }
+                    }
+                }
+                // Attachment folder named after the note (AttachmentStorageMode.SubfolderPerNote).
+                // A folder that holds markdown is a thread folder that happens to share the name.
+                else if (Directory.Exists(oldFolder)
+                    && !Directory.Exists(newFolder)
+                    && !File.Exists(newFolder)
+                    && Directory.GetFiles(oldFolder, "*.md", SearchOption.TopDirectoryOnly).Length == 0)
+                {
+                    Directory.Move(oldFolder, newFolder);
+                    if (!string.Equals(oldName, newName, StringComparison.Ordinal))
+                    {
+                        string oldEscaped = Uri.EscapeUriString(oldName).Replace("#", "%23");
+                        string newEscaped = Uri.EscapeUriString(newName).Replace("#", "%23");
+                        updated = updated
+                            .Replace("[[" + oldName + "/", "[[" + newName + "/")
+                            .Replace("](" + oldName + "/", "](" + newName + "/")
+                            .Replace("](" + oldEscaped + "/", "](" + newEscaped + "/");
+                    }
+                }
+
+                // Attachments stored beside the note (AttachmentStorageMode.SameAsNote).
+                if (!sameDir && !wasGrouped)
+                {
+                    foreach (string target in FindSameFolderLinkTargets(updated))
+                    {
+                        string source = Path.Combine(oldDir, target);
+                        string destination = Path.Combine(newDir, target);
+                        if (File.Exists(source) && !File.Exists(destination))
+                        {
+                            File.Move(source, destination);
+                        }
+                    }
+                }
+
+                // The Obsidian task block links back to the note by file name.
+                if (!string.Equals(oldName, newName, StringComparison.Ordinal))
+                {
+                    updated = updated
+                        .Replace("[[" + oldName + "]]", "[[" + newName + "]]")
+                        .Replace("[[" + oldName + "|", "[[" + newName + "|");
+                }
+
+                if (updated != content)
+                {
+                    _fileService.WriteUtf8File(newNotePath, updated);
+                }
+            }
+            catch (System.Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
+            {
+                Helpers.Logger.Instance.Warning(
+                    $"ThreadService: could not carry attachments from '{oldNotePath}' to '{newNotePath}': {ex.Message}");
+            }
+        }
+
+        private static readonly Regex WikilinkTargetRegex = new Regex(@"\[\[([^\]\|#]+)(?:[\|#][^\]]*)?\]\]", RegexOptions.Compiled);
+        private static readonly Regex MarkdownLinkTargetRegex = new Regex(@"\]\(([^)\s]+)\)", RegexOptions.Compiled);
+
+        /// <summary>
+        /// Returns the bare file names (no folder segment, not markdown) that the note links to.
+        /// </summary>
+        private static IEnumerable<string> FindSameFolderLinkTargets(string content)
+        {
+            HashSet<string> targets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (Match match in WikilinkTargetRegex.Matches(content))
+            {
+                targets.Add(match.Groups[1].Value.Trim());
+            }
+            foreach (Match match in MarkdownLinkTargetRegex.Matches(content))
+            {
+                targets.Add(Uri.UnescapeDataString(match.Groups[1].Value));
+            }
+
+            char[] invalidChars = Path.GetInvalidFileNameChars();
+            return targets
+                .Where(target => target.Length > 0 && target.IndexOfAny(invalidChars) < 0)
+                .Where(target => !string.IsNullOrEmpty(Path.GetExtension(target))
+                    && !string.Equals(Path.GetExtension(target), ".md", StringComparison.OrdinalIgnoreCase))
+                .ToList();
         }
 
         /// <summary>
@@ -297,8 +483,9 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         /// <param name="conversationId">Identifier created by <see cref="GetConversationId"/>.</param>
         /// <param name="inboxPath">Absolute path to the vault inbox folder.</param>
-        /// <returns>Tuple containing: <c>hasExistingThread</c>, the original thread name (if found), 
-        /// the earliest email date in the thread and a count of matching messages.</returns>
+        /// <returns>Tuple containing: <c>hasExistingThread</c>, the name of the thread folder the conversation
+        /// already lives in (<c>null</c> when it has none yet), the earliest email date in the thread and a
+        /// count of matching messages.</returns>
         public (bool hasExistingThread, string earliestEmailThreadName, DateTime? earliestEmailDate, int emailCount) 
             FindExistingThread(string conversationId, string inboxPath)
         {
@@ -306,6 +493,7 @@ namespace SlingMD.Outlook.Services
             DateTime? earliestEmailDate = null;
             string earliestEmailThreadName = null;
             int emailCount = 0;
+            DateTime? threadFolderDate = null;
             List<string> matchingFiles = new List<string>(); // Track matching files for debugging
 
             try
@@ -330,50 +518,52 @@ namespace SlingMD.Outlook.Services
                         // If this file belongs to the conversation thread
                         if (fileThreadId == conversationId)
                         {
+                            // Compare full, separator-normalized paths case-insensitively so a casing
+                            // or trailing-slash difference doesn't misclassify an inbox note.
+                            string directory = Path.GetDirectoryName(file);
+                            bool inInboxRoot = string.Equals(
+                                Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar),
+                                Path.GetFullPath(inboxPath).TrimEnd(Path.DirectorySeparatorChar),
+                                StringComparison.OrdinalIgnoreCase);
+
+                            // Notes filed in any other subfolder (e.g. a batch-sling folder) are not
+                            // part of a thread: adopting that folder as the thread would rename every
+                            // note in it.
+                            bool inNoteFolder = !inInboxRoot && IsNoteFolder(file, inboxPath);
+                            if (!inInboxRoot && !inNoteFolder && !IsThreadFolder(directory, inboxPath))
+                            {
+                                continue;
+                            }
+
+                            // A note grouped with its attachments is still a standalone inbox note.
+                            inInboxRoot = inInboxRoot || inNoteFolder;
+
                             hasExistingThread = true;
                             emailCount++; // Increment email count for each matching email
                             matchingFiles.Add(file); // Add to our debugging list
 
                             // Parse the date to find the earliest email.
+                            DateTime emailDate = default(DateTime);
                             string rawDate = _frontmatter.ExtractRawDate(emailContent);
-                            if (rawDate != null)
+                            bool hasDate = rawDate != null && TryParseThreadDate(rawDate, out emailDate);
+                            if (hasDate && (!earliestEmailDate.HasValue || emailDate < earliestEmailDate.Value))
                             {
-                                DateTime emailDate;
-                                if (TryParseThreadDate(rawDate, out emailDate))
+                                earliestEmailDate = emailDate;
+                            }
+
+                            // An existing thread folder always wins, even when an older email of the
+                            // conversation is still sitting in the inbox root — otherwise the thread
+                            // would be split across two folders. With several folders, the one holding
+                            // the oldest note is used. When no folder exists yet the name stays null
+                            // and the caller derives it from the email being processed.
+                            if (!inInboxRoot
+                                && (earliestEmailThreadName == null
+                                    || (hasDate && (!threadFolderDate.HasValue || emailDate < threadFolderDate.Value))))
+                            {
+                                earliestEmailThreadName = Path.GetFileName(directory);
+                                if (hasDate)
                                 {
-                                    if (!earliestEmailDate.HasValue || emailDate < earliestEmailDate.Value)
-                                    {
-                                        earliestEmailDate = emailDate;
-
-                                        // Check if this email is in a thread folder. Compare full,
-                                        // separator-normalized paths case-insensitively so a casing or
-                                        // trailing-slash difference doesn't misclassify an inbox note.
-                                        string directory = Path.GetDirectoryName(file);
-                                        if (!string.Equals(
-                                                Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar),
-                                                Path.GetFullPath(inboxPath).TrimEnd(Path.DirectorySeparatorChar),
-                                                StringComparison.OrdinalIgnoreCase))
-                                        {
-                                            earliestEmailThreadName = Path.GetFileName(directory);
-                                        }
-                                        else
-                                        {
-                                            // Reconstruct a thread name from the frontmatter title/from/to fields.
-                                            string title = _frontmatter.ExtractTitle(emailContent);
-                                            string sender = _frontmatter.ExtractFromName(emailContent);
-                                            string recipient = _frontmatter.ExtractFirstToName(emailContent);
-
-                                            if (title != null && sender != null && recipient != null)
-                                            {
-                                                string subject = _fileService.CleanFileName(title);
-                                                if (subject.Length > 50)
-                                                {
-                                                    subject = subject.Substring(0, 47) + "...";
-                                                }
-                                                earliestEmailThreadName = $"{subject}-{sender}-{recipient}";
-                                            }
-                                        }
-                                    }
+                                    threadFolderDate = emailDate;
                                 }
                             }
                         }
@@ -403,6 +593,37 @@ namespace SlingMD.Outlook.Services
             }
 
             return (hasExistingThread, earliestEmailThreadName, earliestEmailDate, emailCount);
+        }
+
+        /// <summary>
+        /// A note folder sits directly inside the inbox, shares the note's name and holds the note
+        /// together with its attachments (<see cref="ObsidianSettings.GroupNoteWithAttachments"/>).
+        /// </summary>
+        private static bool IsNoteFolder(string notePath, string inboxPath)
+        {
+            string directory = Path.GetFullPath(Path.GetDirectoryName(notePath)).TrimEnd(Path.DirectorySeparatorChar);
+            return string.Equals(Path.GetFileName(directory), Path.GetFileNameWithoutExtension(notePath), StringComparison.OrdinalIgnoreCase)
+                && string.Equals(
+                    Path.GetDirectoryName(directory),
+                    Path.GetFullPath(inboxPath).TrimEnd(Path.DirectorySeparatorChar),
+                    StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// A thread folder sits directly inside the inbox and contains a <c>0-</c> summary note.
+        /// </summary>
+        private static bool IsThreadFolder(string directory, string inboxPath)
+        {
+            string parent = Path.GetDirectoryName(Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar));
+            if (!string.Equals(
+                    parent,
+                    Path.GetFullPath(inboxPath).TrimEnd(Path.DirectorySeparatorChar),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return Directory.GetFiles(directory, "0-*.md", SearchOption.TopDirectoryOnly).Length > 0;
         }
 
         /// <summary>
@@ -440,6 +661,27 @@ namespace SlingMD.Outlook.Services
             return false;
         }
 
+        /// <summary>
+        /// Parses a note's <c>date</c> front-matter value the way <see cref="ResuffixThreadNotes"/> does.
+        /// </summary>
+        internal static bool TryParseNoteDate(string value, out DateTime date)
+        {
+            return DateTime.TryParseExact(value, "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out date)
+                || DateTime.TryParse(value, out date);
+        }
+
+        /// <summary>
+        /// Returns the file name (without extension) a note carries inside a thread folder:
+        /// a <c>yyyy-MM-dd_HHmmss</c> prefix followed by the base name stripped of its own date and
+        /// temporary decorations. Standalone notes are written under this name too, so that a note
+        /// keeps its name — and links to it keep resolving — when it later moves into a thread.
+        /// </summary>
+        public string GetThreadedNoteName(string nameNoExt, DateTime date)
+        {
+            string datePrefix = date.ToString("yyyy-MM-dd_HHmmss", System.Globalization.CultureInfo.InvariantCulture);
+            return $"{datePrefix}_{_legacyFilenameStripper.Strip(nameNoExt)}";
+        }
+
         public string ResuffixThreadNotes(string threadFolderPath, string baseName, string currentEmailPath = null)
         {
             if (!Directory.Exists(threadFolderPath)) return null;
@@ -463,10 +705,8 @@ namespace SlingMD.Outlook.Services
                     if (inFrontMatter && line.Trim().StartsWith("date:", StringComparison.OrdinalIgnoreCase))
                     {
                         var value = line.Trim().Substring("date:".Length).Trim().Trim('"');
-                        if (DateTime.TryParseExact(value, "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsed))
+                        if (TryParseNoteDate(value, out DateTime parsed))
                             date = parsed;
-                        else if (DateTime.TryParse(value, out var fallback))
-                            date = fallback;
                         break;
                     }
                 }
@@ -526,6 +766,7 @@ namespace SlingMD.Outlook.Services
                     try
                     {
                         File.Move(fd.file, newPath);
+                        RelocateNoteCompanions(fd.file, newPath);
                     }
                     catch (System.Exception ex)
                     {

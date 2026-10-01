@@ -286,5 +286,28 @@ namespace SlingMD.Tests.Services
 
             Assert.NotNull(processor);
         }
+
+        // GetVaultRelativePath — the path handed to Obsidian must start at the vault root.
+
+        [Fact]
+        public void GetVaultRelativePath_NoteInThreadFolder_IncludesInboxSegments()
+        {
+            ObsidianSettings settings = new ObsidianSettings { VaultBasePath = @"C:\Notes", VaultName = "Vault", InboxFolder = @"Caleb\Inbox" };
+            EmailProcessor processor = new EmailProcessor(settings);
+
+            string relative = processor.GetVaultRelativePath(@"C:\Notes\Vault\Caleb\Inbox\Budget review-SaraA-CalebB\2026-09-23_181852_Budget review-SaraA.md");
+
+            Assert.Equal("Caleb/Inbox/Budget review-SaraA-CalebB/2026-09-23_181852_Budget review-SaraA.md", relative);
+        }
+
+        [Fact]
+        public void GetVaultRelativePath_PathOutsideVault_ReturnsNull()
+        {
+            ObsidianSettings settings = new ObsidianSettings { VaultBasePath = @"C:\Notes", VaultName = "Vault" };
+            EmailProcessor processor = new EmailProcessor(settings);
+
+            Assert.Null(processor.GetVaultRelativePath(@"C:\Elsewhere\note.md"));
+            Assert.Null(processor.GetVaultRelativePath(@"C:\Notes\VaultTwo\note.md"));
+        }
     }
 }

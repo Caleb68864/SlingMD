@@ -25,6 +25,11 @@ namespace SlingMD.Outlook.Models
         public bool EnableContactFuzzyMatching { get; set; } = false;
         public bool AutoSaveAliasOnMatchConfirmed { get; set; } = true;
         public bool LaunchObsidian { get; set; } = true;
+
+        /// <summary>
+        /// Whether the full path of the saved note is copied to the clipboard after a manual sling.
+        /// </summary>
+        public bool CopyNotePathToClipboard { get; set; } = true;
         public int ObsidianDelaySeconds { get; set; } = 1;
         public bool ShowCountdown { get; set; } = true;
         public bool CreateObsidianTask { get; set; } = true;
@@ -47,6 +52,13 @@ namespace SlingMD.Outlook.Models
         public int DefaultReminderHour { get; set; } = 9;
         public bool AskForDates { get; set; } = false;
         public bool GroupEmailThreads { get; set; } = true;
+
+        /// <summary>
+        /// Whether every email gets a thread folder on its first sling, instead of only once a
+        /// second email of the conversation arrives. The note then never moves. Requires
+        /// <see cref="GroupEmailThreads"/>. Off by default.
+        /// </summary>
+        public bool AlwaysCreateThreadFolder { get; set; } = false;
         public bool ShowDevelopmentSettings { get; set; } = false;
         public bool ShowThreadDebug { get; set; } = false;
         public bool HasShownSupportPrompt { get; set; } = false;
@@ -195,6 +207,29 @@ namespace SlingMD.Outlook.Models
         public bool SaveRealAttachments { get; set; } = true;
 
         /// <summary>
+        /// Whether an attachment whose content is identical to one already saved under the inbox
+        /// is stored once in the shared attachments folder and linked from there, instead of being
+        /// written again next to every note (e.g. signature logos). Off by default.
+        /// </summary>
+        public bool ReuseDuplicateAttachments { get; set; } = false;
+
+        /// <summary>
+        /// With <see cref="AttachmentStorageMode.SubfolderPerNote"/>, whether an email note that has
+        /// saved attachments is placed inside its attachment folder, so the folder holds the note
+        /// together with its files. Notes inside a thread folder are not grouped. Off by default.
+        /// </summary>
+        public bool GroupNoteWithAttachments { get; set; } = false;
+
+        /// <summary>
+        /// Returns the folder that holds attachments shared between notes when
+        /// <see cref="ReuseDuplicateAttachments"/> is enabled. It never moves with a note.
+        /// </summary>
+        public string GetSharedAttachmentsPath()
+        {
+            return Path.Combine(GetFullVaultPath(), string.IsNullOrWhiteSpace(AttachmentsFolder) ? "Attachments" : AttachmentsFolder, "Shared");
+        }
+
+        /// <summary>
         /// Whether to use Obsidian wikilinks (![[image.png]]) or standard markdown (![image.png](image.png)).
         /// </summary>
         public bool UseObsidianWikilinks { get; set; } = true;
@@ -337,6 +372,13 @@ namespace SlingMD.Outlook.Models
         /// </summary>
         internal const string FixedPrefixPattern = @"(?:\b(?:Re|Fwd|FW|RE|FWD)[:\s_-])+";
 
+        /// <summary>
+        /// A former default that deleted every run of two or more separators. Because cleanup
+        /// patterns replace with nothing, it removed " - " outright and fused the words on either
+        /// side ("Renewal Meeting - BOT DOC" became "Renewal MeetingBOT DOC"). Used for migration only.
+        /// </summary>
+        internal const string LegacySeparatorRunPattern = @"[-_\s]{2,}";
+
         private static List<string> CreateDefaultSubjectCleanupPatterns()
         {
             return new List<string>
@@ -353,7 +395,6 @@ namespace SlingMD.Outlook.Models
                 @"\[Encrypted\]\s*",
                 @"\[SPAM\]\s*",
                 @"^\s+|\s+$",
-                @"[-_\s]{2,}",
                 @"^-+|-+$"
             };
         }
@@ -746,6 +787,10 @@ namespace SlingMD.Outlook.Models
                     SubjectCleanupPatterns[i] = FixedPrefixPattern;
                 }
             }
+
+            // Whitespace and separator runs are already collapsed by SubjectCleanerService and
+            // FileNameSanitizer, so the word-fusing legacy pattern is simply dropped.
+            SubjectCleanupPatterns.RemoveAll(pattern => pattern == LegacySeparatorRunPattern);
         }
 
         private static void ValidateFolderName(string value, string label, char[] invalidChars)

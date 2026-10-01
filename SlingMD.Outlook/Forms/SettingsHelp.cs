@@ -189,6 +189,13 @@ namespace SlingMD.Outlook.Forms
                 },
                 new HelpEntry
                 {
+                    Id = "General.CopyNotePathToClipboard",
+                    Tab = "General",
+                    Title = "Copy note path to clipboard after saving",
+                    Summary = "Puts the full file path of the saved note on the clipboard when you sling an email by hand, ready to paste elsewhere. Automatic and batch slings leave the clipboard alone. On by default."
+                },
+                new HelpEntry
+                {
                     Id = "General.ShowCountdown",
                     Tab = "General",
                     Title = "Show countdown",
@@ -650,6 +657,14 @@ namespace SlingMD.Outlook.Forms
                 },
                 new HelpEntry
                 {
+                    Id = "Threading.AlwaysCreateThreadFolder",
+                    Tab = "Threading",
+                    Title = "Always create a thread folder",
+                    Summary = "Files every email into a thread folder with a summary note on its first sling, so a note never moves when a reply arrives later. Off by default.",
+                    Description = "Without this, a single email stays loose in the inbox and is moved into a thread folder when a second email of the conversation is slung. Either way the note keeps the same file name, so links to it keep working."
+                },
+                new HelpEntry
+                {
                     Id = "Threading.MoveDateToFrontInThread",
                     Tab = "Threading",
                     Title = "Move date to front in thread filename",
@@ -711,6 +726,20 @@ namespace SlingMD.Outlook.Forms
                     Tab = "Attachments",
                     Title = "Use Obsidian wikilinks",
                     Summary = "Links attachments as ![[file.png]] rather than standard markdown ![alt](file.png)."
+                },
+                new HelpEntry
+                {
+                    Id = "Attachments.ReuseDuplicateAttachments",
+                    Tab = "Attachments",
+                    Title = "Reuse duplicate attachments",
+                    Summary = "Stores a file that is byte-for-byte identical to one already saved (signature logos, repeated forwards) once in <Attachments Folder>/Shared and links every later note to that copy. Off by default."
+                },
+                new HelpEntry
+                {
+                    Id = "Attachments.GroupNoteWithAttachments",
+                    Tab = "Attachments",
+                    Title = "Put note in its attachment folder",
+                    Summary = "With 'Subfolder per note', moves an email note that has saved attachments into the folder named after it, so the note and its files sit together. Emails without attachments stay as single files, and notes inside a thread folder are not grouped. Off by default."
                 },
 
                 // ===== Auto-Sling =====

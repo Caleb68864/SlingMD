@@ -373,8 +373,14 @@ namespace SlingMD.Outlook.Services
                             fileName = tempFileName;
                             fileNameNoExt = Path.GetFileNameWithoutExtension(tempFileName);
 
-                            // Move all existing emails for this thread to the thread folder
-                            var mdFiles = Directory.GetFiles(_settings.GetInboxPath(), "*.md", SearchOption.TopDirectoryOnly);
+                            // Move all existing emails for this thread to the thread folder. Notes
+                            // grouped with their attachments live one level down, in a folder that
+                            // shares their name.
+                            var mdFiles = Directory.GetFiles(_settings.GetInboxPath(), "*.md", SearchOption.TopDirectoryOnly)
+                                .Concat(Directory.GetDirectories(_settings.GetInboxPath())
+                                    .Select(dir => Path.Combine(dir, Path.GetFileName(dir) + ".md"))
+                                    .Where(File.Exists))
+                                .ToArray();
                             foreach (var file in mdFiles)
                             {
                                 // Read front matter to get threadId. One locked/unreadable neighbour
@@ -418,7 +424,7 @@ namespace SlingMD.Outlook.Services
                                     // Only move if not already in the thread folder
                                     if (Path.GetDirectoryName(file) != threadFolderPath)
                                     {
-                                        _threadService.MoveToThreadFolder(file, threadFolderPath);
+                                        _threadService.MoveToThreadFolder(file, threadFolderPath, threadNoteName);
                                     }
                                 }
                             }
@@ -541,6 +547,7 @@ namespace SlingMD.Outlook.Services
                             {
                                 status.UpdateProgress("Processing attachments", 77);
                                 var attachmentInfo = _attachmentService.ProcessAttachments(mail, filePath);
+                                filePath = _attachmentService.GroupNoteWithAttachments(filePath);
                                 string noteContent = File.ReadAllText(filePath);
                                 string linkedContent = _attachmentService.ResolveInlineImageLinks(noteContent, attachmentInfo, filePath);
                                 if (linkedContent != noteContent)
@@ -686,6 +693,20 @@ namespace SlingMD.Outlook.Services
                 }
             }
             
+            // Copy the saved note's path for pasting elsewhere. Skipped in bulk mode so background
+            // and batch slings never overwrite what the user has on the clipboard.
+            if (!bulkMode && _settings.CopyNotePathToClipboard && !string.IsNullOrEmpty(filePath))
+            {
+                try
+                {
+                    Clipboard.SetText(filePath);
+                }
+                catch (System.Exception ex) when (ex is System.Runtime.InteropServices.ExternalException || ex is System.Threading.ThreadStateException)
+                {
+                    Logger.Instance.Warning($"EmailProcessor: could not copy note path to clipboard: {ex.Message}");
+                }
+            }
+
             // Launch Obsidian if enabled. Suppressed in bulk mode — the batch caller launches once
             // at the end instead of once per email.
             if (!bulkMode && _settings.LaunchObsidian)
@@ -705,8 +726,9 @@ namespace SlingMD.Outlook.Services
                         await Task.Delay(_settings.ObsidianDelaySeconds * 1000);
                     }
 
-                    // Always use the latest obsidianLinkPath (updated after resuffixing)
-                    _fileService.LaunchObsidian(_settings.VaultName, obsidianLinkPath);
+                    // Open by the note's path from the vault root. A thread-relative path such as
+                    // "Thread/Note" only resolves when the inbox is the vault root itself.
+                    _fileService.LaunchObsidian(_settings.VaultName, GetVaultRelativePath(filePath) ?? obsidianLinkPath);
                 }
                 catch (System.Exception ex)
                 {
@@ -718,6 +740,28 @@ namespace SlingMD.Outlook.Services
         }
 
         private string CleanSubject(string subject) => _subjectFilenameCleaner.Clean(subject);
+
+        /// <summary>
+        /// Returns <paramref name="path"/> relative to the vault root with forward slashes, or
+        /// <c>null</c> when it does not lie inside the vault.
+        /// </summary>
+        internal string GetVaultRelativePath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return null;
+            }
+
+            string vaultRoot = _settings.GetFullVaultPath().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (path.Length <= vaultRoot.Length + 1
+                || !path.StartsWith(vaultRoot, StringComparison.OrdinalIgnoreCase)
+                || (path[vaultRoot.Length] != Path.DirectorySeparatorChar && path[vaultRoot.Length] != Path.AltDirectorySeparatorChar))
+            {
+                return null;
+            }
+
+            return path.Substring(vaultRoot.Length + 1).Replace('\\', '/');
+        }
 
         private string GetFirstRecipient(MailItem mail)
         {
@@ -932,7 +976,8 @@ namespace SlingMD.Outlook.Services
             bool hasExistingThread = threadInfo.hasExistingThread;
             string earliestEmailThreadName = threadInfo.earliestEmailThreadName;
             int emailCount = threadInfo.emailCount;
-            bool shouldGroupThread = hasExistingThread && _settings.GroupEmailThreads && emailCount >= 1;
+            bool shouldGroupThread = _settings.GroupEmailThreads
+                && ((hasExistingThread && emailCount >= 1) || _settings.AlwaysCreateThreadFolder);
 
             if (shouldGroupThread)
             {
@@ -942,6 +987,18 @@ namespace SlingMD.Outlook.Services
             }
 
             string fileNameNoExtResult = BuildEmailBaseFileName(mail, subjectClean, senderClean, fileDateTime, shouldGroupThread);
+            if (!shouldGroupThread && _settings.GroupEmailThreads)
+            {
+                // Give a standalone note the name it would have inside a thread, derived from the
+                // same front-matter date the thread rename pass reads. Moving it into a thread
+                // folder later then keeps its name, so the Obsidian task link and links from other
+                // notes don't break when a reply is slung.
+                string frontMatterDate = _dateFormatter.FormatOrDefault(mail.ReceivedTime, _settings.EmailDateFormat, _dateFormatter.Format(mail.ReceivedTime, "yyyy-MM-dd HH:mm:ss"));
+                if (ThreadService.TryParseNoteDate(frontMatterDate, out DateTime noteDate))
+                {
+                    fileNameNoExtResult = _threadService.GetThreadedNoteName(fileNameNoExtResult, noteDate);
+                }
+            }
             string fileName = fileNameNoExtResult + ".md";
             string filePath = shouldGroupThread
                 ? Path.Combine(threadFolderPath, fileName)

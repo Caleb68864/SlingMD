@@ -17,6 +17,8 @@ namespace SlingMD.Outlook.Forms
         private TextBox txtVaultPath;
         private Button btnBrowse;
         private CheckBox chkLaunchObsidian;
+        private CheckBox chkCopyNotePathToClipboard;
+        private CheckBox chkAlwaysCreateThreadFolder;
         private CheckBox chkShowCountdown;
         private NumericUpDown numDelay;
         private TextBox txtTemplatesFolder;
@@ -95,6 +97,8 @@ namespace SlingMD.Outlook.Forms
         private TextBox txtAttachmentsFolder;
         private ComboBox cmbAttachmentStorageMode;
         private CheckBox chkSaveRealAttachments;
+        private CheckBox chkReuseDuplicateAttachments;
+        private CheckBox chkGroupNoteWithAttachments;
         private CheckBox chkSaveInlineImages;
         private CheckBox chkSaveAllAttachments;
         private CheckBox chkUseObsidianWikilinks;
@@ -257,6 +261,11 @@ namespace SlingMD.Outlook.Forms
             generalTabLayout.Controls.Add(this.chkShowCountdown, 1, gRow++);
             BindHelpInline("General.LaunchObsidian", chkLaunchObsidian);
             BindHelpInline("General.ShowCountdown", chkShowCountdown);
+
+            this.chkCopyNotePathToClipboard = new CheckBox { Text = "Copy note path to clipboard after saving", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
+            generalTabLayout.Controls.Add(this.chkCopyNotePathToClipboard, 0, gRow);
+            generalTabLayout.Controls.Add(new Label(), 1, gRow++);
+            BindHelpInline("General.CopyNotePathToClipboard", chkCopyNotePathToClipboard);
 
             Label lblDelay = new Label { Text = "Delay (seconds):", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
             generalTabLayout.Controls.Add(lblDelay, 0, gRow);
@@ -695,6 +704,15 @@ namespace SlingMD.Outlook.Forms
             BindHelpInline("Threading.GroupEmailThreads", chkGroupEmailThreads);
 
             threadingTabLayout.Controls.Add(new Label(), 0, thRow);
+            this.chkAlwaysCreateThreadFolder = new CheckBox { Text = "Always create a thread folder (even for the first email)", Anchor = AnchorStyles.Left, AutoSize = true };
+            threadingTabLayout.Controls.Add(this.chkAlwaysCreateThreadFolder, 1, thRow++);
+            BindHelpInline("Threading.AlwaysCreateThreadFolder", chkAlwaysCreateThreadFolder);
+            this.chkGroupEmailThreads.CheckedChanged += (s, e) =>
+            {
+                this.chkAlwaysCreateThreadFolder.Enabled = this.chkGroupEmailThreads.Checked;
+            };
+
+            threadingTabLayout.Controls.Add(new Label(), 0, thRow);
             this.chkMoveDateToFrontInThread = new CheckBox { Text = "Move date to front of filename when grouping threads", Anchor = AnchorStyles.Left, AutoSize = true };
             threadingTabLayout.Controls.Add(this.chkMoveDateToFrontInThread, 1, thRow++);
             BindHelpInline("Threading.MoveDateToFrontInThread", chkMoveDateToFrontInThread);
@@ -770,16 +788,23 @@ namespace SlingMD.Outlook.Forms
             checkboxLayout.Controls.Add(this.chkSaveRealAttachments);
             checkboxLayout.Controls.Add(this.chkSaveInlineImages);
             checkboxLayout.Controls.Add(this.chkSaveAllAttachments);
+            this.chkReuseDuplicateAttachments = new CheckBox { Text = "Reuse duplicate attachments", AutoSize = true, Margin = new Padding(20, 0, 0, 0) };
             checkboxLayout.Controls.Add(this.chkUseObsidianWikilinks);
+            checkboxLayout.Controls.Add(this.chkReuseDuplicateAttachments);
+            this.chkGroupNoteWithAttachments = new CheckBox { Text = "Put note in its attachment folder", AutoSize = true, Margin = new Padding(20, 0, 0, 0) };
+            checkboxLayout.Controls.Add(this.chkGroupNoteWithAttachments);
             attachmentLayout.Controls.Add(checkboxLayout, 1, 2);
             BindHelpInline("Attachments.SaveRealAttachments", chkSaveRealAttachments);
             BindHelpInline("Attachments.SaveInlineImages", chkSaveInlineImages);
             BindHelpInline("Attachments.SaveAllAttachments", chkSaveAllAttachments);
             BindHelpInline("Attachments.UseObsidianWikilinks", chkUseObsidianWikilinks);
+            BindHelpInline("Attachments.ReuseDuplicateAttachments", chkReuseDuplicateAttachments);
+            BindHelpInline("Attachments.GroupNoteWithAttachments", chkGroupNoteWithAttachments);
 
             this.cmbAttachmentStorageMode.SelectedIndexChanged += (s, e) =>
             {
                 this.txtAttachmentsFolder.Enabled = this.cmbAttachmentStorageMode.SelectedIndex == 2;
+                this.chkGroupNoteWithAttachments.Enabled = this.cmbAttachmentStorageMode.SelectedIndex == 1;
             };
 
             this.grpAttachments.Controls.Add(attachmentLayout);
@@ -1058,6 +1083,7 @@ namespace SlingMD.Outlook.Forms
             txtVaultName.Text = _settings.VaultName;
             txtVaultPath.Text = _settings.VaultBasePath;
             chkLaunchObsidian.Checked = _settings.LaunchObsidian;
+            chkCopyNotePathToClipboard.Checked = _settings.CopyNotePathToClipboard;
             chkShowCountdown.Checked = _settings.ShowCountdown;
             SetClamped(numDelay, _settings.ObsidianDelaySeconds);
             txtTemplatesFolder.Text = _settings.TemplatesFolder ?? "Templates";
@@ -1129,6 +1155,8 @@ namespace SlingMD.Outlook.Forms
 
             // Threading tab
             chkGroupEmailThreads.Checked = _settings.GroupEmailThreads;
+            chkAlwaysCreateThreadFolder.Checked = _settings.AlwaysCreateThreadFolder;
+            chkAlwaysCreateThreadFolder.Enabled = _settings.GroupEmailThreads;
             chkMoveDateToFrontInThread.Checked = _settings.MoveDateToFrontInThread;
             chkMoveDateToFrontInThread.Enabled = _settings.NoteTitleIncludeDate;
             txtThreadTemplateFile.Text = _settings.ThreadTemplateFile ?? "ThreadNoteTemplate.md";
@@ -1142,6 +1170,9 @@ namespace SlingMD.Outlook.Forms
             chkSaveInlineImages.Checked = _settings.SaveInlineImages;
             chkSaveAllAttachments.Checked = _settings.SaveAllAttachments;
             chkUseObsidianWikilinks.Checked = _settings.UseObsidianWikilinks;
+            chkReuseDuplicateAttachments.Checked = _settings.ReuseDuplicateAttachments;
+            chkGroupNoteWithAttachments.Checked = _settings.GroupNoteWithAttachments;
+            chkGroupNoteWithAttachments.Enabled = _settings.AttachmentStorageMode == AttachmentStorageMode.SubfolderPerNote;
 
             // Developer tab
             chkShowDevelopmentSettings.Checked = _settings.ShowDevelopmentSettings;
@@ -1189,6 +1220,7 @@ namespace SlingMD.Outlook.Forms
             _settings.VaultName = txtVaultName.Text;
             _settings.VaultBasePath = txtVaultPath.Text;
             _settings.LaunchObsidian = chkLaunchObsidian.Checked;
+            _settings.CopyNotePathToClipboard = chkCopyNotePathToClipboard.Checked;
             _settings.ShowCountdown = chkShowCountdown.Checked;
             _settings.ObsidianDelaySeconds = (int)numDelay.Value;
             _settings.TemplatesFolder = txtTemplatesFolder.Text.Trim();
@@ -1265,6 +1297,7 @@ namespace SlingMD.Outlook.Forms
 
             // Threading tab
             _settings.GroupEmailThreads = chkGroupEmailThreads.Checked;
+            _settings.AlwaysCreateThreadFolder = chkAlwaysCreateThreadFolder.Checked;
             _settings.MoveDateToFrontInThread = chkMoveDateToFrontInThread.Checked;
             _settings.ThreadTemplateFile = txtThreadTemplateFile.Text.Trim();
 
@@ -1275,6 +1308,8 @@ namespace SlingMD.Outlook.Forms
             _settings.SaveInlineImages = chkSaveInlineImages.Checked;
             _settings.SaveAllAttachments = chkSaveAllAttachments.Checked;
             _settings.UseObsidianWikilinks = chkUseObsidianWikilinks.Checked;
+            _settings.ReuseDuplicateAttachments = chkReuseDuplicateAttachments.Checked;
+            _settings.GroupNoteWithAttachments = chkGroupNoteWithAttachments.Checked;
 
             // Developer tab
             _settings.ShowDevelopmentSettings = chkShowDevelopmentSettings.Checked;
