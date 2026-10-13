@@ -13,6 +13,15 @@ All notable changes to SlingMD are documented in this file.
 - **Appointment notes record their calendar**, e.g. `calendar: "Court Dates (jane@firm.com)"` in the
   properties and a **Calendar:** line in the note, so notes from several calendars can be told apart
   and queried. Custom appointment templates can use `{{calendar}}`. (From the wadukejr fork.)
+- **Body cleanup patterns.** List regular expressions on the Email tab, and SlingMD removes what they
+  match from the email body: confidentiality footers, "External sender" banners and the like. They run
+  per line (`^` and `$` match at line ends; start a pattern with `(?s)` to span lines), on the reply and
+  on the quoted history before it is folded, and a note that had text removed gets `bodyCleaned: true`
+  so it isn't mistaken for a verbatim copy. The list starts empty. (From the wadukejr fork.)
+
+### Changed
+- **True/false properties are written in lowercase** (`true`, not `True`), so Obsidian shows them as
+  checkboxes.
 
 ### Fixed
 - **Save Today and Save Date Range only ever exported the main mailbox's calendar**, even with

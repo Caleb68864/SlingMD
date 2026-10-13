@@ -141,6 +141,36 @@ namespace SlingMD.Tests.Services
         /// the list shape (YAML block sequence) is preserved.
         /// </summary>
         [Fact]
+        public void BuildFrontMatter_BoolValue_WritesLowercaseYamlBoolean()
+        {
+            Dictionary<string, object> metadata = new Dictionary<string, object>
+            {
+                { "bodyCleaned", true },
+                { "archived", false }
+            };
+
+            string frontmatter = _templateService.BuildFrontMatter(metadata);
+
+            Assert.Contains("bodyCleaned: true" + Environment.NewLine, frontmatter);
+            Assert.Contains("archived: false" + Environment.NewLine, frontmatter);
+            Assert.DoesNotContain("True", frontmatter);
+        }
+
+        [Fact]
+        public void RenderEmailContent_BoolMetadataToken_RendersLowercase()
+        {
+            File.WriteAllText(Path.Combine(_templatesDir, "EmailTemplate.md"), "cleaned={{bodyCleaned}}");
+            EmailTemplateContext context = new EmailTemplateContext
+            {
+                Metadata = new Dictionary<string, object> { { "bodyCleaned", true } }
+            };
+
+            string rendered = _templateService.RenderEmailContent(context);
+
+            Assert.Equal("cleaned=true", rendered);
+        }
+
+        [Fact]
         public void BuildFrontMatter_DateTimeValue_UsesDefaultEmailDateFormat()
         {
             Dictionary<string, object> metadata = new Dictionary<string, object>

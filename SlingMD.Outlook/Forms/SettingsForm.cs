@@ -44,6 +44,10 @@ namespace SlingMD.Outlook.Forms
         private Button btnAdd;
         private Button btnEdit;
         private Button btnRemove;
+        private ListBox lstBodyPatterns;
+        private Button btnBodyAdd;
+        private Button btnBodyEdit;
+        private Button btnBodyRemove;
         private TextBox txtEmailFilenameFormat;
         private TextBox txtEmailTemplateFile;
 
@@ -396,6 +400,28 @@ namespace SlingMD.Outlook.Forms
             btnPanel.Controls.Add(this.btnRemove);
             patternsPanel.Controls.Add(btnPanel, 1, 0);
             emailTabLayout.Controls.Add(patternsPanel, 1, eRow++);
+
+            // Body Cleanup Patterns section
+            Label lblBodyCleanupPatterns = new Label { Text = "Body Cleanup Patterns:", Anchor = AnchorStyles.Left | AnchorStyles.Top, TextAlign = ContentAlignment.TopLeft, Dock = DockStyle.Fill };
+            emailTabLayout.Controls.Add(lblBodyCleanupPatterns, 0, eRow);
+            BindHelp("Email.BodyCleanupPatterns", lblBodyCleanupPatterns);
+            TableLayoutPanel bodyPatternsPanel = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, Dock = DockStyle.Fill };
+            bodyPatternsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 80F));
+            bodyPatternsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
+            this.lstBodyPatterns = new ListBox { Height = 120, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top | AnchorStyles.Bottom, Dock = DockStyle.Fill };
+            bodyPatternsPanel.Controls.Add(this.lstBodyPatterns, 0, 0);
+            FlowLayoutPanel bodyBtnPanel = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true };
+            this.btnBodyAdd = new Button { Text = "Add" };
+            this.btnBodyAdd.Click += (s, e) => AddPattern(lstBodyPatterns);
+            this.btnBodyEdit = new Button { Text = "Edit" };
+            this.btnBodyEdit.Click += (s, e) => EditPattern(lstBodyPatterns);
+            this.btnBodyRemove = new Button { Text = "Remove" };
+            this.btnBodyRemove.Click += (s, e) => RemovePattern(lstBodyPatterns);
+            bodyBtnPanel.Controls.Add(this.btnBodyAdd);
+            bodyBtnPanel.Controls.Add(this.btnBodyEdit);
+            bodyBtnPanel.Controls.Add(this.btnBodyRemove);
+            bodyPatternsPanel.Controls.Add(bodyBtnPanel, 1, 0);
+            emailTabLayout.Controls.Add(bodyPatternsPanel, 1, eRow++);
 
             Label lblEmailFilenameFormat = new Label { Text = "Email Filename Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
             emailTabLayout.Controls.Add(lblEmailFilenameFormat, 0, eRow);
@@ -1132,6 +1158,11 @@ namespace SlingMD.Outlook.Forms
             {
                 lstPatterns.Items.Add(pattern);
             }
+            lstBodyPatterns.Items.Clear();
+            foreach (string pattern in source.BodyCleanupPatterns ?? new List<string>())
+            {
+                lstBodyPatterns.Items.Add(pattern);
+            }
             txtEmailFilenameFormat.Text = source.EmailFilenameFormat ?? string.Empty;
             txtEmailTemplateFile.Text = source.EmailTemplateFile ?? "EmailTemplate.md";
 
@@ -1427,6 +1458,7 @@ namespace SlingMD.Outlook.Forms
             {
                 _settings.SubjectCleanupPatterns.Add(pattern);
             }
+            _settings.BodyCleanupPatterns = lstBodyPatterns.Items.Cast<string>().ToList();
             _settings.EmailFilenameFormat = txtEmailFilenameFormat.Text.Trim();
             _settings.EmailTemplateFile = txtEmailTemplateFile.Text.Trim();
 
@@ -1628,37 +1660,53 @@ namespace SlingMD.Outlook.Forms
 
         private void BtnAdd_Click(object sender, EventArgs e)
         {
+            AddPattern(lstPatterns);
+        }
+
+        private void BtnEdit_Click(object sender, EventArgs e)
+        {
+            EditPattern(lstPatterns);
+        }
+
+        private void BtnRemove_Click(object sender, EventArgs e)
+        {
+            RemovePattern(lstPatterns);
+        }
+
+        // Shared by the subject and body cleanup pattern lists.
+        private void AddPattern(ListBox patterns)
+        {
             using (InputDialog form = new InputDialog("Add Pattern", "Enter regex pattern:"))
             {
                 if (form.ShowDialog() == DialogResult.OK && !string.IsNullOrWhiteSpace(form.InputText)
                     && IsValidRegex(form.InputText))
                 {
-                    lstPatterns.Items.Add(form.InputText);
+                    patterns.Items.Add(form.InputText);
                 }
             }
         }
 
-        private void BtnEdit_Click(object sender, EventArgs e)
+        private void EditPattern(ListBox patterns)
         {
-            if (lstPatterns.SelectedItem != null)
+            if (patterns.SelectedItem != null)
             {
-                using (InputDialog form = new InputDialog("Edit Pattern", "Edit regex pattern:", lstPatterns.SelectedItem.ToString()))
+                using (InputDialog form = new InputDialog("Edit Pattern", "Edit regex pattern:", patterns.SelectedItem.ToString()))
                 {
                     if (form.ShowDialog() == DialogResult.OK && !string.IsNullOrWhiteSpace(form.InputText)
                         && IsValidRegex(form.InputText))
                     {
-                        int index = lstPatterns.SelectedIndex;
-                        lstPatterns.Items[index] = form.InputText;
+                        int index = patterns.SelectedIndex;
+                        patterns.Items[index] = form.InputText;
                     }
                 }
             }
         }
 
-        private void BtnRemove_Click(object sender, EventArgs e)
+        private void RemovePattern(ListBox patterns)
         {
-            if (lstPatterns.SelectedItem != null)
+            if (patterns.SelectedItem != null)
             {
-                lstPatterns.Items.RemoveAt(lstPatterns.SelectedIndex);
+                patterns.Items.RemoveAt(patterns.SelectedIndex);
             }
         }
 

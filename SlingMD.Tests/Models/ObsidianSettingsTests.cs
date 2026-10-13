@@ -689,6 +689,53 @@ namespace SlingMD.Tests.Models
             reloaded.Load();
             Assert.Equal("Atomic", reloaded.VaultName);
         }
+
+        [Fact]
+        public void BodyCleanupPatterns_SavedAndLoaded_InOrder()
+        {
+            ObsidianSettingsTestable settings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath,
+                BodyCleanupPatterns = new List<string> { @"^CAUTION:.*$", @"(?s)CONFIDENTIALITY NOTICE:.*" }
+            };
+
+            settings.Save();
+
+            ObsidianSettingsTestable loaded = new ObsidianSettingsTestable { TestSettingsPath = _testSettingsPath };
+            loaded.Load();
+            Assert.Equal(new[] { @"^CAUTION:.*$", @"(?s)CONFIDENTIALITY NOTICE:.*" }, loaded.BodyCleanupPatterns);
+        }
+
+        [Fact]
+        public void Load_NullBodyCleanupPatterns_NormalizesToEmptyList()
+        {
+            string legacyJson = @"{
+  ""VaultName"": ""LegacyVault"",
+  ""VaultBasePath"": ""C:\\Legacy\\Vault"",
+  ""BodyCleanupPatterns"": null
+}";
+            File.WriteAllText(_testSettingsPath, legacyJson);
+
+            ObsidianSettingsTestable settings = new ObsidianSettingsTestable { TestSettingsPath = _testSettingsPath };
+            settings.Load();
+
+            Assert.NotNull(settings.BodyCleanupPatterns);
+            Assert.Empty(settings.BodyCleanupPatterns);
+        }
+
+        [Fact]
+        public void Save_InvalidBodyCleanupPattern_ThrowsArgumentException()
+        {
+            ObsidianSettingsTestable settings = new ObsidianSettingsTestable
+            {
+                TestSettingsPath = _testSettingsPath,
+                BodyCleanupPatterns = new List<string> { "[unclosed" }
+            };
+
+            ArgumentException ex = Assert.Throws<ArgumentException>(() => settings.Save());
+            Assert.Contains("body cleanup pattern", ex.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.False(File.Exists(_testSettingsPath), "Invalid settings must not be written to disk.");
+        }
     }
 
     public class ObsidianSettingsTestable : ObsidianSettings

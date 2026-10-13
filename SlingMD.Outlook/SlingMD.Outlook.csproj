@@ -322,6 +322,7 @@
     <Compile Include="Services\EmailProcessor.cs" />
     <Compile Include="Services\BatchSlingReport.cs" />
     <Compile Include="Services\SmtpAddressResolver.cs" />
+    <Compile Include="Services\Formatting\BodyCleanerService.cs" />
     <Compile Include="Services\Formatting\ContactLinkFormatter.cs" />
     <Compile Include="Services\Formatting\ContactNameParser.cs" />
     <Compile Include="Services\Formatting\DateFormatter.cs" />

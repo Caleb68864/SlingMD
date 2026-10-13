@@ -53,6 +53,7 @@ namespace SlingMD.Outlook.Services
         private readonly AttachmentService _attachmentService;
         private readonly DateFormatter _dateFormatter;
         private readonly SubjectFilenameCleaner _subjectFilenameCleaner;
+        private readonly BodyCleanerService _bodyCleaner;
         private readonly NoteTitleBuilder _noteTitleBuilder;
         private readonly UniqueFilenameResolver _uniqueFilenameResolver = new UniqueFilenameResolver();
         private readonly IClock _clock;
@@ -110,6 +111,7 @@ namespace SlingMD.Outlook.Services
             _attachmentService = attachmentService ?? new AttachmentService(settings, _fileService, _clock);
             _dateFormatter = new DateFormatter();
             _subjectFilenameCleaner = new SubjectFilenameCleaner(settings, _fileService);
+            _bodyCleaner = new BodyCleanerService(settings ?? new ObsidianSettings());
             _noteTitleBuilder = new NoteTitleBuilder();
         }
 
@@ -350,12 +352,16 @@ namespace SlingMD.Outlook.Services
                         metadata["threadNote"] = threadNoteLink;
                     }
 
+                    // Convert and clean once; the note may be re-rendered below after a rename.
+                    string noteBody = ConvertBody(mail, metadata);
+
                     string renderedContent = BuildEmailNoteContent(
                         mail,
                         metadata,
                         noteTitle,
                         subjectClean,
                         senderClean,
+                        noteBody,
                         fileNameNoExt,
                         conversationId,
                         threadNoteLink);
@@ -475,6 +481,7 @@ namespace SlingMD.Outlook.Services
                                     noteTitle,
                                     subjectClean,
                                     senderClean,
+                                    noteBody,
                                     fileNameNoExt,
                                     conversationId,
                                     threadNoteLink);
@@ -545,6 +552,7 @@ namespace SlingMD.Outlook.Services
                                 noteTitle,
                                 subjectClean,
                                 senderClean,
+                                noteBody,
                                 fileNameNoExt,
                                 conversationId,
                                 threadNoteLink);
@@ -761,16 +769,37 @@ namespace SlingMD.Outlook.Services
         /// <summary>
         /// Converts the email body to Markdown, folding the quoted history of a reply into a collapsed
         /// callout when <see cref="ObsidianSettings.FoldQuotedReplies"/> is on. A forward's quoted part is
-        /// the message itself, so forwards are always converted in full.
+        /// the message itself, so forwards are always converted in full. The
+        /// <see cref="ObsidianSettings.BodyCleanupPatterns"/> run on the reply and on the quoted history
+        /// before it is folded, and <c>bodyCleaned: true</c> is recorded in <paramref name="metadata"/>
+        /// when they removed anything.
         /// </summary>
-        private string ConvertBody(MailItem mail)
+        private string ConvertBody(MailItem mail, Dictionary<string, object> metadata)
         {
+            bool removedContent = false;
+            Func<string, string> clean = text =>
+            {
+                string cleaned = _bodyCleaner.Clean(text, out bool removed);
+                removedContent |= removed;
+                return cleaned;
+            };
+
+            string body;
             if (_settings.FoldQuotedReplies && !ForwardSubjectRegex.IsMatch(mail.Subject ?? string.Empty))
             {
-                return QuotedReplyFolder.ConvertFolded(mail.HTMLBody, mail.Body);
+                body = QuotedReplyFolder.ConvertFolded(mail.HTMLBody, mail.Body, clean);
+            }
+            else
+            {
+                body = clean(HtmlToMarkdownConverter.Convert(mail.HTMLBody, mail.Body));
             }
 
-            return HtmlToMarkdownConverter.Convert(mail.HTMLBody, mail.Body);
+            if (removedContent && metadata != null)
+            {
+                metadata["bodyCleaned"] = true;
+            }
+
+            return body;
         }
 
         /// <summary>
@@ -921,9 +950,25 @@ namespace SlingMD.Outlook.Services
         }
 
         /// <summary>
+        /// Applies <see cref="ObsidianSettings.BodyCleanupPatterns"/> to the Markdown body and, when a
+        /// pattern removed text, records <c>bodyCleaned: true</c> in <paramref name="metadata"/> so the
+        /// note is never mistaken for a verbatim copy of the email.
+        /// </summary>
+        internal string CleanNoteBody(string body, Dictionary<string, object> metadata)
+        {
+            string cleaned = _bodyCleaner.Clean(body, out bool removedContent);
+            if (removedContent && metadata != null)
+            {
+                metadata["bodyCleaned"] = true;
+            }
+
+            return cleaned;
+        }
+
+        /// <summary>
         /// Returns thread-related info for an email, including paths and names.
         /// </summary>
-        private string BuildEmailNoteContent(MailItem mail, Dictionary<string, object> metadata, string noteTitle, string subjectClean, string senderClean, string fileNameNoExt, string conversationId, string threadNoteLink)
+        private string BuildEmailNoteContent(MailItem mail, Dictionary<string, object> metadata, string noteTitle, string subjectClean, string senderClean, string noteBody, string fileNameNoExt, string conversationId, string threadNoteLink)
         {
             string taskBlock = string.Empty;
             if (_settings.CreateObsidianTask && _taskService.ShouldCreateTasks)
@@ -946,7 +991,7 @@ namespace SlingMD.Outlook.Services
                 SenderEmail = _contactService.GetSenderEmail(mail),
                 Date = mail.ReceivedTime.ToString("yyyy-MM-dd"),
                 Timestamp = _dateFormatter.FormatOrDefault(mail.ReceivedTime, _settings.EmailDateFormat, _dateFormatter.Format(mail.ReceivedTime, ObsidianSettings.DefaultEmailDateFormat)),
-                Body = ConvertBody(mail),
+                Body = noteBody,
                 TaskBlock = taskBlock,
                 FileName = fileNameNoExt + ".md",
                 FileNameWithoutExtension = fileNameNoExt,

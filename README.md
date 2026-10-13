@@ -44,6 +44,7 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook e
 - **Sling Multiple** — export a whole selection at once, optionally into a subfolder of your Inbox
 - **Right-click to sling** — emails, appointments and contacts have a *Sling with SlingMD* entry in their context menu
 - **Fold quoted replies** — optionally collapse the quoted history under a reply into an *Earlier messages* callout
+- **Body cleanup patterns** — strip banners and footers from email bodies with your own patterns; cleaned notes are marked `bodyCleaned: true`
 - **Tables and Safe Links** — data tables become Markdown tables and Safe Links are unwrapped to the original address
 - **Settings export / import / reset** — move your settings to a new PC or start over from the *More…* menu
 - **Works without Obsidian** — optionally show the saved note in File Explorer instead of launching Obsidian
@@ -125,6 +126,7 @@ Before using SlingMD, you'll need to configure your Obsidian vault settings:
    - **Ask for dates**: Toggle whether to prompt for dates each time (shows the Task Options form)
    - **Group Email Threads**: Toggle whether to automatically organize related emails into thread folders
    - **Subject Cleanup Patterns**: Configure patterns for cleaning up email subjects (e.g., removing "Re:", "[EXTERNAL]", etc.)
+   - **Body Cleanup Patterns**: Regex patterns removed from the email body before it is saved (e.g., external-sender banners, confidentiality footers). `^` and `$` match per line; prefix a pattern with `(?s)` to span lines. Empty by default. Any note whose body a pattern altered gets `bodyCleaned: true` in its frontmatter
    - **Contacts Folder**: Where new contact notes will be stored (default: "Contacts")
    - **Enable Contact Saving**: Toggle automatic creation of contact notes
    - **Search Entire Vault For Contacts**: When enabled, SlingMD will look outside the contacts folder before creating a new contact note

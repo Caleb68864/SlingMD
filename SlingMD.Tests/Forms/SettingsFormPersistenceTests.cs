@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Threading;
@@ -106,6 +107,7 @@ namespace SlingMD.Tests.Forms
 
                     // Email tab
                     PromptForFolderOnSling = true,           // default false -> flip
+                    BodyCleanupPatterns = new List<string> { @"^CAUTION:.*$" }, // default empty
 
                     // Threading tab
                     GroupEmailThreads = false,               // default true -> flip
@@ -167,6 +169,7 @@ namespace SlingMD.Tests.Forms
 
                 // Email
                 Assert.True(reloaded.PromptForFolderOnSling);
+                Assert.Equal(new[] { @"^CAUTION:.*$" }, reloaded.BodyCleanupPatterns);
 
                 // Threading
                 Assert.False(reloaded.GroupEmailThreads);
