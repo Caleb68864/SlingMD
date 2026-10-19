@@ -478,7 +478,8 @@ namespace SlingMD.Outlook.Services
                 "**Location:** {{location}}" + Environment.NewLine +
                 "**Start:** {{startDateTime}}" + Environment.NewLine +
                 "**End:** {{endDateTime}}" + Environment.NewLine +
-                "**Recurrence:** {{recurrence}}" + Environment.NewLine + Environment.NewLine +
+                "**Recurrence:** {{recurrence}}" + Environment.NewLine +
+                "**Calendar:** {{calendar}}" + Environment.NewLine + Environment.NewLine +
                 "## Notes" + Environment.NewLine + Environment.NewLine +
                 "{{body}}";
         }

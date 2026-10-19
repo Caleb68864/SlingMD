@@ -226,6 +226,8 @@ namespace SlingMD.Outlook.Services
             try { globalAppointmentId = appointment.GlobalAppointmentID ?? string.Empty; }
             catch (System.Exception ex) { Logger.Instance.Debug($"Could not read GlobalAppointmentID: {ex.Message}"); }
 
+            string calendarName = GetCalendarName(appointment);
+
             // Extract organizer via AddressEntry COM object
             AddressEntry organizerEntry = null;
             try
@@ -426,6 +428,7 @@ namespace SlingMD.Outlook.Services
             // --- Build frontmatter ---
             Dictionary<string, object> metadata = BuildAppointmentMetadata(
                 noteTitle,
+                calendarName,
                 organizerName,
                 organizerEmail,
                 requiredAttendees,
@@ -942,8 +945,63 @@ namespace SlingMD.Outlook.Services
 
         private string CleanSubject(string subject) => _subjectFilenameCleaner.Clean(subject);
 
+        /// <summary>
+        /// Name of the calendar holding the appointment, qualified by its store (for example
+        /// "Calendar (jane@firm.com)") so the default calendars of different accounts stay distinct.
+        /// Empty when Outlook does not expose the folder.
+        /// </summary>
+        private static string GetCalendarName(AppointmentItem appointment)
+        {
+            object parent = null;
+            object seriesParent = null;
+            Store store = null;
+            try
+            {
+                parent = appointment.Parent;
+
+                // An occurrence of a recurring series can report its series master as the parent;
+                // the calendar folder is then one level further up.
+                AppointmentItem master = parent as AppointmentItem;
+                if (master != null)
+                {
+                    seriesParent = master.Parent;
+                }
+
+                MAPIFolder folder = (seriesParent ?? parent) as MAPIFolder;
+                if (folder == null)
+                {
+                    return string.Empty;
+                }
+
+                string storeName = string.Empty;
+                try
+                {
+                    store = folder.Store;
+                    storeName = store.DisplayName ?? string.Empty;
+                }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Debug($"Could not read calendar store name: {ex.Message}");
+                }
+
+                return CalendarFolderService.FormatCalendarLabel(folder.Name, storeName);
+            }
+            catch (System.Exception ex)
+            {
+                Logger.Instance.Debug($"Could not read calendar name: {ex.Message}");
+                return string.Empty;
+            }
+            finally
+            {
+                if (store != null && Marshal.IsComObject(store)) Marshal.ReleaseComObject(store);
+                if (seriesParent != null && Marshal.IsComObject(seriesParent)) Marshal.ReleaseComObject(seriesParent);
+                if (parent != null && Marshal.IsComObject(parent)) Marshal.ReleaseComObject(parent);
+            }
+        }
+
         private Dictionary<string, object> BuildAppointmentMetadata(
             string noteTitle,
+            string calendarName,
             string organizerName,
             string organizerEmail,
             List<string> requiredAttendees,
@@ -960,6 +1018,7 @@ namespace SlingMD.Outlook.Services
             {
                 { "title", noteTitle },
                 { "type", "Appointment" },
+                { "calendar", calendarName ?? string.Empty },
                 { "organizer", FormatPersonLink(organizerName) },
                 { "organizerEmail", organizerEmail ?? string.Empty },
                 { "location", location ?? string.Empty },
@@ -1144,6 +1203,13 @@ namespace SlingMD.Outlook.Services
             if (!string.IsNullOrWhiteSpace(organizerName))
             {
                 content.AppendLine($"**Organizer:** {FormatPersonLink(organizerName)}");
+                content.AppendLine();
+            }
+
+            object calendar;
+            if (metadata.TryGetValue("calendar", out calendar) && calendar is string calendarName && !string.IsNullOrWhiteSpace(calendarName))
+            {
+                content.AppendLine($"**Calendar:** {calendarName}");
                 content.AppendLine();
             }
 

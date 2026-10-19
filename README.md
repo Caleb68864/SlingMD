@@ -318,7 +318,7 @@ Every note template supports `{{frontmatter}}` (the YAML properties block). Each
 `{{body}}`, `{{taskBlock}}`, `{{subject}}`, `{{noteTitle}}`, `{{senderName}}`, `{{senderShortName}}`, `{{senderEmail}}`, `{{from}}`, `{{fromEmail}}`, `{{to}}`, `{{toEmail}}`, `{{cc}}`, `{{ccEmail}}`, `{{date}}`, `{{timestamp}}`, `{{dailyNoteLink}}`, `{{threadNote}}`, `{{threadId}}`, `{{internetMessageId}}`, `{{entryId}}`, `{{tags}}`, `{{fileName}}`, `{{fileNameNoExt}}`
 
 **Appointment templates** (used when the file exists in your Templates folder; otherwise SlingMD uses its built-in layout). Label lines such as `**Optional:**` are dropped when their value is empty:
-`{{body}}`, `{{taskBlock}}`, `{{subject}}`, `{{noteTitle}}`, `{{organizer}}`, `{{organizerEmail}}`, `{{attendees}}`, `{{optionalAttendees}}`, `{{resources}}`, `{{location}}`, `{{startDateTime}}`, `{{endDateTime}}`, `{{date}}`, `{{recurrence}}`, `{{meetingNotes}}`, `{{meetingUrl}}`, `{{dailyNoteLink}}`, `{{globalAppointmentId}}`, `{{tags}}`, `{{fileName}}`, `{{fileNameNoExt}}`
+`{{body}}`, `{{taskBlock}}`, `{{subject}}`, `{{noteTitle}}`, `{{organizer}}`, `{{organizerEmail}}`, `{{attendees}}`, `{{optionalAttendees}}`, `{{resources}}`, `{{location}}`, `{{startDateTime}}`, `{{endDateTime}}`, `{{date}}`, `{{recurrence}}`, `{{meetingNotes}}`, `{{meetingUrl}}`, `{{calendar}}`, `{{dailyNoteLink}}`, `{{globalAppointmentId}}`, `{{tags}}`, `{{fileName}}`, `{{fileNameNoExt}}`
 
 **Meeting note templates:**
 `{{appointmentTitle}}`, `{{appointmentLink}}`, `{{organizer}}`, `{{attendees}}`, `{{date}}`, `{{location}}`
