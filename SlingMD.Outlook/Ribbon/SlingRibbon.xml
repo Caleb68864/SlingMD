@@ -47,13 +47,13 @@
                   size="large"
                   imageMso="ShowSchedulingPage"
                   onAction="OnSaveTodaysClick"
-                  supertip="Save all of today's appointments to Obsidian"/>
+                  supertip="Save all of today's appointments to Obsidian from the calendars last chosen in Save Date Range (each account's default calendar until you choose)"/>
           <button id="SaveDateRangeButton"
                   label="Save Date Range"
                   size="large"
                   imageMso="DateAndTimeInsert"
                   onAction="OnSaveDateRangeClick"
-                  supertip="Save appointments for a custom date range to Obsidian"/>
+                  supertip="Choose a date range and the calendars to save, including shared and secondary calendars, then save those appointments to Obsidian"/>
         </group>
         <group id="ContactsGroup" label="Contacts">
           <button id="SlingAllContactsButton"

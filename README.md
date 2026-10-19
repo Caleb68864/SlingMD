@@ -27,6 +27,7 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook e
 - **Meeting join links** — the Teams, Zoom, Google Meet or Webex link in an invitation becomes a clickable *Join* line and a `meetingUrl` property
 - **Companion meeting notes** — optional blank note for real-time meeting capture, linked to the appointment note
 - **Bulk "Save Today's Appointments"** — one-click export of all today's calendar items
+- **Save Date Range with a calendar picker** — choose which calendars to export (every account's calendar, sub-calendars, shared mailboxes, and calendars shared with you in the Calendar pane); the choice is remembered and also used by Save Today
 - Automatic contact note creation with communication-history Dataview tables
 - Customisable note title formatting (placeholders for {Subject}, {Sender}, {Date}) with max-length trimming
 - Advanced subject clean-up engine using user-defined regex patterns

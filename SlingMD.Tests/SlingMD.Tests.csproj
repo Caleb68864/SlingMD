@@ -82,6 +82,7 @@
     <Compile Include="Forms\SettingsFormVaultStatusTests.cs" />
     <Compile Include="Models\ObsidianSettingsTests.cs" />
     <Compile Include="Models\ObsidianSettingsAppointmentTests.cs" />
+    <Compile Include="Models\AppointmentExportCalendarsTests.cs" />
     <Compile Include="Models\AutoSlingRuleTests.cs" />
     <Compile Include="Models\WatchedFolderTests.cs" />
     <Compile Include="Services\AttachmentServiceTests.cs" />
@@ -93,6 +94,7 @@
     <Compile Include="Services\ContactServiceMeetingTests.cs" />
     <Compile Include="Services\EmailProcessorTests.cs" />
     <Compile Include="Services\AppointmentProcessorTests.cs" />
+    <Compile Include="Services\CalendarFolderServiceTests.cs" />
     <Compile Include="Services\ContactProcessorTests.cs" />
     <Compile Include="Services\TaskServiceTests.cs" />
     <Compile Include="Services\TemplateServiceTests.cs" />

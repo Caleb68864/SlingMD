@@ -311,6 +311,12 @@ namespace SlingMD.Outlook.Models
         /// </summary>
         public string AppointmentTaskCreation { get; set; } = "None";
 
+        /// <summary>
+        /// Calendars exported by Save Today and pre-selected in the Save Date Range dialog. Updated
+        /// whenever the dialog is confirmed. Empty means every account's default calendar.
+        /// </summary>
+        public List<CalendarFolderInfo> AppointmentExportCalendars { get; set; } = new List<CalendarFolderInfo>();
+
         // Auto-Sling Settings
 
         /// <summary>
@@ -785,6 +791,7 @@ namespace SlingMD.Outlook.Models
             {
                 AppointmentTaskCreation = "None";
             }
+            AppointmentExportCalendars = NormalizeCalendarList(AppointmentExportCalendars);
 
             AutoSlingNotificationMode = string.IsNullOrWhiteSpace(AutoSlingNotificationMode) ? "Toast" : AutoSlingNotificationMode;
             AutoSlingRules = AutoSlingRules ?? new List<AutoSlingRule>();
@@ -803,6 +810,35 @@ namespace SlingMD.Outlook.Models
             DefaultReminderHour = ClampInt(DefaultReminderHour, 0, 23);
             NoteTitleMaxLength = ClampInt(NoteTitleMaxLength, 10, 500);
             AppointmentNoteTitleMaxLength = ClampInt(AppointmentNoteTitleMaxLength, 10, 500);
+        }
+
+        /// <summary>
+        /// Drops null and EntryID-less entries (nothing to reopen) and duplicates of the same folder,
+        /// so a hand-edited or stale settings file can never export one calendar twice.
+        /// </summary>
+        internal static List<CalendarFolderInfo> NormalizeCalendarList(List<CalendarFolderInfo> calendars)
+        {
+            List<CalendarFolderInfo> normalized = new List<CalendarFolderInfo>();
+            if (calendars == null)
+            {
+                return normalized;
+            }
+
+            foreach (CalendarFolderInfo calendar in calendars)
+            {
+                if (calendar == null || string.IsNullOrWhiteSpace(calendar.EntryId))
+                {
+                    continue;
+                }
+                if (normalized.Any(c => c.IsSameFolder(calendar)))
+                {
+                    continue;
+                }
+                calendar.StoreId = calendar.StoreId ?? string.Empty;
+                calendar.DisplayName = calendar.DisplayName ?? string.Empty;
+                normalized.Add(calendar);
+            }
+            return normalized;
         }
 
         private static int ClampInt(int value, int min, int max)
