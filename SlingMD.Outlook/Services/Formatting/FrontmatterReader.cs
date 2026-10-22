@@ -12,7 +12,7 @@ namespace SlingMD.Outlook.Services.Formatting
     internal class FrontmatterReader
     {
         private static readonly Regex ThreadIdRegex = new Regex(@"threadId: ""([^""]+)""", RegexOptions.Compiled);
-        private static readonly Regex DateRegex = new Regex(@"date: ""?(\d{4}-\d{2}-\d{2} \d{2}:\d{2}(?::\d{2})?)""?", RegexOptions.Compiled);
+        private static readonly Regex DateRegex = new Regex(@"date: ""?(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?)""?", RegexOptions.Compiled);
         private static readonly Regex TitleRegex = new Regex(@"title: ""([^""]+)""", RegexOptions.Compiled);
         private static readonly Regex FromRegex = new Regex(@"from: ""[^""]*\[\[([^""]+)\]\]""", RegexOptions.Compiled);
         private static readonly Regex ToRegex = new Regex(@"to:.*?\n\s*- ""[^""]*\[\[([^""]+)\]\]""", RegexOptions.Compiled | RegexOptions.Singleline);

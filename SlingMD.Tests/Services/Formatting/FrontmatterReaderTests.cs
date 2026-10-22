@@ -35,6 +35,12 @@ namespace SlingMD.Tests.Services.Formatting
         }
 
         [Fact]
+        public void ExtractRawDate_IsoDate_ReturnsValue()
+        {
+            Assert.Equal("2026-04-21T09:30:00", _reader.ExtractRawDate("date: \"2026-04-21T09:30:00\"\n"));
+        }
+
+        [Fact]
         public void ExtractRawDate_AcceptsLegacyMinutePrecision()
         {
             string legacy = "date: 2026-04-21 09:30\n";
