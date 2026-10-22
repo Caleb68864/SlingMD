@@ -41,6 +41,11 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook e
 - **Auto-sling** — rule-based automatic export for new mail (sender, domain, or category) with toast or silent notifications
 - **Complete Thread** — backfill missing emails from the currently-selected conversation in one click
 - **Sling Multiple** — export a whole selection at once, optionally into a subfolder of your Inbox
+- **Right-click to sling** — emails, appointments and contacts have a *Sling with SlingMD* entry in their context menu
+- **Fold quoted replies** — optionally collapse the quoted history under a reply into an *Earlier messages* callout
+- **Tables and Safe Links** — data tables become Markdown tables and Safe Links are unwrapped to the original address
+- **Settings export / import / reset** — move your settings to a new PC or start over from the *More…* menu
+- **Works without Obsidian** — optionally show the saved note in File Explorer instead of launching Obsidian
 
 ## Installation
 

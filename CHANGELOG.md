@@ -2,10 +2,7 @@
 
 All notable changes to SlingMD are documented in this file.
 
-## [1.2.5.0] - Unreleased
-
-> **Not yet built or tested on Windows.** Parts of this release were written on a machine that
-> can't compile the VSTO project. Build, run the tests and try it in Outlook before publishing.
+## [1.2.5.0] - 2026-10-22
 
 ### Added
 
