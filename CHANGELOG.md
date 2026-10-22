@@ -57,6 +57,11 @@ All notable changes to SlingMD are documented in this file.
 - **The Sling button names what it will do** — *Sling Email*, *Sling Appointment*, *Sling Contact*
   or *Sling Selected*. The label code existed but was never connected to the button.
 
+#### Settings
+- **New *More…* menu in Settings**: open the settings folder, export your saved settings to JSON,
+  import them (handy when moving to a new PC), or reset to defaults while keeping the vault path.
+  Imports and resets fill the window only; Save keeps them, Cancel discards them.
+
 #### Feedback
 - **Toasts no longer steal focus.** They stack instead of overlapping, grow to fit long messages,
   pause while the mouse is over them and close when clicked. Copy Email confirms with a toast

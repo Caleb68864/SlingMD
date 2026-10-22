@@ -699,5 +699,36 @@ namespace SlingMD.Tests.Models
         {
             return TestSettingsPath ?? base.GetSettingsPath();
         }
+
+        [Fact]
+        public void FromJson_RoundTripsToJson()
+        {
+            ObsidianSettings original = new ObsidianSettings
+            {
+                VaultName = "Exported",
+                FoldQuotedReplies = true,
+                DefaultNoteTags = new List<string> { "work" }
+            };
+
+            ObsidianSettings copy = ObsidianSettings.FromJson(original.ToJson());
+
+            Assert.Equal("Exported", copy.VaultName);
+            Assert.True(copy.FoldQuotedReplies);
+            Assert.Equal(new[] { "work" }, copy.DefaultNoteTags);
+        }
+
+        [Fact]
+        public void FromJson_BlankValues_AreNormalized()
+        {
+            ObsidianSettings imported = ObsidianSettings.FromJson("{ \"EmailDateFormat\": \"\" }");
+
+            Assert.Equal(ObsidianSettings.DefaultEmailDateFormat, imported.EmailDateFormat);
+        }
+
+        [Fact]
+        public void FromJson_NotJson_Throws()
+        {
+            Assert.ThrowsAny<Newtonsoft.Json.JsonException>(() => ObsidianSettings.FromJson("not settings"));
+        }
     }
 }

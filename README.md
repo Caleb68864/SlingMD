@@ -134,6 +134,8 @@ Before using SlingMD, you'll need to configure your Obsidian vault settings:
 
 3. Click "Save" to apply your settings
 
+**More…** in the Settings footer opens the settings folder, exports your saved settings to a JSON file, imports one (for example on a new PC), or resets everything to the defaults while keeping your vault path. Imports and resets only fill the window; nothing changes until you click Save.
+
 Note: Make sure your Vault Base Path points to an existing Obsidian vault directory. If you haven't created a vault yet, please set one up in Obsidian first.
 
 ### Using SlingMD without Obsidian
