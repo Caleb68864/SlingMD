@@ -287,7 +287,7 @@ namespace SlingMD.Outlook.Services
                     string format = _settings?.EmailDateFormat;
                     if (string.IsNullOrWhiteSpace(format))
                     {
-                        format = "yyyy-MM-dd HH:mm:ss";
+                        format = ObsidianSettings.DefaultEmailDateFormat;
                     }
                     frontMatter.AppendLine($"{item.Key}: \"{EscapeYamlDoubleQuotedScalar(_dateFormatter.Format(dateTimeValue, format))}\"");
                 }
@@ -856,7 +856,7 @@ for (const email of emails) {
                     string format = _settings?.EmailDateFormat;
                     if (string.IsNullOrWhiteSpace(format))
                     {
-                        format = "yyyy-MM-dd HH:mm:ss";
+                        format = ObsidianSettings.DefaultEmailDateFormat;
                     }
                     replacements[item.Key] = _dateFormatter.Format(dateTimeValue, format);
                 }

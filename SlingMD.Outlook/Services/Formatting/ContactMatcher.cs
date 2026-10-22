@@ -151,7 +151,7 @@ namespace SlingMD.Outlook.Services.Formatting
             return new List<ContactIndexEntry>(seen.Values);
         }
 
-        private static string ReadFrontmatter(string filePath)
+        internal static string ReadFrontmatter(string filePath)
         {
             try
             {

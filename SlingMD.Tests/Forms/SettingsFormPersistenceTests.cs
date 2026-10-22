@@ -109,15 +109,19 @@ namespace SlingMD.Tests.Forms
 
                     // Threading tab
                     GroupEmailThreads = false,               // default true -> flip
+                    AlwaysCreateThreadFolder = true,         // default false -> flip
+                    CopyNotePathToClipboard = false,         // default true -> flip
                     MoveDateToFrontInThread = false,         // default true -> flip
 
                     // Attachments tab
                     AttachmentsFolder = "MyAttachments",
                     AttachmentStorageMode = AttachmentStorageMode.Centralized,
+                    GroupNoteWithAttachments = true,         // default false -> flip
                     SaveRealAttachments = false,             // default true -> flip
                     SaveInlineImages = false,                // default true -> flip
                     SaveAllAttachments = true,               // default false -> flip
-                    UseObsidianWikilinks = false             // default true -> flip
+                    UseObsidianWikilinks = false,            // default true -> flip
+                    ReuseDuplicateAttachments = true         // default false -> flip
                 };
 
                 // Constructing the form runs LoadSettings(), populating controls from `seed`.
@@ -166,6 +170,8 @@ namespace SlingMD.Tests.Forms
 
                 // Threading
                 Assert.False(reloaded.GroupEmailThreads);
+                Assert.True(reloaded.AlwaysCreateThreadFolder);
+                Assert.False(reloaded.CopyNotePathToClipboard);
                 Assert.False(reloaded.MoveDateToFrontInThread);
 
                 // Attachments
@@ -175,6 +181,8 @@ namespace SlingMD.Tests.Forms
                 Assert.False(reloaded.SaveInlineImages);
                 Assert.True(reloaded.SaveAllAttachments);
                 Assert.False(reloaded.UseObsidianWikilinks);
+                Assert.True(reloaded.ReuseDuplicateAttachments);
+                Assert.True(reloaded.GroupNoteWithAttachments);
             });
         }
 

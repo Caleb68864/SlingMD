@@ -34,7 +34,7 @@
     <PublishUrl>publish\</PublishUrl>
     <InstallUrl />
     <TargetCulture>en</TargetCulture>
-    <ApplicationVersion>1.2.4.0</ApplicationVersion>
+    <ApplicationVersion>1.2.5.0</ApplicationVersion>
     <AutoIncrementApplicationRevision>true</AutoIncrementApplicationRevision>
     <UpdateEnabled>true</UpdateEnabled>
     <UpdateInterval>7</UpdateInterval>
@@ -269,6 +269,9 @@
     <Compile Include="Forms\HelpForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\BatchProgressForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Forms\CountdownForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -294,6 +297,7 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Models\ObsidianSettings.cs" />
+    <Compile Include="Models\EmailSlingResult.cs" />
     <Compile Include="Models\AutoSlingRule.cs" />
     <Compile Include="Models\WatchedFolder.cs" />
     <Compile Include="Models\AttachmentInfo.cs" />
@@ -314,6 +318,7 @@
     <Compile Include="Services\ContactService.cs" />
     <Compile Include="Services\ClipboardEmailService.cs" />
     <Compile Include="Services\EmailProcessor.cs" />
+    <Compile Include="Services\BatchSlingReport.cs" />
     <Compile Include="Services\Formatting\ContactLinkFormatter.cs" />
     <Compile Include="Services\Formatting\ContactNameParser.cs" />
     <Compile Include="Services\Formatting\DateFormatter.cs" />
@@ -329,8 +334,11 @@
     <Compile Include="Services\Formatting\MatchTier.cs" />
     <Compile Include="Services\ContactInteractionMode.cs" />
     <Compile Include="Services\Formatting\ContactMatcher.cs" />
+    <Compile Include="Services\Formatting\ContactEmailIndex.cs" />
     <Compile Include="Services\Formatting\FrontmatterReader.cs" />
     <Compile Include="Services\Formatting\LegacyFilenameStripper.cs" />
+    <Compile Include="Services\Formatting\PathLengthBudget.cs" />
+    <Compile Include="Services\Formatting\QuotedReplyFolder.cs" />
     <Compile Include="Services\Formatting\MarkdownSectionFinder.cs" />
     <Compile Include="Services\Formatting\NoteTitleBuilder.cs" />
     <Compile Include="Services\Formatting\SubjectCleanerService.cs" />

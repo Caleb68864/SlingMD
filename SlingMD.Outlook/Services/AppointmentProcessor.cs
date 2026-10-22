@@ -950,8 +950,8 @@ namespace SlingMD.Outlook.Services
                 { "organizer", FormatPersonLink(organizerName) },
                 { "organizerEmail", organizerEmail ?? string.Empty },
                 { "location", location ?? string.Empty },
-                { "startDateTime", _dateFormatter.FormatOrDefault(startTime, _settings.AppointmentDateFormat, _dateFormatter.Format(startTime, "yyyy-MM-dd HH:mm")) },
-                { "endDateTime", _dateFormatter.FormatOrDefault(endTime, _settings.AppointmentDateFormat, _dateFormatter.Format(endTime, "yyyy-MM-dd HH:mm")) },
+                { "startDateTime", _dateFormatter.FormatOrDefault(startTime, _settings.AppointmentDateFormat, _dateFormatter.Format(startTime, ObsidianSettings.DefaultAppointmentDateFormat)) },
+                { "endDateTime", _dateFormatter.FormatOrDefault(endTime, _settings.AppointmentDateFormat, _dateFormatter.Format(endTime, ObsidianSettings.DefaultAppointmentDateFormat)) },
                 { "recurrence", recurrenceState.ToString() },
                 { "globalAppointmentId", globalAppointmentId ?? string.Empty }
             };
@@ -1037,8 +1037,8 @@ namespace SlingMD.Outlook.Services
                 content.AppendLine();
             }
 
-            content.AppendLine($"**Start:** {_dateFormatter.FormatOrDefault(startTime, _settings.AppointmentDateFormat, _dateFormatter.Format(startTime, "yyyy-MM-dd HH:mm"))}");
-            content.AppendLine($"**End:** {_dateFormatter.FormatOrDefault(endTime, _settings.AppointmentDateFormat, _dateFormatter.Format(endTime, "yyyy-MM-dd HH:mm"))}");
+            content.AppendLine($"**Start:** {_dateFormatter.FormatOrDefault(startTime, _settings.AppointmentDateFormat, _dateFormatter.Format(startTime, ObsidianSettings.DefaultAppointmentDateFormat))}");
+            content.AppendLine($"**End:** {_dateFormatter.FormatOrDefault(endTime, _settings.AppointmentDateFormat, _dateFormatter.Format(endTime, ObsidianSettings.DefaultAppointmentDateFormat))}");
             content.AppendLine();
 
             if (!string.IsNullOrWhiteSpace(organizerName))

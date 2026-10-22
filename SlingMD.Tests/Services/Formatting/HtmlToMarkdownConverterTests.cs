@@ -99,5 +99,82 @@ namespace SlingMD.Tests.Services.Formatting
         {
             Assert.Equal(string.Empty, HtmlToMarkdownConverter.Convert("<p> </p>", null));
         }
+
+        [Fact]
+        public void Convert_DataTable_BecomesPipeTable()
+        {
+            string html = "<table><tr><th>Name</th><th>Value</th></tr><tr><td>Rate</td><td>5%</td></tr></table>";
+
+            Assert.Equal("| Name | Value |\n| --- | --- |\n| Rate | 5% |", HtmlToMarkdownConverter.Convert(html, null));
+        }
+
+        [Fact]
+        public void Convert_PipeTableCell_EscapesPipes()
+        {
+            string html = "<table><tr><td>A</td><td>B</td></tr><tr><td>x | y</td><td>2</td></tr></table>";
+
+            Assert.Equal("| A | B |\n| --- | --- |\n| x \\| y | 2 |", HtmlToMarkdownConverter.Convert(html, null));
+        }
+
+        [Fact]
+        public void Convert_LayoutTable_KeepsCellsApart()
+        {
+            string html = "<table><tr><td>John Smith</td><td>Branch Manager</td></tr><tr><td>555-1234</td></tr></table>";
+
+            Assert.Equal("John Smith Branch Manager\n555-1234", HtmlToMarkdownConverter.Convert(html, null));
+        }
+
+        [Fact]
+        public void Convert_LayoutTableWithParagraphs_KeepsParagraphs()
+        {
+            string html = "<table><tr><td><p>Hi there</p><p>Thanks</p></td></tr></table>";
+
+            Assert.Equal("Hi there\n\nThanks", HtmlToMarkdownConverter.Convert(html, null));
+        }
+
+        [Fact]
+        public void Convert_NestedTables_ConvertsInnerDataTable()
+        {
+            string html = "<table><tr><td><p>Outer</p><table><tr><td>A</td><td>B</td></tr><tr><td>1</td><td>2</td></tr></table></td></tr></table>";
+
+            Assert.Equal("Outer\n\n| A | B |\n| --- | --- |\n| 1 | 2 |", HtmlToMarkdownConverter.Convert(html, null));
+        }
+
+        [Fact]
+        public void Convert_SpacerCells_AreIgnored()
+        {
+            string html = "<table><tr><td>&nbsp;</td><td>Logo text</td></tr><tr><td>&nbsp;</td><td>&nbsp;</td></tr></table>";
+
+            Assert.Equal("Logo text", HtmlToMarkdownConverter.Convert(html, null));
+        }
+
+        [Fact]
+        public void Convert_SafeLink_UnwrapsToOriginalAddress()
+        {
+            string html = "<a href=\"https://nam12.safelinks.protection.outlook.com/?url=https%3A%2F%2Fexample.com%2Freport%3Fid%3D1&amp;data=05%7C01&amp;reserved=0\">Report</a>";
+
+            Assert.Equal("[Report](https://example.com/report?id=1)", HtmlToMarkdownConverter.Convert(html, null));
+        }
+
+        [Fact]
+        public void Convert_SafeLinkShownAsText_BecomesBareAddress()
+        {
+            string wrapped = "https://nam12.safelinks.protection.outlook.com/?url=https%3A%2F%2Fexample.com%2Fa&amp;data=1";
+            string html = "<a href=\"" + wrapped + "\">" + wrapped + "</a>";
+
+            Assert.Equal("https://example.com/a", HtmlToMarkdownConverter.Convert(html, null));
+        }
+
+        [Fact]
+        public void Convert_LinkTextSameAsAddress_BecomesBareAddress()
+        {
+            Assert.Equal("https://example.com", HtmlToMarkdownConverter.Convert("<a href=\"https://example.com\">https://example.com</a>", null));
+        }
+
+        [Fact]
+        public void UnwrapSafeLink_OrdinaryUrl_Unchanged()
+        {
+            Assert.Equal("https://example.com/?url=x", HtmlToMarkdownConverter.UnwrapSafeLink("https://example.com/?url=x"));
+        }
     }
 }

@@ -52,8 +52,6 @@ namespace SlingMD.Outlook.Services
         private readonly ContactService _contactService;
         private readonly AttachmentService _attachmentService;
         private readonly DateFormatter _dateFormatter;
-        private readonly ContactNameParser _contactNameParser;
-        private readonly ContactLinkFormatter _contactLinkFormatter;
         private readonly SubjectFilenameCleaner _subjectFilenameCleaner;
         private readonly NoteTitleBuilder _noteTitleBuilder;
         private readonly UniqueFilenameResolver _uniqueFilenameResolver = new UniqueFilenameResolver();
@@ -111,17 +109,28 @@ namespace SlingMD.Outlook.Services
             _contactService = contactService ?? new ContactService(_fileService, _templateService, _clock);
             _attachmentService = attachmentService ?? new AttachmentService(settings, _fileService, _clock);
             _dateFormatter = new DateFormatter();
-            _contactNameParser = new ContactNameParser();
-            _contactLinkFormatter = new ContactLinkFormatter();
             _subjectFilenameCleaner = new SubjectFilenameCleaner(settings, _fileService);
             _noteTitleBuilder = new NoteTitleBuilder();
         }
 
         private string FormatSenderLink(string senderName, string senderEmail)
         {
-            ContactName parsed = _contactNameParser.Parse(senderName, senderEmail);
-            string formatted = _contactLinkFormatter.Resolve(parsed, _settings.ContactLinkFormats, _contactService.NoteFileExists);
-            return string.IsNullOrEmpty(formatted) ? $"[[{senderName}]]" : formatted;
+            return _contactService.FormatContactLink(senderName, senderEmail);
+        }
+
+        private static void RememberContactEmail(Dictionary<string, string> contactEmails, string name, string email)
+        {
+            if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(email) && email.IndexOf('@') > 0
+                && !contactEmails.ContainsKey(name))
+            {
+                contactEmails[name] = email.Trim();
+            }
+        }
+
+        private static string EmailFor(Dictionary<string, string> contactEmails, string name)
+        {
+            string email;
+            return name != null && contactEmails.TryGetValue(name, out email) ? email : null;
         }
 
         /// <summary>
@@ -143,8 +152,25 @@ namespace SlingMD.Outlook.Services
             ContactInteractionMode contactMode = ContactInteractionMode.Interactive,
             bool bulkMode = false)
         {
+            EmailSlingResult result = await ProcessEmailWithResult(mail, cancellationToken, contactMode, bulkMode);
+            return result.Outcome == EmailSlingOutcome.Saved;
+        }
+
+        /// <summary>
+        /// Same as <see cref="ProcessEmail"/>, but says whether the email was saved, was already in the
+        /// vault, or failed (and why), so batch callers can report each case.
+        /// </summary>
+        public async Task<EmailSlingResult> ProcessEmailWithResult(
+            MailItem mail,
+            System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken),
+            ContactInteractionMode contactMode = ContactInteractionMode.Interactive,
+            bool bulkMode = false)
+        {
             // Declare variables at method level so they're accessible throughout the method
             List<string> contactNames = new List<string>();
+            // Each contact's address, so a new contact note records it and an existing note listing it
+            // is recognised under a different display name.
+            Dictionary<string, string> contactEmails = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             string fileName = string.Empty;
             string fileNameNoExt = string.Empty;
             string filePath = string.Empty;
@@ -155,6 +181,7 @@ namespace SlingMD.Outlook.Services
             string threadNotePath = string.Empty;
             bool shouldGroupThread = false;
             bool coreExportSucceeded = false;
+            string failureMessage = null;
 
             // Get task options first if needed. Never prompt in bulk mode — a batch of emails would
             // otherwise pop one modal date dialog per email.
@@ -182,6 +209,7 @@ namespace SlingMD.Outlook.Services
             if (!string.IsNullOrEmpty(mail.SenderName))
             {
                 contactNames.Add(mail.SenderName);
+                RememberContactEmail(contactEmails, mail.SenderName, _contactService.GetSenderEmail(mail));
             }
 
             // Properly release COM objects to prevent memory leaks
@@ -194,6 +222,7 @@ namespace SlingMD.Outlook.Services
                     try
                     {
                         contactNames.Add(recipient.Name);
+                        RememberContactEmail(contactEmails, recipient.Name, _contactService.GetSMTPEmailAddress(recipient));
                     }
                     finally
                     {
@@ -340,7 +369,12 @@ namespace SlingMD.Outlook.Services
                     if (IsDuplicateEmail(_settings.GetInboxPath(), realInternetMessageId, realEntryId))
                     {
                         status.UpdateProgress("Duplicate email detected. Skipping note creation.", 100);
-                        return false;
+                        if (!bulkMode)
+                        {
+                            // The progress window closes as soon as this returns, so say it where it stays visible.
+                            ToastForm.ShowToast("SlingMD: this email is already in your vault.");
+                        }
+                        return new EmailSlingResult { Outcome = EmailSlingOutcome.Duplicate };
                     }
 
                     if (shouldGroupThread)
@@ -352,16 +386,12 @@ namespace SlingMD.Outlook.Services
                         await semaphore.WaitAsync();
                         try
                         {
-                            // Write the new note for the current email to the thread folder with -eid{id} suffix
+                            // Write the new note for the current email to the thread folder with a
+                            // temporary -eid{hash} suffix. Both ids can be empty (unsaved item with no
+                            // InternetMessageID); that still produces a usable, if less unique, "-eid" suffix.
                             string emailId = !string.IsNullOrEmpty(realInternetMessageId) ? realInternetMessageId : realEntryId;
-                            // Both ids can be empty (unsaved item with no InternetMessageID); guard so
-                            // the LINQ below can't NRE and abort the export. An empty safeId still
-                            // produces a usable, if less unique, "-eid" suffix.
-                            string safeId = string.IsNullOrEmpty(emailId)
-                                ? string.Empty
-                                : new string(emailId.Where(char.IsLetterOrDigit).ToArray());
                             string baseName = BuildEmailBaseFileName(mail, subjectClean, senderClean, fileDateTime, true);
-                            string tempFileName = $"{baseName}-eid{safeId}.md";
+                            string tempFileName = _threadService.GetTemporaryThreadNoteName(threadFolderPath, baseName, emailId) + ".md";
                             string tempFilePath = Path.Combine(threadFolderPath, tempFileName);
                             _fileService.EnsureDirectoryExists(threadFolderPath);
                             _fileService.WriteUtf8File(tempFilePath, renderedContent);
@@ -373,8 +403,14 @@ namespace SlingMD.Outlook.Services
                             fileName = tempFileName;
                             fileNameNoExt = Path.GetFileNameWithoutExtension(tempFileName);
 
-                            // Move all existing emails for this thread to the thread folder
-                            var mdFiles = Directory.GetFiles(_settings.GetInboxPath(), "*.md", SearchOption.TopDirectoryOnly);
+                            // Move all existing emails for this thread to the thread folder. Notes
+                            // grouped with their attachments live one level down, in a folder that
+                            // shares their name.
+                            var mdFiles = Directory.GetFiles(_settings.GetInboxPath(), "*.md", SearchOption.TopDirectoryOnly)
+                                .Concat(Directory.GetDirectories(_settings.GetInboxPath())
+                                    .Select(dir => Path.Combine(dir, Path.GetFileName(dir) + ".md"))
+                                    .Where(File.Exists))
+                                .ToArray();
                             foreach (var file in mdFiles)
                             {
                                 // Read front matter to get threadId. One locked/unreadable neighbour
@@ -418,7 +454,7 @@ namespace SlingMD.Outlook.Services
                                     // Only move if not already in the thread folder
                                     if (Path.GetDirectoryName(file) != threadFolderPath)
                                     {
-                                        _threadService.MoveToThreadFolder(file, threadFolderPath);
+                                        _threadService.MoveToThreadFolder(file, threadFolderPath, threadNoteName);
                                     }
                                 }
                             }
@@ -541,6 +577,7 @@ namespace SlingMD.Outlook.Services
                             {
                                 status.UpdateProgress("Processing attachments", 77);
                                 var attachmentInfo = _attachmentService.ProcessAttachments(mail, filePath);
+                                filePath = _attachmentService.GroupNoteWithAttachments(filePath);
                                 string noteContent = File.ReadAllText(filePath);
                                 string linkedContent = _attachmentService.ResolveInlineImageLinks(noteContent, attachmentInfo, filePath);
                                 if (linkedContent != noteContent)
@@ -589,6 +626,7 @@ namespace SlingMD.Outlook.Services
                 catch (System.Exception ex)
                 {
                     Logger.Instance.Error($"EmailProcessor.ProcessEmail failed: {ex.Message}");
+                    failureMessage = ex.Message;
                     if (bulkMode)
                     {
                         // Background monitors and batch slings share this path; a modal dialog per
@@ -610,7 +648,7 @@ namespace SlingMD.Outlook.Services
 
             if (!coreExportSucceeded)
             {
-                return false;
+                return new EmailSlingResult { Outcome = EmailSlingOutcome.Failed, ErrorMessage = failureMessage };
             }
 
             // Process contacts outside the StatusService block
@@ -631,7 +669,8 @@ namespace SlingMD.Outlook.Services
                         {
                             managedContactsToRefresh.Add(contactName);
                         }
-                        else if (!_contactService.ContactExists(contactName))
+                        else if (!_contactService.ContactExists(contactName)
+                            && _contactService.FindContactNoteByEmail(EmailFor(contactEmails, contactName)) == null)
                         {
                             newContacts.Add(contactName);
                         }
@@ -639,7 +678,7 @@ namespace SlingMD.Outlook.Services
 
                     foreach (var contactName in managedContactsToRefresh)
                     {
-                        _contactService.CreateContactNote(contactName);
+                        _contactService.CreateContactNote(contactName, EmailFor(contactEmails, contactName));
                     }
 
                     // For truly new contacts, try fuzzy matching first (when enabled)
@@ -650,7 +689,7 @@ namespace SlingMD.Outlook.Services
                     foreach (var contactName in newContacts)
                     {
                         bool handled = _contactService.TryHandleFuzzyMatch(
-                            contactName, null, contactMode, subjectForLog);
+                            contactName, EmailFor(contactEmails, contactName), contactMode, subjectForLog);
                         if (!handled)
                         {
                             unfuzzyNewContacts.Add(contactName);
@@ -662,7 +701,7 @@ namespace SlingMD.Outlook.Services
                     {
                         foreach (var contactName in unfuzzyNewContacts)
                         {
-                            _contactService.CreateContactNote(contactName);
+                            _contactService.CreateContactNote(contactName, EmailFor(contactEmails, contactName));
                         }
                     }
                     else if (unfuzzyNewContacts.Count > 0)
@@ -674,7 +713,7 @@ namespace SlingMD.Outlook.Services
                             {
                                 foreach (var contactName in dialog.SelectedContacts)
                                 {
-                                    _contactService.CreateContactNote(contactName);
+                                    _contactService.CreateContactNote(contactName, EmailFor(contactEmails, contactName));
                                 }
                             }
                         }
@@ -686,6 +725,20 @@ namespace SlingMD.Outlook.Services
                 }
             }
             
+            // Copy the saved note's path for pasting elsewhere. Skipped in bulk mode so background
+            // and batch slings never overwrite what the user has on the clipboard.
+            if (!bulkMode && _settings.CopyNotePathToClipboard && !string.IsNullOrEmpty(filePath))
+            {
+                try
+                {
+                    Clipboard.SetText(filePath);
+                }
+                catch (System.Exception ex) when (ex is System.Runtime.InteropServices.ExternalException || ex is System.Threading.ThreadStateException)
+                {
+                    Logger.Instance.Warning($"EmailProcessor: could not copy note path to clipboard: {ex.Message}");
+                }
+            }
+
             // Launch Obsidian if enabled. Suppressed in bulk mode — the batch caller launches once
             // at the end instead of once per email.
             if (!bulkMode && _settings.LaunchObsidian)
@@ -705,19 +758,65 @@ namespace SlingMD.Outlook.Services
                         await Task.Delay(_settings.ObsidianDelaySeconds * 1000);
                     }
 
-                    // Always use the latest obsidianLinkPath (updated after resuffixing)
-                    _fileService.LaunchObsidian(_settings.VaultName, obsidianLinkPath);
+                    // Open by the note's path from the vault root. A thread-relative path such as
+                    // "Thread/Note" only resolves when the inbox is the vault root itself.
+                    _fileService.LaunchObsidian(_settings.VaultName, GetVaultRelativePath(filePath) ?? obsidianLinkPath);
                 }
                 catch (System.Exception ex)
                 {
                     MessageBox.Show($"Error launching Obsidian: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
+            else if (!bulkMode)
+            {
+                // Without Obsidian opening on the note, nothing else confirms the sling worked.
+                ToastForm.ShowToast($"SlingMD: saved {GetVaultRelativePath(filePath) ?? Path.GetFileName(filePath)}");
+            }
 
-            return true;
+            return new EmailSlingResult { Outcome = EmailSlingOutcome.Saved, NotePath = filePath };
         }
 
         private string CleanSubject(string subject) => _subjectFilenameCleaner.Clean(subject);
+
+        private static readonly System.Text.RegularExpressions.Regex ForwardSubjectRegex =
+            new System.Text.RegularExpressions.Regex(@"^\s*(?:fw|fwd)\s*:", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// Converts the email body to Markdown, folding the quoted history of a reply into a collapsed
+        /// callout when <see cref="ObsidianSettings.FoldQuotedReplies"/> is on. A forward's quoted part is
+        /// the message itself, so forwards are always converted in full.
+        /// </summary>
+        private string ConvertBody(MailItem mail)
+        {
+            if (_settings.FoldQuotedReplies && !ForwardSubjectRegex.IsMatch(mail.Subject ?? string.Empty))
+            {
+                return QuotedReplyFolder.ConvertFolded(mail.HTMLBody, mail.Body);
+            }
+
+            return HtmlToMarkdownConverter.Convert(mail.HTMLBody, mail.Body);
+        }
+
+        /// <summary>
+        /// Returns <paramref name="path"/> relative to the vault root with forward slashes, or
+        /// <c>null</c> when it does not lie inside the vault.
+        /// </summary>
+        internal string GetVaultRelativePath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return null;
+            }
+
+            string vaultRoot = _settings.GetFullVaultPath().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (path.Length <= vaultRoot.Length + 1
+                || !path.StartsWith(vaultRoot, StringComparison.OrdinalIgnoreCase)
+                || (path[vaultRoot.Length] != Path.DirectorySeparatorChar && path[vaultRoot.Length] != Path.AltDirectorySeparatorChar))
+            {
+                return null;
+            }
+
+            return path.Substring(vaultRoot.Length + 1).Replace('\\', '/');
+        }
 
         private string GetFirstRecipient(MailItem mail)
         {
@@ -869,8 +968,8 @@ namespace SlingMD.Outlook.Services
                 SenderShortName = senderClean,
                 SenderEmail = _contactService.GetSenderEmail(mail),
                 Date = mail.ReceivedTime.ToString("yyyy-MM-dd"),
-                Timestamp = _dateFormatter.FormatOrDefault(mail.ReceivedTime, _settings.EmailDateFormat, _dateFormatter.Format(mail.ReceivedTime, "yyyy-MM-dd HH:mm:ss")),
-                Body = HtmlToMarkdownConverter.Convert(mail.HTMLBody, mail.Body),
+                Timestamp = _dateFormatter.FormatOrDefault(mail.ReceivedTime, _settings.EmailDateFormat, _dateFormatter.Format(mail.ReceivedTime, ObsidianSettings.DefaultEmailDateFormat)),
+                Body = ConvertBody(mail),
                 TaskBlock = taskBlock,
                 FileName = fileNameNoExt + ".md",
                 FileNameWithoutExtension = fileNameNoExt,
@@ -932,7 +1031,8 @@ namespace SlingMD.Outlook.Services
             bool hasExistingThread = threadInfo.hasExistingThread;
             string earliestEmailThreadName = threadInfo.earliestEmailThreadName;
             int emailCount = threadInfo.emailCount;
-            bool shouldGroupThread = hasExistingThread && _settings.GroupEmailThreads && emailCount >= 1;
+            bool shouldGroupThread = _settings.GroupEmailThreads
+                && ((hasExistingThread && emailCount >= 1) || _settings.AlwaysCreateThreadFolder);
 
             if (shouldGroupThread)
             {
@@ -942,6 +1042,23 @@ namespace SlingMD.Outlook.Services
             }
 
             string fileNameNoExtResult = BuildEmailBaseFileName(mail, subjectClean, senderClean, fileDateTime, shouldGroupThread);
+            if (!shouldGroupThread && _settings.GroupEmailThreads)
+            {
+                // Give a standalone note the name it would have inside a thread, derived from the
+                // same front-matter date the thread rename pass reads. Moving it into a thread
+                // folder later then keeps its name, so the Obsidian task link and links from other
+                // notes don't break when a reply is slung.
+                string frontMatterDate = _dateFormatter.FormatOrDefault(mail.ReceivedTime, _settings.EmailDateFormat, _dateFormatter.Format(mail.ReceivedTime, ObsidianSettings.DefaultEmailDateFormat));
+                if (ThreadService.TryParseNoteDate(frontMatterDate, out DateTime noteDate))
+                {
+                    fileNameNoExtResult = _threadService.GetThreadedNoteName(fileNameNoExtResult, noteDate, threadFolderPath);
+                }
+            }
+            // Keep every path the note can produce inside the Windows path limits. Inside a thread
+            // folder, ResuffixThreadNotes applies the same budget to the final name.
+            fileNameNoExtResult = shouldGroupThread
+                ? _fileService.FitNoteName(threadFolderPath, fileNameNoExtResult, ".md", false)
+                : _fileService.FitNoteName(_settings.GetInboxPath(), fileNameNoExtResult, ".md", true);
             string fileName = fileNameNoExtResult + ".md";
             string filePath = shouldGroupThread
                 ? Path.Combine(threadFolderPath, fileName)
@@ -977,7 +1094,7 @@ namespace SlingMD.Outlook.Services
                 { "to", toLinked },
                 { "toEmail", toEmails },
                 { "threadId", conversationId },
-                { "date", _dateFormatter.FormatOrDefault(receivedTime, _settings.EmailDateFormat, _dateFormatter.Format(receivedTime, "yyyy-MM-dd HH:mm:ss")) },
+                { "date", _dateFormatter.FormatOrDefault(receivedTime, _settings.EmailDateFormat, _dateFormatter.Format(receivedTime, ObsidianSettings.DefaultEmailDateFormat)) },
                 { "internetMessageId", realInternetMessageId },
                 { "entryId", realEntryId }
             };

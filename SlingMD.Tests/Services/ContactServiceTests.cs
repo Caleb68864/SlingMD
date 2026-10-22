@@ -106,6 +106,50 @@ namespace SlingMD.Tests.Services
             _contactService = new ContactService(fileService, templateService);
         }
 
+        private void WriteContactNote(string fileName, string frontmatterLine)
+        {
+            string path = Path.Combine(_testDir, "TestVault", "Contacts", fileName + ".md");
+            File.WriteAllText(path, "---\ntitle: \"" + fileName + "\"\n" + frontmatterLine + "\n---\n\n# " + fileName + "\n", new UTF8Encoding(false));
+        }
+
+        [Fact]
+        public void FindContactNoteByEmail_NoteListsAddress_ReturnsItsName()
+        {
+            WriteContactNote("John Smith", "email: john@example.com");
+
+            Assert.Equal("John Smith", _contactService.FindContactNoteByEmail("JOHN@example.com"));
+            Assert.Null(_contactService.FindContactNoteByEmail("someone@example.com"));
+            Assert.Null(_contactService.FindContactNoteByEmail("/O=EXCHANGELABS/OU=EXCHANGE"));
+        }
+
+        [Fact]
+        public void FormatContactLink_DifferentDisplayName_LinksNoteWithSameEmail()
+        {
+            WriteContactNote("John Smith", "email: \"john@example.com\"");
+
+            Assert.Equal("[[John Smith]]", _contactService.FormatContactLink("Johnny S", "john@example.com"));
+        }
+
+        [Fact]
+        public void FormatContactLink_NoNoteForEmail_KeepsConfiguredFormat()
+        {
+            Assert.Equal("[[Johnny S]]", _contactService.FormatContactLink("Johnny S", "johnny@example.com"));
+        }
+
+        [Fact]
+        public void CreateContactNote_WithEmail_WritesEmailPropertyAndIsFoundByIt()
+        {
+            TestFileService fileService = new TestFileService(_settings);
+            ContactService service = new ContactService(fileService, new TemplateService(fileService));
+            Assert.Null(service.FindContactNoteByEmail("jane.doe@example.com"));
+
+            service.CreateContactNote("Jane Doe", "Jane.Doe@example.com");
+
+            string path = service.GetManagedContactNotePath("Jane Doe");
+            Assert.Contains("email: \"Jane.Doe@example.com\"", File.ReadAllText(path));
+            Assert.Equal(Path.GetFileNameWithoutExtension(path), service.FindContactNoteByEmail("jane.doe@example.com"));
+        }
+
         [Fact]
         public void GetFilenameSafeShortName_SingleWordName_ReturnsName()
         {

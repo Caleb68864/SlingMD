@@ -309,5 +309,212 @@ namespace SlingMD.Tests.Services
 
             Assert.Equal("![Company logo](logo.png)", result);
         }
+
+        // -----------------------------------------------------------------------------------------
+        // Duplicate reuse / empty folder cleanup
+        // -----------------------------------------------------------------------------------------
+
+        private static AttachmentService BuildServiceOnDisk(string root, bool reuseDuplicates)
+        {
+            ObsidianSettings settings = new ObsidianSettings
+            {
+                VaultBasePath = root,
+                VaultName = "Vault",
+                InboxFolder = "Inbox",
+                AttachmentStorageMode = AttachmentStorageMode.SubfolderPerNote,
+                ReuseDuplicateAttachments = reuseDuplicates
+            };
+            return new AttachmentService(settings, new FileService(settings));
+        }
+
+        private static string CreateTempRoot()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "SlingMDTests", "Attachment_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            Directory.CreateDirectory(Path.Combine(root, "Vault", "Inbox"));
+            return root;
+        }
+
+        private static string WriteFile(string root, string relativePath, string content)
+        {
+            string path = Path.Combine(root, "Vault", relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.WriteAllText(path, content);
+            return path;
+        }
+
+        [Fact]
+        public void ReuseDuplicateIfAny_Disabled_KeepsOwnCopy()
+        {
+            string root = CreateTempRoot();
+            try
+            {
+                AttachmentService service = BuildServiceOnDisk(root, reuseDuplicates: false);
+                WriteFile(root, Path.Combine("Inbox", "first", "logo.png"), "same-bytes");
+                string second = WriteFile(root, Path.Combine("Inbox", "second", "logo.png"), "same-bytes");
+
+                Assert.Equal(second, service.ReuseDuplicateIfAny(second));
+                Assert.True(File.Exists(second));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public void ReuseDuplicateIfAny_SecondAndThirdCopies_LandOnOneSharedFile()
+        {
+            string root = CreateTempRoot();
+            try
+            {
+                AttachmentService service = BuildServiceOnDisk(root, reuseDuplicates: true);
+                string first = WriteFile(root, Path.Combine("Inbox", "first", "logo.png"), "same-bytes");
+                string second = WriteFile(root, Path.Combine("Inbox", "second", "logo.png"), "same-bytes");
+
+                string sharedPath = service.ReuseDuplicateIfAny(second);
+
+                Assert.Equal(Path.Combine(root, "Vault", "Attachments", "Shared", "logo.png"), sharedPath);
+                Assert.False(File.Exists(second));
+                Assert.True(File.Exists(first));
+
+                string third = WriteFile(root, Path.Combine("Inbox", "third", "image001.png"), "same-bytes");
+                Assert.Equal(sharedPath, service.ReuseDuplicateIfAny(third));
+                Assert.False(File.Exists(third));
+                Assert.Single(Directory.GetFiles(Path.Combine(root, "Vault", "Attachments", "Shared")));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public void ReuseDuplicateIfAny_SameSizeDifferentContent_KeepsOwnCopy()
+        {
+            string root = CreateTempRoot();
+            try
+            {
+                AttachmentService service = BuildServiceOnDisk(root, reuseDuplicates: true);
+                WriteFile(root, Path.Combine("Inbox", "first", "logo.png"), "aaaa");
+                string second = WriteFile(root, Path.Combine("Inbox", "second", "logo.png"), "bbbb");
+
+                Assert.Equal(second, service.ReuseDuplicateIfAny(second));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public void BuildAttachmentLinkTarget_SharedAttachment_UsesVaultRootPath()
+        {
+            AttachmentService service = BuildService(AttachmentStorageMode.SubfolderPerNote);
+
+            string target = service.BuildAttachmentLinkTarget(
+                @"C:\Vault\MyVault\Attachments\Shared\logo.png",
+                @"C:\Vault\MyVault\Inbox\Some thread\email.md");
+
+            Assert.Equal("Attachments/Shared/logo.png", target);
+        }
+
+        [Fact]
+        public void RemoveEmptyNoteFolder_DeletesOnlyEmptyFolders()
+        {
+            string root = CreateTempRoot();
+            try
+            {
+                AttachmentService service = BuildServiceOnDisk(root, reuseDuplicates: false);
+                string emptyFolder = Path.Combine(root, "Vault", "Inbox", "empty-note");
+                Directory.CreateDirectory(emptyFolder);
+                string usedFile = WriteFile(root, Path.Combine("Inbox", "used-note", "doc.pdf"), "pdf");
+
+                service.RemoveEmptyNoteFolder(emptyFolder);
+                service.RemoveEmptyNoteFolder(Path.GetDirectoryName(usedFile));
+
+                Assert.False(Directory.Exists(emptyFolder));
+                Assert.True(File.Exists(usedFile));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        // -----------------------------------------------------------------------------------------
+        // Grouping the note with its attachments
+        // -----------------------------------------------------------------------------------------
+
+        private static AttachmentService BuildGroupingService(string root, bool group)
+        {
+            ObsidianSettings settings = new ObsidianSettings
+            {
+                VaultBasePath = root,
+                VaultName = "Vault",
+                InboxFolder = "Inbox",
+                AttachmentStorageMode = AttachmentStorageMode.SubfolderPerNote,
+                GroupNoteWithAttachments = group
+            };
+            return new AttachmentService(settings, new FileService(settings));
+        }
+
+        [Fact]
+        public void GroupNoteWithAttachments_FolderExists_MovesNoteIntoIt()
+        {
+            string root = CreateTempRoot();
+            try
+            {
+                AttachmentService service = BuildGroupingService(root, group: true);
+                string note = WriteFile(root, Path.Combine("Inbox", "email.md"), "note");
+                string attachment = WriteFile(root, Path.Combine("Inbox", "email", "doc.pdf"), "pdf");
+
+                string grouped = service.GroupNoteWithAttachments(note);
+
+                Assert.Equal(Path.Combine(root, "Vault", "Inbox", "email", "email.md"), grouped);
+                Assert.True(File.Exists(grouped));
+                Assert.False(File.Exists(note));
+                Assert.Equal("doc.pdf", service.BuildAttachmentLinkTarget(attachment, grouped));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public void GroupNoteWithAttachments_NoAttachmentFolder_LeavesNoteInPlace()
+        {
+            string root = CreateTempRoot();
+            try
+            {
+                AttachmentService service = BuildGroupingService(root, group: true);
+                string note = WriteFile(root, Path.Combine("Inbox", "email.md"), "note");
+
+                Assert.Equal(note, service.GroupNoteWithAttachments(note));
+                Assert.True(File.Exists(note));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public void GroupNoteWithAttachments_Disabled_LeavesNoteInPlace()
+        {
+            string root = CreateTempRoot();
+            try
+            {
+                AttachmentService service = BuildGroupingService(root, group: false);
+                string note = WriteFile(root, Path.Combine("Inbox", "email.md"), "note");
+                WriteFile(root, Path.Combine("Inbox", "email", "doc.pdf"), "pdf");
+
+                Assert.Equal(note, service.GroupNoteWithAttachments(note));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
     }
 }

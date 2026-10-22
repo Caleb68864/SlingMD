@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.Office.Interop.Outlook;
 using SlingMD.Outlook.Infrastructure;
@@ -39,6 +40,7 @@ namespace SlingMD.Outlook.Services
             AttachmentInfo info = new AttachmentInfo();
 
             Attachments attachments = null;
+            string targetFolder = null;
             try
             {
                 attachments = mail.Attachments;
@@ -50,7 +52,7 @@ namespace SlingMD.Outlook.Services
                 }
 
                 // Determine target folder based on storage mode
-                string targetFolder = GetAttachmentFolder(noteFilePath);
+                targetFolder = GetAttachmentFolder(noteFilePath);
                 _fileService.EnsureDirectoryExists(targetFolder);
 
                 // Process each attachment
@@ -102,9 +104,168 @@ namespace SlingMD.Outlook.Services
                 {
                     System.Runtime.InteropServices.Marshal.ReleaseComObject(attachments);
                 }
+
+                RemoveEmptyNoteFolder(targetFolder);
             }
 
             return info;
+        }
+
+        /// <summary>
+        /// Deletes the per-note attachment folder when nothing ended up in it (every attachment
+        /// was skipped or reused from elsewhere), so emails don't leave empty folders in the inbox.
+        /// </summary>
+        internal void RemoveEmptyNoteFolder(string targetFolder)
+        {
+            if (_settings.AttachmentStorageMode != AttachmentStorageMode.SubfolderPerNote || string.IsNullOrEmpty(targetFolder))
+            {
+                return;
+            }
+
+            try
+            {
+                if (Directory.Exists(targetFolder) && !Directory.EnumerateFileSystemEntries(targetFolder).Any())
+                {
+                    Directory.Delete(targetFolder);
+                }
+            }
+            catch (System.Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Logger.Instance.Warning($"AttachmentService: could not remove empty attachment folder '{targetFolder}': {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// When <see cref="ObsidianSettings.GroupNoteWithAttachments"/> is on and the note's attachment
+        /// folder exists, moves the note into that folder and returns its new path. Call after
+        /// <see cref="ProcessAttachments"/> and before generating links, so links are built relative
+        /// to the note's final location. Returns <paramref name="noteFilePath"/> when nothing moved.
+        /// </summary>
+        internal string GroupNoteWithAttachments(string noteFilePath)
+        {
+            if (!_settings.GroupNoteWithAttachments
+                || _settings.AttachmentStorageMode != AttachmentStorageMode.SubfolderPerNote
+                || string.IsNullOrEmpty(noteFilePath))
+            {
+                return noteFilePath;
+            }
+
+            try
+            {
+                string folder = GetAttachmentFolder(noteFilePath);
+                string groupedPath = Path.Combine(folder, Path.GetFileName(noteFilePath));
+                if (!Directory.Exists(folder) || File.Exists(groupedPath))
+                {
+                    return noteFilePath;
+                }
+
+                File.Move(noteFilePath, groupedPath);
+                return groupedPath;
+            }
+            catch (System.Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Logger.Instance.Warning($"AttachmentService: could not move '{noteFilePath}' into its attachment folder: {ex.Message}");
+                return noteFilePath;
+            }
+        }
+
+        /// <summary>
+        /// When <see cref="ObsidianSettings.ReuseDuplicateAttachments"/> is on and a file with identical
+        /// content has been saved before, replaces the just-saved file with a single copy in the shared
+        /// attachments folder and returns that copy's path. Otherwise returns <paramref name="savedPath"/>.
+        /// The earlier note keeps its own copy, so no existing note is rewritten and the shared copy
+        /// never moves when a note is later filed into a thread.
+        /// </summary>
+        internal string ReuseDuplicateIfAny(string savedPath)
+        {
+            if (!_settings.ReuseDuplicateAttachments || string.IsNullOrEmpty(savedPath) || !File.Exists(savedPath))
+            {
+                return savedPath;
+            }
+
+            try
+            {
+                string sharedFolder = _settings.GetSharedAttachmentsPath();
+                long size = new FileInfo(savedPath).Length;
+                string hash = null;
+
+                string shared = FindIdenticalFile(sharedFolder, SearchOption.TopDirectoryOnly, savedPath, size, ref hash);
+                if (shared == null)
+                {
+                    string earlier = FindIdenticalFile(_settings.GetInboxPath(), SearchOption.AllDirectories, savedPath, size, ref hash);
+                    if (earlier == null)
+                    {
+                        return savedPath;
+                    }
+
+                    _fileService.EnsureDirectoryExists(sharedFolder);
+                    shared = _uniqueFilenameResolver.Resolve(sharedFolder, Path.GetFileName(savedPath), File.Exists);
+                    if (shared == null)
+                    {
+                        return savedPath;
+                    }
+                    File.Move(savedPath, shared);
+                    return shared;
+                }
+
+                File.Delete(savedPath);
+                return shared;
+            }
+            catch (System.Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Logger.Instance.Warning($"AttachmentService: duplicate check failed for '{savedPath}', keeping its own copy: {ex.Message}");
+                return savedPath;
+            }
+        }
+
+        /// <summary>
+        /// Finds a file under <paramref name="folder"/> (other than <paramref name="savedPath"/>) with the
+        /// same length and SHA-256 hash. Only same-length candidates are ever hashed.
+        /// </summary>
+        private static string FindIdenticalFile(string folder, SearchOption searchOption, string savedPath, long size, ref string hash)
+        {
+            if (!Directory.Exists(folder))
+            {
+                return null;
+            }
+
+            foreach (string candidate in Directory.EnumerateFiles(folder, "*", searchOption))
+            {
+                if (string.Equals(candidate, savedPath, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(Path.GetExtension(candidate), ".md", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    if (new FileInfo(candidate).Length != size)
+                    {
+                        continue;
+                    }
+
+                    hash = hash ?? ComputeFileHash(savedPath);
+                    if (ComputeFileHash(candidate) == hash)
+                    {
+                        return candidate;
+                    }
+                }
+                catch (System.Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                {
+                    // A locked or vanished candidate just isn't a reuse target.
+                }
+            }
+
+            return null;
+        }
+
+        private static string ComputeFileHash(string path)
+        {
+            using (System.Security.Cryptography.SHA256 sha = System.Security.Cryptography.SHA256.Create())
+            using (FileStream stream = File.OpenRead(path))
+            {
+                return BitConverter.ToString(sha.ComputeHash(stream));
+            }
         }
 
         /// <summary>
@@ -313,6 +474,9 @@ namespace SlingMD.Outlook.Services
                     }
                 }
 
+                fullPath = ReuseDuplicateIfAny(fullPath);
+                safeFilename = Path.GetFileName(fullPath);
+
                 // Get file size
                 FileInfo fileInfo = new FileInfo(fullPath);
 
@@ -430,6 +594,17 @@ namespace SlingMD.Outlook.Services
             if (string.IsNullOrEmpty(noteDir) || string.IsNullOrEmpty(attachmentDir))
             {
                 return attachmentFilename ?? string.Empty;
+            }
+
+            // Shared (reused) attachments are linked by their path from the vault root, which
+            // Obsidian resolves from any note — so the link survives the note moving into a thread.
+            string vaultRoot = _settings.GetFullVaultPath().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string sharedDir = _settings.GetSharedAttachmentsPath();
+            if (string.Equals(attachmentDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), sharedDir, StringComparison.OrdinalIgnoreCase))
+            {
+                return attachmentFullPath.Substring(vaultRoot.Length)
+                    .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .Replace('\\', '/');
             }
 
             // Normalise to the same case and separator for comparison

@@ -123,17 +123,12 @@ namespace SlingMD.Outlook
                 bool marshalerReady = InitializeUiMarshaler();
 
                 _settings = LoadSettings(out isFirstLaunchAfterInstall);
-                ValidateStartupHealth();
+                bool vaultFound = ValidateStartupHealth();
                 _emailProcessor = new EmailProcessor(_settings);
                 _appointmentProcessor = new AppointmentProcessor(_settings);
                 _contactProcessor = new ContactProcessor(_settings);
                 _fileService = new FileService(_settings);
                 _notificationService = new NotificationService(_settings);
-
-                if (isFirstLaunchAfterInstall && !_settings.HasShownSupportPrompt)
-                {
-                    ShowFirstRunSupportPrompt();
-                }
 
                 try
                 {
@@ -177,6 +172,17 @@ namespace SlingMD.Outlook
                 }
 
                 _ribbon?.UpdateSlingButtonLabel(GetSelectedItemLabel());
+
+                // Offered once everything is running, because Settings restarts the services.
+                if (!vaultFound)
+                {
+                    OfferVaultSetup();
+                }
+
+                if (isFirstLaunchAfterInstall && !_settings.HasShownSupportPrompt)
+                {
+                    ShowFirstRunSupportPrompt();
+                }
             }
             catch (System.Exception ex)
             {
@@ -291,7 +297,11 @@ namespace SlingMD.Outlook
             }
         }
 
-        private void ValidateStartupHealth()
+        /// <summary>
+        /// Logs whether the configured vault exists. Returns false when it doesn't, so startup can
+        /// offer to open Settings once the add-in is running.
+        /// </summary>
+        private bool ValidateStartupHealth()
         {
             string vaultPath = _settings.GetFullVaultPath();
             string inboxPath = _settings.GetInboxPath();
@@ -299,13 +309,7 @@ namespace SlingMD.Outlook
             if (!System.IO.Directory.Exists(vaultPath))
             {
                 Logger.Instance.Warning($"Startup health: vault path does not exist: {vaultPath}");
-                MessageBox.Show(
-                    $"SlingMD: Your Obsidian vault at \"{vaultPath}\" is not accessible.\n\n"
-                    + "Exports will fail until you configure Settings.",
-                    "SlingMD",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
+                return false;
             }
 
             if (!System.IO.Directory.Exists(inboxPath))
@@ -314,6 +318,22 @@ namespace SlingMD.Outlook
             }
 
             Logger.Instance.Info($"Startup health: vault path OK: {vaultPath}");
+            return true;
+        }
+
+        private void OfferVaultSetup()
+        {
+            string vaultPath = _settings.GetFullVaultPath();
+            DialogResult choice = MessageBox.Show(
+                $"SlingMD can't find your Obsidian vault at \"{vaultPath}\", so emails can't be saved yet.\n\n"
+                + "Open SlingMD settings to choose your vault now?",
+                "SlingMD - Set up your vault",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+            if (choice == DialogResult.Yes)
+            {
+                ShowSettings();
+            }
         }
 
         private ObsidianSettings LoadSettings(out bool isFirstLaunchAfterInstall)
@@ -361,6 +381,13 @@ namespace SlingMD.Outlook
 
         public async void ProcessSelection()
         {
+            // Sling on several items used to export only the first one, silently.
+            if (GetActiveSelectionCount() > 1)
+            {
+                SlingMultipleEmails();
+                return;
+            }
+
             if (!TryBeginOperation())
             {
                 return;
@@ -525,6 +552,31 @@ namespace SlingMD.Outlook
                 if (appointment != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(appointment);
                 if (inspector != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(inspector);
                 EndOperation();
+            }
+        }
+
+        /// <summary>
+        /// Returns how many items are selected in the active explorer, or 0 when the selection can't be read.
+        /// </summary>
+        private int GetActiveSelectionCount()
+        {
+            Explorer explorer = null;
+            Selection selection = null;
+            try
+            {
+                explorer = Application.ActiveExplorer();
+                selection = explorer?.Selection;
+                return selection?.Count ?? 0;
+            }
+            catch (System.Runtime.InteropServices.COMException)
+            {
+                // Some views (e.g. a folder with nothing selectable) throw on Selection.
+                return 0;
+            }
+            finally
+            {
+                if (selection != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(selection);
+                if (explorer != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(explorer);
             }
         }
 
@@ -934,14 +986,8 @@ namespace SlingMD.Outlook
                     batchProcessor = new EmailProcessor(batchSettings);
                 }
 
-                int slung = 0;
-                foreach (MailItem selectedMail in mails)
-                {
-                    if (await batchProcessor.ProcessEmail(selectedMail, contactMode: ContactInteractionMode.Automated, bulkMode: true))
-                    {
-                        slung++;
-                    }
-                }
+                BatchSlingReport report = await SlingBatchAsync(batchProcessor, mails, "SlingMD - Sling Multiple");
+                int slung = report.Saved;
 
                 if (slung == 0)
                 {
@@ -955,12 +1001,9 @@ namespace SlingMD.Outlook
                     _fileService.LaunchObsidian(_settings.VaultName, vaultRelativeTarget);
                 }
 
-                int failed = mails.Count - slung;
                 string noun = mails.Count == 1 ? "email" : "emails";
-                string message = failed == 0
-                    ? $"Slung {slung} of {mails.Count} {noun}."
-                    : $"Slung {slung} of {mails.Count} {noun}. {failed} were skipped or failed (see any error messages).";
-                MessageBox.Show(message, "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(report.BuildMessage(noun), "SlingMD", MessageBoxButtons.OK,
+                    report.Failed > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
             }
             catch (System.Exception ex)
             {
@@ -1380,20 +1423,17 @@ namespace SlingMD.Outlook
                     if (dialog.ShowDialog() == DialogResult.OK)
                     {
                         List<MailItem> selected = dialog.SelectedEmails;
-                        int slung = 0;
-                        foreach (MailItem selectedMail in selected)
+                        // Bulk mode, as in SlingMultipleEmails: no task-date dialog, contact prompt,
+                        // countdown or Obsidian launch per email.
+                        BatchSlingReport report = await SlingBatchAsync(_emailProcessor, selected, "SlingMD - Complete Thread");
+
+                        if (_settings.LaunchObsidian && report.Saved > 0)
                         {
-                            if (await _emailProcessor.ProcessEmail(selectedMail))
-                            {
-                                slung++;
-                            }
+                            _fileService.LaunchObsidian(_settings.VaultName, GetThreadLaunchTarget(threadService, conversationId));
                         }
 
-                        int failedOrSkipped = selected.Count - slung;
-                        string message = failedOrSkipped == 0
-                            ? $"Slung {slung} of {selected.Count} emails from this thread."
-                            : $"Slung {slung} of {selected.Count} emails from this thread. {failedOrSkipped} were skipped or failed (see any error messages above).";
-                        MessageBox.Show(message, "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        MessageBox.Show(report.BuildMessage("emails from this thread"), "SlingMD", MessageBoxButtons.OK,
+                            report.Failed > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
                     }
                 }
             }
@@ -1417,6 +1457,65 @@ namespace SlingMD.Outlook
                 if (explorer != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(explorer);
                 EndOperation();
             }
+        }
+
+        /// <summary>
+        /// Slings <paramref name="mails"/> in bulk mode behind a progress window with a Cancel button,
+        /// and returns what happened to each. Cancel takes effect between emails.
+        /// </summary>
+        private async System.Threading.Tasks.Task<BatchSlingReport> SlingBatchAsync(EmailProcessor processor, IList<MailItem> mails, string title)
+        {
+            BatchSlingReport report = new BatchSlingReport(mails.Count);
+            using (BatchProgressForm progress = new BatchProgressForm(title, mails.Count))
+            {
+                progress.Show();
+                for (int i = 0; i < mails.Count; i++)
+                {
+                    // Yield to the message loop so the window repaints and Cancel can be clicked;
+                    // ProcessEmail itself mostly runs synchronously on this thread.
+                    await System.Threading.Tasks.Task.Yield();
+                    if (progress.CancelRequested)
+                    {
+                        report.Cancelled = true;
+                        break;
+                    }
+
+                    string subject = GetSubjectOrEmpty(mails[i]);
+                    progress.ShowItem(i + 1, subject);
+                    EmailSlingResult result = await processor.ProcessEmailWithResult(
+                        mails[i], contactMode: ContactInteractionMode.Automated, bulkMode: true);
+                    report.Add(subject, result);
+                }
+            }
+            return report;
+        }
+
+        private static string GetSubjectOrEmpty(MailItem mail)
+        {
+            try
+            {
+                return mail.Subject ?? string.Empty;
+            }
+            catch (System.Runtime.InteropServices.COMException)
+            {
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Returns the vault-relative path Obsidian should open after a thread was completed: the
+        /// thread's summary note when the emails are grouped in a thread folder, otherwise the inbox.
+        /// </summary>
+        private string GetThreadLaunchTarget(ThreadService threadService, string conversationId)
+        {
+            string inboxPath = _settings.GetInboxPath();
+            string threadName = threadService.FindExistingThread(conversationId, inboxPath).earliestEmailThreadName;
+            if (string.IsNullOrEmpty(threadName))
+            {
+                return _settings.InboxFolder;
+            }
+
+            return System.IO.Path.Combine(_settings.InboxFolder, threadName, "0-" + threadName + ".md");
         }
 
         public void ShowSettings()

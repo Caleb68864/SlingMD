@@ -35,6 +35,12 @@ namespace SlingMD.Tests.Services.Formatting
         }
 
         [Fact]
+        public void ExtractRawDate_IsoDate_ReturnsValue()
+        {
+            Assert.Equal("2026-04-21T09:30:00", _reader.ExtractRawDate("date: \"2026-04-21T09:30:00\"\n"));
+        }
+
+        [Fact]
         public void ExtractRawDate_AcceptsLegacyMinutePrecision()
         {
             string legacy = "date: 2026-04-21 09:30\n";
@@ -115,6 +121,28 @@ namespace SlingMD.Tests.Services.Formatting
         {
             string content = "title: \"x\"\n";
             Assert.Null(_reader.ExtractEntryId(content));
+        }
+
+        [Fact]
+        public void ExtractEmails_ScalarQuotedAndCrlf_ReturnsAddress()
+        {
+            Assert.Equal(new[] { "a@example.com" }, _reader.ExtractEmails("---\r\nemail: \"a@example.com\"\r\n---\r\n"));
+            Assert.Equal(new[] { "b@example.com" }, _reader.ExtractEmails("---\nemail: mailto:b@example.com\n---\n"));
+        }
+
+        [Fact]
+        public void ExtractEmails_ListsAndEmailsKey_ReturnsEveryAddressOnce()
+        {
+            Assert.Equal(new[] { "a@example.com", "b@example.com" }, _reader.ExtractEmails("---\nemails: [a@example.com, \"b@example.com\"]\n---\n"));
+            Assert.Equal(new[] { "a@example.com", "b@example.com" }, _reader.ExtractEmails("---\nemail:\n  - a@example.com\n  - b@example.com\n  - A@example.com\n---\n"));
+        }
+
+        [Fact]
+        public void ExtractEmails_NotAnAddressOrNoFrontmatter_ReturnsEmpty()
+        {
+            Assert.Empty(_reader.ExtractEmails("---\nemail: none\n---\n"));
+            Assert.Empty(_reader.ExtractEmails("email: a@example.com"));
+            Assert.Empty(_reader.ExtractEmails("---\nfromEmail: a@example.com\n---\n"));
         }
     }
 }

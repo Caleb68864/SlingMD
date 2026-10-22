@@ -189,6 +189,13 @@ namespace SlingMD.Outlook.Forms
                 },
                 new HelpEntry
                 {
+                    Id = "General.CopyNotePathToClipboard",
+                    Tab = "General",
+                    Title = "Copy note path to clipboard after saving",
+                    Summary = "Puts the full file path of the saved note on the clipboard when you sling an email by hand, ready to paste elsewhere. Automatic and batch slings leave the clipboard alone. On by default."
+                },
+                new HelpEntry
+                {
                     Id = "General.ShowCountdown",
                     Tab = "General",
                     Title = "Show countdown",
@@ -279,6 +286,7 @@ namespace SlingMD.Outlook.Forms
                     Tab = "Email",
                     Title = "Max Title Length",
                     Summary = "Truncates the rendered title at this many characters (with ellipsis).",
+                    Description = "File and folder names can end up shorter than this: SlingMD shortens them, at a word break, whenever the full path would pass the Windows path limit (240 characters). This mostly affects deep vault paths and emails inside thread folders.",
                     Default = "50"
                 },
                 new HelpEntry
@@ -297,6 +305,15 @@ namespace SlingMD.Outlook.Forms
                     Summary = "Comma-separated tags added to every exported email's frontmatter.",
                     Description = "Applied as YAML list under tags:. Leave blank to emit no tags.",
                     Default = "FollowUp"
+                },
+                new HelpEntry
+                {
+                    Id = "Email.FoldQuotedReplies",
+                    Tab = "Email",
+                    Title = "Fold quoted replies",
+                    Summary = "Shows only what a reply added; the quoted history underneath goes into a collapsed \"Earlier messages\" section at the end of the note.",
+                    Description = "Recognises Outlook's From/Sent header, Gmail and Apple Mail quotes, -----Original Message----- and \"On … wrote:\". Nothing is removed: click the section in Obsidian to expand it. Forwards are always kept in full, and an email whose history can't be found is unchanged.",
+                    Default = "Off"
                 },
                 new HelpEntry
                 {
@@ -333,6 +350,25 @@ namespace SlingMD.Outlook.Forms
                     Title = "Email Template File",
                     Summary = "Markdown template for exported email notes.",
                     Description = "Looked up under Templates Folder. If missing, SlingMD uses its built-in default.",
+                    Tokens = new Dictionary<string, string>
+                    {
+                        { "{{frontmatter}}", "The YAML properties block" },
+                        { "{{body}}", "Email body, converted from HTML to Markdown" },
+                        { "{{taskBlock}}", "The follow-up task line, when a task is created" },
+                        { "{{subject}}", "Cleaned subject" },
+                        { "{{noteTitle}}", "Rendered note title" },
+                        { "{{senderName}}", "Sender display name" },
+                        { "{{senderShortName}}", "Sender short name" },
+                        { "{{senderEmail}}", "Sender email address" },
+                        { "{{from}} / {{to}} / {{cc}}", "Contact links (see Contact Link Format)" },
+                        { "{{fromEmail}} / {{toEmail}} / {{ccEmail}}", "Email addresses" },
+                        { "{{date}} / {{timestamp}}", "Received date (Email Date Format)" },
+                        { "{{threadNote}} / {{threadId}}", "Thread summary link and id" },
+                        { "{{dailyNoteLink}}", "Daily note link, when enabled" },
+                        { "{{tags}}", "Default note tags" },
+                        { "{{fileName}} / {{fileNameNoExt}}", "The note's file name" },
+                        { "{{<list>Csv}} / {{<list>Yaml}}", "Any list (to, cc, tags...) as comma-separated text or a YAML list" },
+                    },
                     Default = "EmailTemplate.md"
                 },
                 new HelpEntry
@@ -341,10 +377,12 @@ namespace SlingMD.Outlook.Forms
                     Tab = "Email",
                     Title = "Email Date Format",
                     Summary = ".NET DateTime format string used for the date field in email frontmatter.",
-                    Default = "yyyy-MM-dd HH:mm:ss",
+                    Description = "Keep the T between date and time (ISO 8601) so Obsidian Properties and Dataview treat the value as a date and sort it correctly. Installs from before 1.2.5 keep their old default, yyyy-MM-dd HH:mm:ss, which Obsidian shows as text; change it here to switch. Existing notes are not rewritten.",
+                    Default = "yyyy-MM-ddTHH:mm:ss",
                     Examples = new List<HelpExample>
                     {
-                        new HelpExample { Input = "yyyy-MM-dd HH:mm:ss", Output = "2026-04-22 14:05:30" },
+                        new HelpExample { Input = "yyyy-MM-ddTHH:mm:ss", Output = "2026-04-22T14:05:30" },
+                        new HelpExample { Input = "yyyy-MM-dd HH:mm:ss", Output = "2026-04-22 14:05:30 (shown as text in Obsidian)" },
                         new HelpExample { Input = "MM/dd/yyyy h:mm tt", Output = "04/22/2026 2:05 PM" },
                     }
                 },
@@ -394,6 +432,23 @@ namespace SlingMD.Outlook.Forms
                     Tab = "Appointments",
                     Title = "Appointment Template File",
                     Summary = "Markdown template for appointment notes.",
+                    Tokens = new Dictionary<string, string>
+                    {
+                        { "{{frontmatter}}", "The YAML properties block" },
+                        { "{{body}}", "Appointment body" },
+                        { "{{taskBlock}}", "The task line, when a task is created" },
+                        { "{{subject}} / {{noteTitle}}", "Subject and rendered title" },
+                        { "{{organizer}} / {{organizerEmail}}", "Organizer link and address" },
+                        { "{{attendees}}", "Required attendees" },
+                        { "{{optionalAttendees}}", "Optional attendees" },
+                        { "{{resources}}", "Rooms and resources" },
+                        { "{{location}}", "Location" },
+                        { "{{startDateTime}} / {{endDateTime}}", "Start and end (Appointment Date Format)" },
+                        { "{{date}}", "Appointment date" },
+                        { "{{recurrence}}", "Recurrence state" },
+                        { "{{meetingNotes}}", "Link to the companion meeting note, when created" },
+                        { "{{fileName}} / {{fileNameNoExt}}", "The note's file name" },
+                    },
                     Default = "AppointmentTemplate.md"
                 },
                 new HelpEntry
@@ -402,7 +457,17 @@ namespace SlingMD.Outlook.Forms
                     Tab = "Appointments",
                     Title = "Meeting Note Template",
                     Summary = "Optional path to a custom meeting-notes companion template.",
-                    Description = "Leave empty to use the built-in template. Applies only when Create companion meeting notes is on."
+                    Description = "Leave empty to use the built-in template. Applies only when Create companion meeting notes is on.",
+                    Tokens = new Dictionary<string, string>
+                    {
+                        { "{{frontmatter}}", "The YAML properties block" },
+                        { "{{appointmentTitle}}", "The appointment's title" },
+                        { "{{appointmentLink}}", "Link back to the appointment note" },
+                        { "{{organizer}}", "Organizer link" },
+                        { "{{attendees}}", "Attendees" },
+                        { "{{date}}", "Meeting date" },
+                        { "{{location}}", "Location" },
+                    }
                 },
                 new HelpEntry
                 {
@@ -410,7 +475,8 @@ namespace SlingMD.Outlook.Forms
                     Tab = "Appointments",
                     Title = "Appointment Date Format",
                     Summary = ".NET DateTime format used for appointment start/end fields.",
-                    Default = "yyyy-MM-dd HH:mm"
+                    Description = "Keep the T between date and time (ISO 8601) so Obsidian Properties treat the value as a date. Installs from before 1.2.5 keep their old default, yyyy-MM-dd HH:mm.",
+                    Default = "yyyy-MM-ddTHH:mm"
                 },
                 new HelpEntry
                 {
@@ -498,6 +564,17 @@ namespace SlingMD.Outlook.Forms
                     Tab = "Contacts",
                     Title = "Contact Template File",
                     Summary = "Markdown template for contact notes.",
+                    Tokens = new Dictionary<string, string>
+                    {
+                        { "{{frontmatter}}", "The YAML properties block" },
+                        { "{{contactName}} / {{contactShortName}}", "Full and short name" },
+                        { "{{firstName}} / {{middleName}} / {{lastName}} / {{suffix}}", "Name parts" },
+                        { "{{fullName}} / {{displayName}}", "Parsed full name and Outlook display name" },
+                        { "{{phone}} / {{email}} / {{company}} / {{jobTitle}}", "Details (empty for contacts created from email)" },
+                        { "{{address}} / {{birthday}} / {{notes}}", "More details (empty for contacts created from email)" },
+                        { "{{created}}", "Creation date (Contact Date Format)" },
+                        { "{{fileName}} / {{fileNameNoExt}}", "The note's file name" },
+                    },
                     Default = "ContactTemplate.md"
                 },
                 new HelpEntry
@@ -612,7 +689,16 @@ namespace SlingMD.Outlook.Forms
                     Tab = "Tasks",
                     Title = "Reminder Days",
                     Summary = "Default reminder offset. Can be days-from-now or days-before-due.",
-                    Description = "Combined with Use Relative Reminder (an internal setting). 0 = no reminder."
+                    Description = "Counted from today, or back from the due date when Reminder days are relative to the due date is on. 0 = no reminder."
+                },
+                new HelpEntry
+                {
+                    Id = "Tasks.UseRelativeReminder",
+                    Tab = "Tasks",
+                    Title = "Reminder days are relative to the due date",
+                    Summary = "Counts Reminder Days back from the due date instead of forward from today.",
+                    Description = "On: Due in 3 days with Reminder Days 1 reminds you 2 days from now (1 day before it is due). Off: Reminder Days 1 reminds you tomorrow, whatever the due date.",
+                    Default = "Off"
                 },
                 new HelpEntry
                 {
@@ -636,6 +722,15 @@ namespace SlingMD.Outlook.Forms
                     Tab = "Tasks",
                     Title = "Task Template File",
                     Summary = "Template for the inline - [ ] task line (not the full note).",
+                    Tokens = new Dictionary<string, string>
+                    {
+                        { "{{noteLink}}", "Link to the note the task belongs to" },
+                        { "{{noteName}}", "That note's name" },
+                        { "{{tags}}", "Default task tags as #tags" },
+                        { "{{createdDate}}", "Date the task was created" },
+                        { "{{dueDate}}", "Due date" },
+                        { "{{reminderDate}}", "Reminder date" },
+                    },
                     Default = "TaskTemplate.md"
                 },
 
@@ -647,6 +742,14 @@ namespace SlingMD.Outlook.Forms
                     Title = "Group email threads",
                     Summary = "Puts replies in the same thread into a shared folder with a summary note.",
                     Description = "Uses Outlook's conversation index when available, otherwise subject-based heuristics. Disable if you prefer a flat inbox layout."
+                },
+                new HelpEntry
+                {
+                    Id = "Threading.AlwaysCreateThreadFolder",
+                    Tab = "Threading",
+                    Title = "Always create a thread folder",
+                    Summary = "Files every email into a thread folder with a summary note on its first sling, so a note never moves when a reply arrives later. Off by default.",
+                    Description = "Without this, a single email stays loose in the inbox and is moved into a thread folder when a second email of the conversation is slung. Either way the note keeps the same file name, so links to it keep working."
                 },
                 new HelpEntry
                 {
@@ -662,6 +765,13 @@ namespace SlingMD.Outlook.Forms
                     Tab = "Threading",
                     Title = "Thread Template File",
                     Summary = "Template used for the thread summary note (the 0-Threadname.md file).",
+                    Description = "The summary note is written once, when the thread folder is created, and never rewritten, so anything you add to it is kept. Template changes apply to new threads only.",
+                    Tokens = new Dictionary<string, string>
+                    {
+                        { "{{title}}", "Thread title (conversation topic)" },
+                        { "{{threadId}}", "Thread id shared by every note in the thread" },
+                        { "{{folderPath}}", "Vault path of the thread folder, for Dataview queries" },
+                    },
                     Default = "ThreadNoteTemplate.md"
                 },
 
@@ -696,7 +806,8 @@ namespace SlingMD.Outlook.Forms
                     Id = "Attachments.SaveInlineImages",
                     Tab = "Attachments",
                     Title = "Save inline images",
-                    Summary = "Persists images embedded in the HTML body (including signature graphics) and links them from the note. On by default."
+                    Summary = "Persists images embedded in the HTML body (including signature graphics) and links them from the note. On by default.",
+                    Description = "On by default for new installs only. If you upgraded from 1.2.4 or earlier, your saved setting is kept, which was off; turn it on to see email images in your notes."
                 },
                 new HelpEntry
                 {
@@ -711,6 +822,20 @@ namespace SlingMD.Outlook.Forms
                     Tab = "Attachments",
                     Title = "Use Obsidian wikilinks",
                     Summary = "Links attachments as ![[file.png]] rather than standard markdown ![alt](file.png)."
+                },
+                new HelpEntry
+                {
+                    Id = "Attachments.ReuseDuplicateAttachments",
+                    Tab = "Attachments",
+                    Title = "Reuse duplicate attachments",
+                    Summary = "Stores a file that is byte-for-byte identical to one already saved (signature logos, repeated forwards) once in <Attachments Folder>/Shared and links every later note to that copy. Off by default."
+                },
+                new HelpEntry
+                {
+                    Id = "Attachments.GroupNoteWithAttachments",
+                    Tab = "Attachments",
+                    Title = "Put note in its attachment folder",
+                    Summary = "With 'Subfolder per note', moves an email note that has saved attachments into the folder named after it, so the note and its files sit together. Emails without attachments stay as single files, and notes inside a thread folder are not grouped. Off by default."
                 },
 
                 // ===== Auto-Sling =====

@@ -79,6 +79,7 @@
     <Compile Include="Forms\CalendarRangeDialogTests.cs" />
     <Compile Include="Forms\SettingsFormPersistenceTests.cs" />
     <Compile Include="Forms\SettingsReopenDisplayTests.cs" />
+    <Compile Include="Forms\SettingsFormVaultStatusTests.cs" />
     <Compile Include="Models\ObsidianSettingsTests.cs" />
     <Compile Include="Models\ObsidianSettingsAppointmentTests.cs" />
     <Compile Include="Models\AutoSlingRuleTests.cs" />
@@ -97,6 +98,7 @@
     <Compile Include="Services\TemplateServiceTests.cs" />
     <Compile Include="Services\TemplateServiceAppointmentTests.cs" />
     <Compile Include="Services\ThreadServiceTests.cs" />
+    <Compile Include="Services\BatchSlingReportTests.cs" />
     <Compile Include="Services\FolderMonitorServiceTests.cs" />
     <Compile Include="Services\ThreadCompletionServiceTests.cs" />
     <Compile Include="Services\Formatting\NoteTitleBuilderTests.cs" />
@@ -117,6 +119,8 @@
     <Compile Include="Services\Formatting\FrontmatterReaderTests.cs" />
     <Compile Include="Services\Formatting\MarkdownSectionFinderTests.cs" />
     <Compile Include="Services\Formatting\LegacyFilenameStripperTests.cs" />
+    <Compile Include="Services\Formatting\PathLengthBudgetTests.cs" />
+    <Compile Include="Services\Formatting\QuotedReplyFolderTests.cs" />
     <Compile Include="Services\Formatting\TemplatePathResolverTests.cs" />
     <Compile Include="Services\Formatting\UniqueFilenameResolverTests.cs" />
     <Compile Include="Services\ReminderDueDateCalculatorTests.cs" />

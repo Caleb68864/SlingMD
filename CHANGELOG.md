@@ -2,6 +2,105 @@
 
 All notable changes to SlingMD are documented in this file.
 
+## [1.2.5.0] - Unreleased
+
+> **Not yet built or tested on Windows.** Parts of this release were written on a machine that
+> can't compile the VSTO project. Build, run the tests and try it in Outlook before publishing.
+
+### Added
+
+#### Copy emails for an AI session
+- **New `Copy Email` menu** on the Sling ribbon. It copies the selected emails, or their complete
+  threads, to the clipboard as plain text, with or without a metadata header per email. When the
+  text is too large for the clipboard, SlingMD offers to save it as a UTF-8 text file instead.
+
+#### Better email bodies
+- **HTML emails are converted to Markdown** — headings, lists, links, bold/italic and quotes come
+  through instead of Outlook's plain-text rendering. Tracking pixels are dropped.
+- **Tables come through.** Data tables become Markdown tables; layout tables (signatures,
+  newsletters) keep their cells apart instead of running words together.
+- **Safe Links are unwrapped** to the original address, and a link whose text is its own address
+  is written as a plain URL.
+- **Inline images are saved and linked.** Images embedded in the body (screenshots, pasted
+  pictures, signature logos) are saved with the attachments and the `cid:` references in the note
+  point at the saved files.
+
+#### New options
+- **Fold quoted replies** (Email tab, off by default) — the quoted history under a reply goes into a
+  collapsed *Earlier messages* callout, so thread notes stop repeating every earlier message.
+  Forwards are never folded.
+- **Always create a thread folder** (Threading tab, off by default) — files every email into a
+  thread folder on its first sling, so a note never moves when a reply arrives.
+- **Reuse duplicate attachments** (Attachments tab, off by default) — a file identical to one
+  already saved (e.g. a signature logo) is stored once in `Attachments/Shared` and linked from there.
+- **Put note in its attachment folder** (Attachments tab, off by default, *Subfolder per note* mode
+  only) — the note and its files live together in one folder.
+- **Copy note path to clipboard** (General tab, **on** by default) — after a manual sling the saved
+  note's full path is on the clipboard.
+
+#### Feedback
+- **Batch progress with Cancel.** Sling Multiple and Complete Thread show one progress window
+  ("Slinging 3 of 25") with a Cancel button, and the summary separates emails already in the vault
+  from failures, listing each failure with its error.
+- **First-run help.** Settings shows whether the vault path points at an Obsidian vault, Browse
+  accepts the vault folder itself, and a missing vault at startup offers to open Settings.
+- **Duplicate slings say so.** Slinging an email that's already in the vault shows a toast instead
+  of appearing to do nothing.
+- **Successful slings are confirmed** with a toast showing where the note was saved, when Launch
+  Obsidian is off.
+
+### Changed
+- **New installs write ISO 8601 dates** (`2026-04-22T14:05:30`) so Obsidian Properties and
+  Dataview read them as dates. Existing installs keep their saved date formats; change *Email Date
+  Format* / *Appointment Date Format* to switch.
+- **Contacts are matched by email address.** New contact notes store an `email` property, and a
+  sender whose display name differs from an existing note's is linked to that note instead of
+  getting a duplicate. Notes without `email` (including older ones) still match by name; notes
+  slung from Outlook contacts already have it.
+- **Long paths are shortened automatically.** Outlook isn't long-path aware, so the Windows
+  `LongPathsEnabled` registry switch doesn't help the add-in; deep vaults and long subjects failed
+  with *"The specified path, file name, or both are too long"*, mostly during Complete Thread.
+  SlingMD now keeps every file path under 240 characters and every folder under 230 by shortening
+  thread folder names and note names at a word break. The date prefix on thread notes is kept, and
+  names that already fit are unchanged. Temporary thread note names use a 12-character hash
+  instead of the full Message-ID.
+- **Complete Thread no longer prompts for every email.** It now runs like Sling Multiple: no
+  task-date dialog, contact prompt, countdown or Obsidian launch per email (tasks use your default
+  days). Obsidian opens once at the end, on the thread's summary note.
+- **Sling with several items selected** now hands off to Sling Multiple. It used to export only the
+  first item, silently.
+- **The thread summary note (`0-….md`) is written once and never rewritten.** Its content renders
+  live through Dataview, so rewriting it only wiped anything you'd added. Changes to the thread
+  template now apply to new threads only.
+- **`Save Inline Images` is on by default for new installs.** Upgraded installs keep their saved
+  value (off), so turn it on under *Attachments* to get images in your notes.
+- **Thread folders reuse the existing folder** even when an older email of the conversation is still
+  loose in the inbox, and new folders are named from the conversation topic rather than the first
+  note's title. Subfolders without a `0-` summary note (batch-sling folders) are no longer mistaken
+  for threads.
+- **Standalone notes are written under the name they keep inside a thread**, so links to a note
+  survive a later move into a thread folder. Moved notes bring their attachments with them, gain
+  the `threadNote` property, and have their links rewritten.
+- **Obsidian opens notes by their path from the vault root**, so notes in thread folders open
+  correctly when the Inbox isn't the vault root.
+
+### Fixed
+- **Subjects with " - " no longer lose the separator.** A former default subject-cleanup pattern
+  (`[-_\s]{2,}`) removed it and fused the words on either side ("Renewal Meeting - BOT DOC" became
+  "Renewal MeetingBOT DOC"). It's removed from existing settings automatically on load.
+- **A different email with the same subject, sender and minute no longer overwrites a note**; the
+  new note gets a `_N` suffix.
+- **A colliding note is never deleted when a note moves into a thread folder.**
+- **A contact note that can't be read (locked, open in another app) is no longer overwritten.**
+- **Contact aliases no longer add a UTF-8 BOM** that showed as a stray character in Obsidian.
+- **One locked or unreadable inbox note no longer aborts an export** whose note was already written.
+- **Background slings no longer pop a modal error per email** when the vault is offline; they log
+  and toast instead. A failed auto-sling is also retried later instead of being marked done.
+- **Obsidian opens the right file** when a thread rename can't track the new note.
+- **Invalid custom date formats** in appointment and contact notes fall back to the defaults instead
+  of aborting the export.
+- **COM handles are released reliably on shutdown** and when monitored folders share a name.
+
 ## [1.2.4.0-alpha] - 2026-08-06
 
 > **Alpha release — lightly tested.** The features below are verified by unit tests and code
@@ -39,7 +138,17 @@ All notable changes to SlingMD are documented in this file.
   the duplicate check and writes no note. Such a folder is now removed, but only if this run created
   it and only while it is still empty, so a folder you picked is never touched.
 
-## [Unreleased]
+## [1.2.3.0] - 2026-07-20
+
+- **Settings persistence fixed** ([#13](https://github.com/Caleb68864/SlingMD/issues/13)) — settings on the Contacts, Tasks, Threading, and Developer tabs now survive an Outlook restart. The Settings dialog no longer closes when a save fails; it reports the specific error instead
+- **Attachments fixed** ([#12](https://github.com/Caleb68864/SlingMD/issues/12)) — real attachments are now saved under default settings
+- **Atomic settings writes** — settings are written to a temp file and swapped into place, so an interrupted write can no longer truncate the file and silently reset every setting
+- **Numeric settings clamped on load**, so an out-of-range value can no longer prevent the Settings dialog from opening
+- **Resource leaks fixed** — Outlook COM objects (Explorer, Selection, MailItem, Session) and GDI bitmaps are now released across the ribbon, auto-sling, and bulk paths
+- **Hardening sweep** — file I/O and path safety, exception and null safety in the export path, background-monitor thread safety, and input validation
+- **Release packaging verifies binaries** — the packaging script rebuilds and refuses to publish unless the shipped DLL matches the freshly built one byte-for-byte
+
+## [1.2.2.3-prerelease] - 2026-05-06
 
 ### Added
 
@@ -133,6 +242,20 @@ Thirteen pure, unit-testable helpers were extracted from the Outlook-coupled ser
 #### Test coverage
 - Total unit-test count grew from 163 → **356** (+193) across 15 new test files.
 - All existing orchestrator tests (`EmailProcessorTests`, `ContactProcessorTests`, `AppointmentProcessorTests`, `TaskServiceTests`, `ThreadServiceTests`, `FlagMonitorServiceTests`, `FolderMonitorServiceTests`) continue to pass without modification.
+
+## [1.1.0.7]
+
+- **Contact Slinging** — export single contacts or your entire address book to Obsidian with rich detail notes (phone, email, company, address, birthday)
+- **Appointment Contact Linking** — after exporting an appointment, attendees are checked against vault contacts; existing managed notes are refreshed, new contacts offered via dialog
+- **Unified Sling Button** — main Sling button now handles emails, appointments, and contacts; dispatches based on selected item type
+- **Obsidian Launch on Contact Export** — single-contact export now launches Obsidian for immediate feedback, matching email behavior
+- **Unified Contact Template System** — one `RenderContactContent()` path for all contacts; custom templates get all 13 placeholders regardless of source (email or slung)
+- **ContactNoteIncludeDetails Setting** — toggle `## Contact Details` section on/off for slung contacts in Settings > Contacts
+- **"Sling All Contacts" Ribbon Button** — bulk-export entire address book with progress tracking and summary dialog
+- **Contact Confirmation Dialog Clarity** — Cancel button renamed to "Skip Creating Contacts" for clearer intent
+- **Custom Templates Documentation** — README now documents all template types, available placeholders, and includes example custom contact template
+- New `ContactProcessor` orchestrator, `ExtractContactData()`, `CreateContactNote(ContactTemplateContext)` overload
+- 12 new tests (87/87 total passing)
 
 ## [1.1.0.1] - 2026-03-13
 

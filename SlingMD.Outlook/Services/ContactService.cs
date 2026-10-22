@@ -33,6 +33,11 @@ namespace SlingMD.Outlook.Services
 
         private int _automatedAmbiguousCount;
 
+        // Rebuilt after a short while so addresses added to contact notes in Obsidian are picked up.
+        private static readonly TimeSpan EmailIndexLifetime = TimeSpan.FromMinutes(2);
+        private ContactEmailIndex _emailIndex;
+        private DateTime _emailIndexBuilt;
+
         public ContactService(FileService fileService, TemplateService templateService, IClock clock = null)
         {
             _fileService = fileService;
@@ -63,12 +68,60 @@ namespace SlingMD.Outlook.Services
         /// Formats a display name as a contact link by walking <see cref="ObsidianSettings.ContactLinkFormats"/>
         /// in order and using the first format whose rendered stem points at an existing contact note. If none
         /// resolve, the first non-empty format is used so callers can fall through to create-new-contact.
+        /// When no format resolves to an existing note but a contact note lists <paramref name="email"/>, the
+        /// link points at that note instead, so a different display name doesn't produce a dangling link.
         /// </summary>
-        private string FormatContactLink(string displayName, string email)
+        public string FormatContactLink(string displayName, string email)
         {
             ContactName parsed = _contactNameParser.Parse(displayName, email);
             string formatted = _contactLinkFormatter.Resolve(parsed, _settings.ContactLinkFormats, NoteFileExists);
-            return string.IsNullOrEmpty(formatted) ? $"[[{displayName}]]" : formatted;
+            if (string.IsNullOrEmpty(formatted))
+            {
+                formatted = $"[[{displayName}]]";
+            }
+
+            Match link = LeadingWikilinkRegex.Match(formatted);
+            if (link.Success && !NoteFileExists(link.Groups[1].Value.Trim()))
+            {
+                string stem = FindContactNoteByEmail(email);
+                if (stem != null)
+                {
+                    return $"[[{stem}]]";
+                }
+            }
+            return formatted;
+        }
+
+        private static readonly Regex LeadingWikilinkRegex = new Regex(@"^\[\[([^\]\|]+)(?:\|[^\]]*)?\]\]$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// Returns the file name (without .md) of the contact note whose <c>email</c> frontmatter lists
+        /// <paramref name="email"/>, or null. Searches the contacts folder, plus the whole vault when
+        /// <see cref="ObsidianSettings.SearchEntireVaultForContacts"/> is on.
+        /// </summary>
+        public string FindContactNoteByEmail(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email) || email.IndexOf('@') <= 0)
+            {
+                return null;
+            }
+
+            try
+            {
+                if (_emailIndex == null || _clock.Now - _emailIndexBuilt > EmailIndexLifetime)
+                {
+                    string vaultPath = _settings.SearchEntireVaultForContacts ? _settings.GetFullVaultPath() : null;
+                    _emailIndex = new ContactEmailIndex(_settings.GetContactsPath(), vaultPath);
+                    _emailIndexBuilt = _clock.Now;
+                }
+
+                return _emailIndex.FindStem(email);
+            }
+            catch (System.Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
+            {
+                Logger.Instance.Warning($"ContactService.FindContactNoteByEmail: lookup failed for '{email}': {ex.Message}");
+                return null;
+            }
         }
 
         /// <summary>
@@ -623,7 +676,10 @@ namespace SlingMD.Outlook.Services
         /// Existing notes keep user-authored content under <c>## Notes</c> while the managed
         /// communication history block is refreshed.
         /// </summary>
-        public void CreateContactNote(string contactName)
+        /// <param name="contactName">The contact's display name; also the note's name.</param>
+        /// <param name="email">The contact's address, written to the <c>email</c> property of a new note
+        /// so later emails from it are matched even under another display name. Optional.</param>
+        public void CreateContactNote(string contactName, string email = null)
         {
             if (!_settings.EnableContactSaving)
             {
@@ -634,15 +690,23 @@ namespace SlingMD.Outlook.Services
             string fileNameNoExtension = Path.GetFileNameWithoutExtension(filePath);
 
             string created = _dateFormatter.FormatOrDefault(_clock.Now, _settings.ContactDateFormat, _dateFormatter.Format(_clock.Now, "yyyy-MM-dd"));
+            Dictionary<string, object> metadata = new Dictionary<string, object>
+            {
+                { "title", contactName },
+                { "type", "contact" },
+                { "created", created },
+                { "tags", new List<string> { "contact" } }
+            };
+            bool hasEmail = !string.IsNullOrWhiteSpace(email) && email.IndexOf('@') > 0;
+            if (hasEmail)
+            {
+                metadata["email"] = email.Trim();
+            }
+
             ContactTemplateContext context = new ContactTemplateContext
             {
-                Metadata = new Dictionary<string, object>
-                {
-                    { "title", contactName },
-                    { "type", "contact" },
-                    { "created", created },
-                    { "tags", new List<string> { "contact" } }
-                },
+                Metadata = metadata,
+                Email = hasEmail ? email.Trim() : string.Empty,
                 ContactName = contactName,
                 ContactShortName = GetFilenameSafeShortName(contactName),
                 Created = created,
@@ -665,6 +729,7 @@ namespace SlingMD.Outlook.Services
             if (!File.Exists(filePath))
             {
                 _fileService.WriteUtf8File(filePath, renderedContent);
+                _emailIndex?.Add(context.Email, Path.GetFileNameWithoutExtension(filePath));
                 return;
             }
 

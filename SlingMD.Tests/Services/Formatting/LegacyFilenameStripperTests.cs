@@ -87,5 +87,31 @@ namespace SlingMD.Tests.Services.Formatting
             // 2026-04-21 in the middle of the name should not be stripped — only leading.
             Assert.Equal("Notes from 2026-04-21 meeting", _s.Strip("Notes from 2026-04-21 meeting"));
         }
+
+        [Fact]
+        public void Strip_ThreadedBaseName_LeavesNoLeadingSeparator()
+        {
+            // Threaded notes are written as "{yyyy-MM-dd-HHmm}-{subject}-{sender}".
+            Assert.Equal("Subject-SaraA", _s.Strip("2026-09-23-1818-Subject-SaraA"));
+        }
+
+        [Fact]
+        public void Strip_PreviouslyResuffixedNameWithStrayDash_Cleaned()
+        {
+            Assert.Equal("Subject-SaraA", _s.Strip("2026-09-23_181852_-Subject-SaraA"));
+        }
+
+        [Fact]
+        public void Strip_TrailingReceivedDate_Removed()
+        {
+            // Standalone notes carry the date at the end; in a thread it would appear twice.
+            Assert.Equal("AI policy before 10_12-SaraA", _s.Strip("AI policy before 10_12-SaraA-2026-09-23-1818"));
+        }
+
+        [Fact]
+        public void Strip_PrefixedNameWithTrailingReceivedDate_BothRemoved()
+        {
+            Assert.Equal("AI policy-SaraA", _s.Strip("2026-09-23_181852_AI policy-SaraA-2026-09-23-1818"));
+        }
     }
 }
