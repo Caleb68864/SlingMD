@@ -331,6 +331,7 @@
     <Compile Include="Services\Formatting\ContactMatcher.cs" />
     <Compile Include="Services\Formatting\FrontmatterReader.cs" />
     <Compile Include="Services\Formatting\LegacyFilenameStripper.cs" />
+    <Compile Include="Services\Formatting\PathLengthBudget.cs" />
     <Compile Include="Services\Formatting\MarkdownSectionFinder.cs" />
     <Compile Include="Services\Formatting\NoteTitleBuilder.cs" />
     <Compile Include="Services\Formatting\SubjectCleanerService.cs" />

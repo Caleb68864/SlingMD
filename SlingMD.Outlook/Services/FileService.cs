@@ -18,11 +18,13 @@ namespace SlingMD.Outlook.Services
     {
         private readonly ObsidianSettings _settings;
         private readonly FileNameSanitizer _fileNameSanitizer;
+        private readonly PathLengthBudget _pathBudget;
 
         public FileService(ObsidianSettings settings)
         {
             _settings = settings;
             _fileNameSanitizer = new FileNameSanitizer();
+            _pathBudget = new PathLengthBudget();
         }
 
         public virtual ObsidianSettings GetSettings()
@@ -147,6 +149,42 @@ namespace SlingMD.Outlook.Services
             // Second pass - delegate the pure filesystem-safety logic (invalid chars, prefix
             // strip, separator collapse) to the unit-tested FileNameSanitizer.
             return _fileNameSanitizer.Sanitize(cleaned);
+        }
+
+        /// <summary>
+        /// Returns the longest note name (without <paramref name="suffix"/>) that keeps every path the note
+        /// can produce inside the Windows path limits: the note itself and, with
+        /// <see cref="AttachmentStorageMode.SubfolderPerNote"/>, its attachment folder, the attachments in it
+        /// and — when <paramref name="mayGroupWithAttachments"/> — the note moved into that folder.
+        /// </summary>
+        /// <param name="directory">Folder the note is written to.</param>
+        /// <param name="suffix">Everything that follows the name, including the extension (e.g. <c>".md"</c>).</param>
+        /// <param name="mayGroupWithAttachments">Whether the note can be moved into its attachment folder
+        /// (<see cref="ObsidianSettings.GroupNoteWithAttachments"/>; never inside a thread folder).</param>
+        public virtual int MaxNoteNameLength(string directory, string suffix, bool mayGroupWithAttachments)
+        {
+            int directoryLength = (directory ?? string.Empty).Length;
+            int max = _pathBudget.MaxNameLength(directory, suffix);
+            if (_settings != null && _settings.AttachmentStorageMode == AttachmentStorageMode.SubfolderPerNote)
+            {
+                max = Math.Min(max, PathLengthBudget.MaxDirectoryPath - directoryLength - 1);
+                max = Math.Min(max, PathLengthBudget.MaxFilePath - directoryLength - 2 - PathLengthBudget.AttachmentNameReserve);
+                if (mayGroupWithAttachments && _settings.GroupNoteWithAttachments)
+                {
+                    // directory\name\name.md repeats the name.
+                    max = Math.Min(max, (PathLengthBudget.MaxFilePath - directoryLength - 2 - (suffix ?? string.Empty).Length) / 2);
+                }
+            }
+            return max;
+        }
+
+        /// <summary>
+        /// Shortens <paramref name="name"/> so the paths described by <see cref="MaxNoteNameLength"/> fit.
+        /// Names that already fit are returned unchanged.
+        /// </summary>
+        public virtual string FitNoteName(string directory, string name, string suffix, bool mayGroupWithAttachments)
+        {
+            return _pathBudget.Fit(name, MaxNoteNameLength(directory, suffix, mayGroupWithAttachments));
         }
 
         /// <summary>

@@ -27,6 +27,13 @@ namespace SlingMD.Outlook.Services
         private readonly FrontmatterReader _frontmatter;
         private readonly LegacyFilenameStripper _legacyFilenameStripper;
         private readonly UniqueFilenameResolver _uniqueFilenameResolver = new UniqueFilenameResolver();
+        private readonly PathLengthBudget _pathBudget = new PathLengthBudget();
+
+        /// <summary>
+        /// Room a thread folder name leaves for the names of the notes inside it
+        /// (a <c>yyyy-MM-dd_HHmmss_</c> prefix plus a readable subject and sender).
+        /// </summary>
+        private const int ThreadNoteNameReserve = 80;
 
         public ThreadService(FileService fileService, TemplateService templateService, ObsidianSettings settings)
         {
@@ -98,7 +105,7 @@ namespace SlingMD.Outlook.Services
             }
             firstSender = _fileService.CleanFileName(firstSender);
             firstRecipient = _fileService.CleanFileName(firstRecipient);
-            return $"{threadSubject.Trim()}-{firstSender}-{firstRecipient}".Replace("--", "-");
+            return FitThreadName($"{threadSubject.Trim()}-{firstSender}-{firstRecipient}".Replace("--", "-"));
         }
 
         /// <summary>
@@ -122,7 +129,69 @@ namespace SlingMD.Outlook.Services
             firstSender = _fileService.CleanFileName(firstSender);
             firstRecipient = _fileService.CleanFileName(firstRecipient);
             string timestamp = mail.ReceivedTime.ToString("yyyy-MM-dd HHmm", System.Globalization.CultureInfo.InvariantCulture);
-            return $"{timestamp}-{threadSubject.Trim()}-{firstSender}-{firstRecipient}".Replace("--", "-");
+            return FitThreadName($"{timestamp}-{threadSubject.Trim()}-{firstSender}-{firstRecipient}".Replace("--", "-"));
+        }
+
+        /// <summary>
+        /// Shortens a thread name so the thread folder (<c>Inbox\{name}</c>) leaves room for the notes in it,
+        /// and so the summary note (<c>Inbox\{name}\0-{name}.md</c>), which repeats the name, still fits.
+        /// </summary>
+        private string FitThreadName(string name)
+        {
+            if (_settings == null)
+            {
+                return name;
+            }
+
+            int inboxLength = _settings.GetInboxPath().Length;
+            int roomForNotes = PathLengthBudget.MaxFilePath - inboxLength - 2 - ThreadNoteNameReserve;
+            int roomForSummary = (PathLengthBudget.MaxFilePath - inboxLength - 7) / 2;
+            return _pathBudget.Fit(name, Math.Min(roomForNotes, roomForSummary));
+        }
+
+        /// <summary>
+        /// Returns the temporary name (without extension) a note carries inside a thread folder until
+        /// <see cref="ResuffixThreadNotes"/> renames it: the base name followed by <c>-eid</c> and a short hash
+        /// of the email id. The full id (often 70+ characters for Exchange) used to push the path past the
+        /// Windows limit before the rename pass could run.
+        /// </summary>
+        public string GetTemporaryThreadNoteName(string threadFolderPath, string baseName, string emailId)
+        {
+            string suffix = "-eid" + HashEmailId(emailId);
+            string name = baseName ?? string.Empty;
+            int max = MaxNoteNameLength(threadFolderPath, suffix + ".md");
+            if (name.Length > max)
+            {
+                // Strip decorations before cutting so a cut can't leave half a trailing date that the
+                // rename pass no longer recognises. The rename pass strips them anyway.
+                name = _pathBudget.Fit(_legacyFilenameStripper.Strip(name), max);
+            }
+            return name + suffix;
+        }
+
+        /// <summary>
+        /// Returns a 12-character hexadecimal hash of <paramref name="emailId"/>, or an empty string when there is no id.
+        /// </summary>
+        internal static string HashEmailId(string emailId)
+        {
+            if (string.IsNullOrEmpty(emailId))
+            {
+                return string.Empty;
+            }
+
+            using (SHA1 sha1 = SHA1.Create())
+            {
+                byte[] hashBytes = sha1.ComputeHash(Encoding.UTF8.GetBytes(emailId));
+                return BitConverter.ToString(hashBytes).Replace("-", string.Empty).Substring(0, 12);
+            }
+        }
+
+        private int MaxNoteNameLength(string directory, string suffix)
+        {
+            // Notes inside a thread folder are never grouped with their attachments.
+            return _fileService != null
+                ? _fileService.MaxNoteNameLength(directory, suffix, false)
+                : _pathBudget.MaxNameLength(directory, suffix);
         }
 
         /// <summary>
@@ -165,8 +234,7 @@ namespace SlingMD.Outlook.Services
         /// Any existing file with the same name will be overwritten.
         /// The method also appends a deterministic suffix based on the <c>internetMessageId</c> or <c>entryId</c>
         /// found in the note front-matter to avoid collisions between messages that share the same timestamp.
-        /// Includes path length validation to prevent exceeding Windows' 260-character path limit by truncating
-        /// the email ID suffix and/or base filename as necessary.
+        /// The name is shortened as needed to keep the path inside the Windows path limits.
         /// </summary>
         /// <param name="emailPath">Absolute path of the markdown file to move.</param>
         /// <param name="threadFolderPath">Destination folder for the thread.</param>
@@ -176,7 +244,6 @@ namespace SlingMD.Outlook.Services
         public string MoveToThreadFolder(string emailPath, string threadFolderPath, string threadNoteName = null)
         {
             string fileName = Path.GetFileName(emailPath);
-            string newFileName = fileName;
             // Add email id as a temporary suffix to avoid overwriting
             string emailId = null;
             bool inFrontMatter = false;
@@ -197,71 +264,12 @@ namespace SlingMD.Outlook.Services
                     emailId = line.Trim().Substring("entryId:".Length).Trim().Trim('"');
                 }
             }
-            if (!string.IsNullOrEmpty(emailId))
-            {
-                // Sanitize emailId for filename (alphanumeric only)
-                string safeId = new string(emailId.Where(char.IsLetterOrDigit).ToArray());
-                string nameNoExt = Path.GetFileNameWithoutExtension(fileName);
-                string ext = Path.GetExtension(fileName);
-
-                // Windows path limit is 260 characters. Reserve 20 chars for safety margin.
-                // Calculate how much space we have for the filename
-                int maxPathLength = 240;
-                int folderPathLength = threadFolderPath.Length + 1; // +1 for directory separator
-                int availableForFilename = maxPathLength - folderPathLength - ext.Length;
-
-                // Truncate safeId if necessary
-                string fullFilename = $"{nameNoExt}-eid{safeId}";
-                if (fullFilename.Length > availableForFilename)
-                {
-                    // Truncate the email ID, keeping at least the first 8 characters for uniqueness
-                    int maxIdLength = availableForFilename - nameNoExt.Length - 4; // -4 for "-eid"
-                    if (maxIdLength < 8)
-                    {
-                        // If even 8 chars won't fit, truncate the base name too
-                        int maxBaseLength = availableForFilename - 12; // -12 for "-eid" + 8 char ID
-                        if (maxBaseLength > 0)
-                        {
-                            nameNoExt = nameNoExt.Substring(0, Math.Min(nameNoExt.Length, maxBaseLength));
-                        }
-                        maxIdLength = 8;
-                    }
-                    safeId = safeId.Substring(0, Math.Min(safeId.Length, maxIdLength));
-                }
-
-                newFileName = $"{nameNoExt}-eid{safeId}{ext}";
-            }
-
+            string nameNoExt = Path.GetFileNameWithoutExtension(fileName);
+            string ext = Path.GetExtension(fileName);
+            string newFileName = !string.IsNullOrEmpty(emailId)
+                ? GetTemporaryThreadNoteName(threadFolderPath, nameNoExt, emailId) + ext
+                : _pathBudget.Fit(nameNoExt, MaxNoteNameLength(threadFolderPath, ext)) + ext;
             string threadPath = Path.Combine(threadFolderPath, newFileName);
-
-            // Final validation: ensure path doesn't exceed limit
-            if (threadPath.Length > 240)
-            {
-                // Emergency truncation - this should rarely happen
-                string nameNoExt = Path.GetFileNameWithoutExtension(newFileName);
-                string ext = Path.GetExtension(newFileName);
-                int maxFilenameLength = 240 - threadFolderPath.Length - ext.Length - 1;
-                if (maxFilenameLength > 10)
-                {
-                    // Clamp the substring length to the actual name length so a short name with a
-                    // large budget can't throw ArgumentOutOfRangeException.
-                    nameNoExt = nameNoExt.Substring(0, Math.Min(nameNoExt.Length, maxFilenameLength));
-                    newFileName = $"{nameNoExt}{ext}";
-                    threadPath = Path.Combine(threadFolderPath, newFileName);
-                }
-                else
-                {
-                    // The folder itself is so deep that no filename fits the budget. Fall back to a
-                    // minimal fixed-length name rather than moving a >260-char path (which throws
-                    // PathTooLongException and aborts the whole thread export).
-                    string ext2 = Path.GetExtension(newFileName);
-                    string shortId = new string(new string(newFileName.Where(char.IsLetterOrDigit).ToArray())
-                        .Reverse().Take(8).Reverse().ToArray());
-                    if (string.IsNullOrEmpty(shortId)) shortId = "note";
-                    newFileName = $"{shortId}{ext2}";
-                    threadPath = Path.Combine(threadFolderPath, newFileName);
-                }
-            }
 
             _fileService.EnsureDirectoryExists(threadFolderPath);
             try
@@ -676,10 +684,20 @@ namespace SlingMD.Outlook.Services
         /// temporary decorations. Standalone notes are written under this name too, so that a note
         /// keeps its name — and links to it keep resolving — when it later moves into a thread.
         /// </summary>
-        public string GetThreadedNoteName(string nameNoExt, DateTime date)
+        /// <param name="nameNoExt">Base name, possibly carrying legacy decorations.</param>
+        /// <param name="date">The note's date, used for the prefix.</param>
+        /// <param name="threadFolderPath">When supplied, the name is shortened (after the prefix) so the note
+        /// fits inside this folder under the Windows path limits.</param>
+        public string GetThreadedNoteName(string nameNoExt, DateTime date, string threadFolderPath = null)
         {
             string datePrefix = date.ToString("yyyy-MM-dd_HHmmss", System.Globalization.CultureInfo.InvariantCulture);
-            return $"{datePrefix}_{_legacyFilenameStripper.Strip(nameNoExt)}";
+            string name = _legacyFilenameStripper.Strip(nameNoExt);
+            if (threadFolderPath != null)
+            {
+                // Reserve the "_NNN" collision counter ResuffixThreadNotes may add.
+                name = _pathBudget.Fit(name, MaxNoteNameLength(threadFolderPath, "_000.md") - datePrefix.Length - 1);
+            }
+            return $"{datePrefix}_{name}";
         }
 
         public string ResuffixThreadNotes(string threadFolderPath, string baseName, string currentEmailPath = null)
@@ -725,23 +743,20 @@ namespace SlingMD.Outlook.Services
             foreach (var fd in fileDates)
             {
                 // Build new filename with date prefix (yyyy-MM-dd_HHmmss) followed by actual base name from file
-                string nameNoExt = Path.GetFileNameWithoutExtension(fd.file);
                 string ext = Path.GetExtension(fd.file);
 
                 // Strip SlingMD's legacy filename decorations (eid suffix, -NNN suffix, leading
-                // date prefix) — unit-tested helper.
-                nameNoExt = _legacyFilenameStripper.Strip(nameNoExt);
-
-                // Include seconds in date prefix to reduce collision probability
-                string datePrefix = fd.date.ToString("yyyy-MM-dd_HHmmss", System.Globalization.CultureInfo.InvariantCulture);
-                string newName = $"{datePrefix}_{nameNoExt}{ext}";
+                // date prefix), prefix the date (with seconds, to reduce collisions) and shorten
+                // the rest to fit the path budget.
+                string threadedName = GetThreadedNoteName(Path.GetFileNameWithoutExtension(fd.file), fd.date, threadFolderPath);
+                string newName = $"{threadedName}{ext}";
                 string newPath = Path.Combine(threadFolderPath, newName);
 
                 // If we have a collision with the last generated name, add a counter suffix
                 if (newName == lastGeneratedName)
                 {
                     counter++;
-                    newName = $"{datePrefix}_{nameNoExt}_{counter:D3}{ext}";
+                    newName = $"{threadedName}_{counter:D3}{ext}";
                     newPath = Path.Combine(threadFolderPath, newName);
                 }
                 else
@@ -759,7 +774,7 @@ namespace SlingMD.Outlook.Services
                     while (File.Exists(newPath))
                     {
                         counter++;
-                        newName = $"{datePrefix}_{nameNoExt}_{counter:D3}{ext}";
+                        newName = $"{threadedName}_{counter:D3}{ext}";
                         newPath = Path.Combine(threadFolderPath, newName);
                     }
 

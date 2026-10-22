@@ -417,5 +417,72 @@ namespace SlingMD.Tests.Services
             Assert.True(File.Exists(finalPath));
             Assert.Contains("[[" + noteName + "]] follow up", File.ReadAllText(finalPath));
         }
+
+        // -----------------------------------------------------------------------------------------
+        // Path length budget
+        // -----------------------------------------------------------------------------------------
+
+        private const string LongBaseName =
+            "Quarterly loan review documentation request for the downtown branch and the follow up items-SaraA";
+
+        /// <summary>
+        /// Returns a thread folder path of about <paramref name="length"/> characters under <paramref name="inboxPath"/>.
+        /// </summary>
+        private static string DeepThreadFolder(string inboxPath, int length)
+        {
+            return Path.Combine(inboxPath, "Thread" + new string('x', Math.Max(1, length - inboxPath.Length - 7)));
+        }
+
+        [Fact]
+        public void GetTemporaryThreadNoteName_LongMessageId_UsesShortHashTheRenamePassStrips()
+        {
+            string id = "<BN6PR11MB1234567890ABCDEF1234567890ABCDEF@BN6PR11MB1234.namprd11.prod.outlook.com>";
+
+            string name = _threadService.GetTemporaryThreadNoteName(Path.Combine(_testDir, "Inbox", "T"), "Budget review-SaraA", id);
+
+            Assert.Equal(12, ThreadService.HashEmailId(id).Length);
+            Assert.Equal("Budget review-SaraA-eid" + ThreadService.HashEmailId(id), name);
+            Assert.Equal("Budget review-SaraA", new SlingMD.Outlook.Services.Formatting.LegacyFilenameStripper().Strip(name));
+        }
+
+        [Fact]
+        public void ResuffixThreadNotes_LongNameInDeepFolder_KeepsPathWithinBudget()
+        {
+            string threadFolder = DeepThreadFolder(Path.Combine(_testDir, "InboxLong"), 130);
+            Directory.CreateDirectory(threadFolder);
+            string notePath = Path.Combine(threadFolder, LongBaseName + "-eidABC123.md");
+            File.WriteAllText(notePath, BuildNote("T", "2026-09-23 18:18:52"));
+
+            string newPath = _threadService.ResuffixThreadNotes(threadFolder, null, notePath);
+
+            Assert.True(File.Exists(newPath));
+            Assert.True(newPath.Length <= SlingMD.Outlook.Services.Formatting.PathLengthBudget.MaxFilePath);
+            Assert.StartsWith("2026-09-23_181852_Quarterly loan review", Path.GetFileName(newPath));
+        }
+
+        /// <summary>
+        /// A name shortened for a deep thread folder survives the move and the rename pass unchanged,
+        /// so links to it by name keep resolving.
+        /// </summary>
+        [Fact]
+        public void MoveThenResuffix_LongThreadedName_KeepsItsShortenedName()
+        {
+            string inboxPath = Path.Combine(_testDir, "InboxStableLong");
+            string threadFolder = DeepThreadFolder(inboxPath, 130);
+            Directory.CreateDirectory(inboxPath);
+            string noteName = _threadService.GetThreadedNoteName(LongBaseName + "-2026-09-23-1818", new DateTime(2026, 9, 23, 18, 18, 52), threadFolder);
+            string notePath = Path.Combine(inboxPath, noteName + ".md");
+            string note = BuildNote("T", "2026-09-23 18:18:52")
+                .Replace("date:", "internetMessageId: \"<BN6PR11MB1234567890ABCDEF@BN6PR11MB1234.namprd11.prod.outlook.com>\"\ndate:");
+            File.WriteAllText(notePath, note);
+
+            _threadService.MoveToThreadFolder(notePath, threadFolder, "Budget review-SaraA-CalebB");
+            _threadService.ResuffixThreadNotes(threadFolder, null);
+
+            string finalPath = Path.Combine(threadFolder, noteName + ".md");
+            Assert.True(noteName.Length < 18 + LongBaseName.Length);
+            Assert.True(File.Exists(finalPath));
+            Assert.True(finalPath.Length <= SlingMD.Outlook.Services.Formatting.PathLengthBudget.MaxFilePath);
+        }
     }
 }

@@ -352,16 +352,12 @@ namespace SlingMD.Outlook.Services
                         await semaphore.WaitAsync();
                         try
                         {
-                            // Write the new note for the current email to the thread folder with -eid{id} suffix
+                            // Write the new note for the current email to the thread folder with a
+                            // temporary -eid{hash} suffix. Both ids can be empty (unsaved item with no
+                            // InternetMessageID); that still produces a usable, if less unique, "-eid" suffix.
                             string emailId = !string.IsNullOrEmpty(realInternetMessageId) ? realInternetMessageId : realEntryId;
-                            // Both ids can be empty (unsaved item with no InternetMessageID); guard so
-                            // the LINQ below can't NRE and abort the export. An empty safeId still
-                            // produces a usable, if less unique, "-eid" suffix.
-                            string safeId = string.IsNullOrEmpty(emailId)
-                                ? string.Empty
-                                : new string(emailId.Where(char.IsLetterOrDigit).ToArray());
                             string baseName = BuildEmailBaseFileName(mail, subjectClean, senderClean, fileDateTime, true);
-                            string tempFileName = $"{baseName}-eid{safeId}.md";
+                            string tempFileName = _threadService.GetTemporaryThreadNoteName(threadFolderPath, baseName, emailId) + ".md";
                             string tempFilePath = Path.Combine(threadFolderPath, tempFileName);
                             _fileService.EnsureDirectoryExists(threadFolderPath);
                             _fileService.WriteUtf8File(tempFilePath, renderedContent);
@@ -996,9 +992,14 @@ namespace SlingMD.Outlook.Services
                 string frontMatterDate = _dateFormatter.FormatOrDefault(mail.ReceivedTime, _settings.EmailDateFormat, _dateFormatter.Format(mail.ReceivedTime, "yyyy-MM-dd HH:mm:ss"));
                 if (ThreadService.TryParseNoteDate(frontMatterDate, out DateTime noteDate))
                 {
-                    fileNameNoExtResult = _threadService.GetThreadedNoteName(fileNameNoExtResult, noteDate);
+                    fileNameNoExtResult = _threadService.GetThreadedNoteName(fileNameNoExtResult, noteDate, threadFolderPath);
                 }
             }
+            // Keep every path the note can produce inside the Windows path limits. Inside a thread
+            // folder, ResuffixThreadNotes applies the same budget to the final name.
+            fileNameNoExtResult = shouldGroupThread
+                ? _fileService.FitNoteName(threadFolderPath, fileNameNoExtResult, ".md", false)
+                : _fileService.FitNoteName(_settings.GetInboxPath(), fileNameNoExtResult, ".md", true);
             string fileName = fileNameNoExtResult + ".md";
             string filePath = shouldGroupThread
                 ? Path.Combine(threadFolderPath, fileName)
