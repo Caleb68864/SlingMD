@@ -334,6 +334,15 @@ namespace SlingMD.Outlook.Forms
                 },
                 new HelpEntry
                 {
+                    Id = "Email.BodyCleanupPatterns",
+                    Tab = "Email",
+                    Title = "Body Cleanup Patterns",
+                    Summary = "Ordered regex patterns removed from the email body before it's written to the note.",
+                    Description = "Runs on the Markdown body after HTML conversion. Case-insensitive; ^ and $ match at each line, so ^CAUTION:.*$ removes one banner line. Start a pattern with (?s) to let . span lines for multi-line disclaimers. When any pattern removes text, the note's frontmatter gets bodyCleaned: true. Empty by default. Invalid regex rows are silently skipped.",
+                    Default = "None"
+                },
+                new HelpEntry
+                {
                     Id = "Email.EmailFilenameFormat",
                     Tab = "Email",
                     Title = "Email Filename Format",

@@ -309,5 +309,53 @@ namespace SlingMD.Tests.Services
             Assert.Null(processor.GetVaultRelativePath(@"C:\Elsewhere\note.md"));
             Assert.Null(processor.GetVaultRelativePath(@"C:\Notes\VaultTwo\note.md"));
         }
+
+        // -----------------------------------------------------------------------------------------
+        // CleanNoteBody — body cleanup patterns and the bodyCleaned frontmatter flag.
+        // -----------------------------------------------------------------------------------------
+
+        [Fact]
+        public void CleanNoteBody_PatternRemovesText_SetsBodyCleanedFlag()
+        {
+            ObsidianSettings settings = new ObsidianSettings
+            {
+                BodyCleanupPatterns = new List<string> { @"^CAUTION:.*$" }
+            };
+            EmailProcessor processor = new EmailProcessor(settings);
+            Dictionary<string, object> metadata = new Dictionary<string, object>();
+
+            string body = processor.CleanNoteBody("CAUTION: External sender.\n\nOrder attached.", metadata);
+
+            Assert.Equal("Order attached.", body);
+            Assert.Equal(true, metadata["bodyCleaned"]);
+        }
+
+        [Fact]
+        public void CleanNoteBody_NoPatternMatches_LeavesBodyAndOmitsFlag()
+        {
+            ObsidianSettings settings = new ObsidianSettings
+            {
+                BodyCleanupPatterns = new List<string> { @"^CAUTION:.*$" }
+            };
+            EmailProcessor processor = new EmailProcessor(settings);
+            Dictionary<string, object> metadata = new Dictionary<string, object>();
+
+            string body = processor.CleanNoteBody("Order attached.", metadata);
+
+            Assert.Equal("Order attached.", body);
+            Assert.False(metadata.ContainsKey("bodyCleaned"));
+        }
+
+        [Fact]
+        public void CleanNoteBody_DefaultSettings_LeavesBodyAndOmitsFlag()
+        {
+            EmailProcessor processor = new EmailProcessor(new ObsidianSettings());
+            Dictionary<string, object> metadata = new Dictionary<string, object>();
+
+            string body = processor.CleanNoteBody("CAUTION: External sender.\n\nOrder attached.", metadata);
+
+            Assert.Equal("CAUTION: External sender.\n\nOrder attached.", body);
+            Assert.False(metadata.ContainsKey("bodyCleaned"));
+        }
     }
 }

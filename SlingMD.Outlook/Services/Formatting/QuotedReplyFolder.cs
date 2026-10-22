@@ -47,8 +47,12 @@ namespace SlingMD.Outlook.Services.Formatting
         /// quoted history folded into a collapsed <c>[!quote]-</c> callout. When no quoted history is
         /// found, or nothing is left above it, the plain conversion is returned.
         /// </summary>
-        public static string ConvertFolded(string html, string plainText)
+        /// <param name="clean">Optional; applied to the reply and to the quoted history before the history
+        /// is wrapped in the callout (whose lines start with <c>&gt; </c>), so line-anchored patterns still
+        /// match inside it.</param>
+        public static string ConvertFolded(string html, string plainText, Func<string, string> clean = null)
         {
+            Func<string, string> apply = clean ?? (text => text);
             string reply;
             string quoted;
             if (!string.IsNullOrWhiteSpace(html))
@@ -56,7 +60,7 @@ namespace SlingMD.Outlook.Services.Formatting
                 int index = FindEarliest(html, HtmlMarkers, StartOfBody(html));
                 if (index < 0)
                 {
-                    return HtmlToMarkdownConverter.Convert(html, plainText);
+                    return apply(HtmlToMarkdownConverter.Convert(html, plainText));
                 }
 
                 reply = HtmlToMarkdownConverter.Convert(html.Substring(0, index), null);
@@ -69,7 +73,7 @@ namespace SlingMD.Outlook.Services.Formatting
                 int index = FindEarliest(text, TextMarkers, 0);
                 if (index < 0)
                 {
-                    return text;
+                    return apply(text);
                 }
 
                 reply = text.Substring(0, index).Trim();
@@ -78,9 +82,11 @@ namespace SlingMD.Outlook.Services.Formatting
 
             if (string.IsNullOrWhiteSpace(reply))
             {
-                return HtmlToMarkdownConverter.Convert(html, plainText);
+                return apply(HtmlToMarkdownConverter.Convert(html, plainText));
             }
 
+            reply = apply(reply);
+            quoted = apply(quoted);
             return string.IsNullOrWhiteSpace(quoted) ? reply : reply + "\n\n" + ToCollapsedCallout(quoted);
         }
 

@@ -2,6 +2,34 @@
 
 All notable changes to SlingMD are documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Calendar picker for Save Today and Save Date Range.** The Save Date Range window lists every
+  calendar you can open: each account's calendar and its sub-calendars, shared mailboxes, and
+  calendars shared with you in the Calendar pane. Tick the ones to export; the choice is remembered
+  and Save Today uses it too. The summary lists the calendars exported and any that couldn't be
+  opened. (From the wadukejr fork.)
+- **Appointment notes record their calendar**, e.g. `calendar: "Court Dates (jane@firm.com)"` in the
+  properties and a **Calendar:** line in the note, so notes from several calendars can be told apart
+  and queried. Custom appointment templates can use `{{calendar}}`. (From the wadukejr fork.)
+- **Body cleanup patterns.** List regular expressions on the Email tab, and SlingMD removes what they
+  match from the email body: confidentiality footers, "External sender" banners and the like. They run
+  per line (`^` and `$` match at line ends; start a pattern with `(?s)` to span lines), on the reply and
+  on the quoted history before it is folded, and a note that had text removed gets `bodyCleaned: true`
+  so it isn't mistaken for a verbatim copy. The list starts empty. (From the wadukejr fork.)
+
+### Changed
+- **True/false properties are written in lowercase** (`true`, not `True`), so Obsidian shows them as
+  checkboxes.
+
+### Fixed
+- **Save Today and Save Date Range only ever exported the main mailbox's calendar**, even with
+  several accounts. With no calendars picked, every account's own default calendar is now used.
+- **The GitHub build passes again.** It runs on the Visual Studio 2022 image (the newest image lacks
+  the Office add-in tools), signs with a throwaway certificate, and the tests reference the Outlook
+  interop assemblies directly so they build without Office installed. (From the wadukejr fork.)
+
 ## [1.2.5.0] - 2026-10-22
 
 ### Added

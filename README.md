@@ -27,6 +27,7 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook e
 - **Meeting join links** — the Teams, Zoom, Google Meet or Webex link in an invitation becomes a clickable *Join* line and a `meetingUrl` property
 - **Companion meeting notes** — optional blank note for real-time meeting capture, linked to the appointment note
 - **Bulk "Save Today's Appointments"** — one-click export of all today's calendar items
+- **Save Date Range with a calendar picker** — choose which calendars to export (every account's calendar, sub-calendars, shared mailboxes, and calendars shared with you in the Calendar pane); the choice is remembered and also used by Save Today
 - Automatic contact note creation with communication-history Dataview tables
 - Customisable note title formatting (placeholders for {Subject}, {Sender}, {Date}) with max-length trimming
 - Advanced subject clean-up engine using user-defined regex patterns
@@ -43,6 +44,7 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook e
 - **Sling Multiple** — export a whole selection at once, optionally into a subfolder of your Inbox
 - **Right-click to sling** — emails, appointments and contacts have a *Sling with SlingMD* entry in their context menu
 - **Fold quoted replies** — optionally collapse the quoted history under a reply into an *Earlier messages* callout
+- **Body cleanup patterns** — strip banners and footers from email bodies with your own patterns; cleaned notes are marked `bodyCleaned: true`
 - **Tables and Safe Links** — data tables become Markdown tables and Safe Links are unwrapped to the original address
 - **Settings export / import / reset** — move your settings to a new PC or start over from the *More…* menu
 - **Works without Obsidian** — optionally show the saved note in File Explorer instead of launching Obsidian
@@ -124,6 +126,7 @@ Before using SlingMD, you'll need to configure your Obsidian vault settings:
    - **Ask for dates**: Toggle whether to prompt for dates each time (shows the Task Options form)
    - **Group Email Threads**: Toggle whether to automatically organize related emails into thread folders
    - **Subject Cleanup Patterns**: Configure patterns for cleaning up email subjects (e.g., removing "Re:", "[EXTERNAL]", etc.)
+   - **Body Cleanup Patterns**: Regex patterns removed from the email body before it is saved (e.g., external-sender banners, confidentiality footers). `^` and `$` match per line; prefix a pattern with `(?s)` to span lines. Empty by default. Any note whose body a pattern altered gets `bodyCleaned: true` in its frontmatter
    - **Contacts Folder**: Where new contact notes will be stored (default: "Contacts")
    - **Enable Contact Saving**: Toggle automatic creation of contact notes
    - **Search Entire Vault For Contacts**: When enabled, SlingMD will look outside the contacts folder before creating a new contact note
@@ -317,7 +320,7 @@ Every note template supports `{{frontmatter}}` (the YAML properties block). Each
 `{{body}}`, `{{taskBlock}}`, `{{subject}}`, `{{noteTitle}}`, `{{senderName}}`, `{{senderShortName}}`, `{{senderEmail}}`, `{{from}}`, `{{fromEmail}}`, `{{to}}`, `{{toEmail}}`, `{{cc}}`, `{{ccEmail}}`, `{{date}}`, `{{timestamp}}`, `{{dailyNoteLink}}`, `{{threadNote}}`, `{{threadId}}`, `{{internetMessageId}}`, `{{entryId}}`, `{{tags}}`, `{{fileName}}`, `{{fileNameNoExt}}`
 
 **Appointment templates** (used when the file exists in your Templates folder; otherwise SlingMD uses its built-in layout). Label lines such as `**Optional:**` are dropped when their value is empty:
-`{{body}}`, `{{taskBlock}}`, `{{subject}}`, `{{noteTitle}}`, `{{organizer}}`, `{{organizerEmail}}`, `{{attendees}}`, `{{optionalAttendees}}`, `{{resources}}`, `{{location}}`, `{{startDateTime}}`, `{{endDateTime}}`, `{{date}}`, `{{recurrence}}`, `{{meetingNotes}}`, `{{meetingUrl}}`, `{{dailyNoteLink}}`, `{{globalAppointmentId}}`, `{{tags}}`, `{{fileName}}`, `{{fileNameNoExt}}`
+`{{body}}`, `{{taskBlock}}`, `{{subject}}`, `{{noteTitle}}`, `{{organizer}}`, `{{organizerEmail}}`, `{{attendees}}`, `{{optionalAttendees}}`, `{{resources}}`, `{{location}}`, `{{startDateTime}}`, `{{endDateTime}}`, `{{date}}`, `{{recurrence}}`, `{{meetingNotes}}`, `{{meetingUrl}}`, `{{calendar}}`, `{{dailyNoteLink}}`, `{{globalAppointmentId}}`, `{{tags}}`, `{{fileName}}`, `{{fileNameNoExt}}`
 
 **Meeting note templates:**
 `{{appointmentTitle}}`, `{{appointmentLink}}`, `{{organizer}}`, `{{attendees}}`, `{{date}}`, `{{location}}`

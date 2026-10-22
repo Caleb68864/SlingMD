@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Reflection;
@@ -6,6 +7,7 @@ using System.Runtime.InteropServices;
 using Office = Microsoft.Office.Core;
 using System.Windows.Forms;
 using SlingMD.Outlook.Forms;
+using SlingMD.Outlook.Models;
 
 namespace SlingMD.Outlook.Ribbon
 {
@@ -192,11 +194,13 @@ namespace SlingMD.Outlook.Ribbon
         {
             try
             {
-                using (CalendarRangeDialog dialog = new CalendarRangeDialog())
+                List<CalendarFolderInfo> calendars = _addIn.GetAvailableCalendars();
+                List<CalendarFolderInfo> preselected = _addIn.GetPreselectedCalendars(calendars);
+                using (CalendarRangeDialog dialog = new CalendarRangeDialog(calendars, preselected))
                 {
                     if (dialog.ShowDialog() == DialogResult.OK)
                     {
-                        _addIn.SaveAppointmentRange(dialog.StartDate, dialog.EndDate);
+                        _addIn.SaveAppointmentRange(dialog.StartDate, dialog.EndDate, dialog.SelectedCalendars);
                     }
                 }
             }

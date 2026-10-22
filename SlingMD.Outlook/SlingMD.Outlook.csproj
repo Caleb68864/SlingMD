@@ -300,6 +300,7 @@
     <Compile Include="Models\EmailSlingResult.cs" />
     <Compile Include="Models\AutoSlingRule.cs" />
     <Compile Include="Models\WatchedFolder.cs" />
+    <Compile Include="Models\CalendarFolderInfo.cs" />
     <Compile Include="Models\AttachmentInfo.cs" />
     <Compile Include="Models\AttachmentSignals.cs" />
     <Compile Include="Models\ContactName.cs" />
@@ -313,6 +314,7 @@
     <Compile Include="Infrastructure\MapiPropertyTags.cs" />
     <Compile Include="Infrastructure\SystemClock.cs" />
     <Compile Include="Services\AppointmentProcessor.cs" />
+    <Compile Include="Services\CalendarFolderService.cs" />
     <Compile Include="Services\ContactProcessor.cs" />
     <Compile Include="Services\AttachmentService.cs" />
     <Compile Include="Services\ContactService.cs" />
@@ -320,6 +322,7 @@
     <Compile Include="Services\EmailProcessor.cs" />
     <Compile Include="Services\BatchSlingReport.cs" />
     <Compile Include="Services\SmtpAddressResolver.cs" />
+    <Compile Include="Services\Formatting\BodyCleanerService.cs" />
     <Compile Include="Services\Formatting\ContactLinkFormatter.cs" />
     <Compile Include="Services\Formatting\ContactNameParser.cs" />
     <Compile Include="Services\Formatting\DateFormatter.cs" />

@@ -142,6 +142,27 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
+        public void RenderAppointmentContent_CalendarMetadata_AppearsInFrontmatterAndDetails()
+        {
+            AppointmentTemplateContext context = new AppointmentTemplateContext
+            {
+                Metadata = new Dictionary<string, object>
+                {
+                    { "title", "Status Conference" },
+                    { "type", "Appointment" },
+                    { "calendar", "Court Dates (jane@firm.com)" }
+                },
+                NoteTitle = "Status Conference",
+                Subject = "Status Conference"
+            };
+
+            string result = _templateService.RenderAppointmentContent(context);
+
+            Assert.Contains("calendar: \"Court Dates (jane@firm.com)\"", result);
+            Assert.Contains("**Calendar:** Court Dates (jane@firm.com)", result);
+        }
+
+        [Fact]
         public void RenderMeetingNoteContent_WithValidContext_ProducesStubWithBacklink()
         {
             // Arrange

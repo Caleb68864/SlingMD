@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using SlingMD.Outlook.Services.Formatting;
 using Xunit;
 
@@ -26,6 +27,24 @@ namespace SlingMD.Tests.Services.Formatting
             Assert.Equal(
                 "Yes.\n\n> [!quote]- Earlier messages\n> **From:** Sara\n>\n> Original",
                 QuotedReplyFolder.ConvertFolded(html, null));
+        }
+
+        [Fact]
+        public void ConvertFolded_WithClean_CleansReplyAndHistoryBeforeFolding()
+        {
+            string html = "<body><div>CAUTION: External sender.</div><div>Yes.</div><div id=\"appendonsend\"></div><hr style=\"display:inline-block\">"
+                + "<div id=\"divRplyFwdMsg\"><b>From:</b> Sara</div><div>CAUTION: External sender.</div><div>Original</div></body>";
+
+            string result = QuotedReplyFolder.ConvertFolded(html, null,
+                text => Regex.Replace(text, @"^CAUTION:.*\n*", string.Empty, RegexOptions.Multiline));
+
+            Assert.Equal("Yes.\n\n> [!quote]- Earlier messages\n> **From:** Sara\n>\n> Original", result);
+        }
+
+        [Fact]
+        public void ConvertFolded_NoHistory_StillCleans()
+        {
+            Assert.Equal("Just a note", QuotedReplyFolder.ConvertFolded("<p>Just a note [x]</p>", null, text => text.Replace(" [x]", string.Empty)));
         }
 
         [Fact]

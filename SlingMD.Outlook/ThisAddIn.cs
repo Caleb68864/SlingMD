@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 using Microsoft.Office.Interop.Outlook;
 using Office = Microsoft.Office.Core;
@@ -1127,6 +1128,33 @@ namespace SlingMD.Outlook
             }
         }
 
+        /// <summary>
+        /// Lists the calendars offered by the Save Date Range dialog. Shared calendars can take a
+        /// moment to enumerate, so the wait cursor is shown meanwhile.
+        /// </summary>
+        public List<CalendarFolderInfo> GetAvailableCalendars()
+        {
+            Cursor previousCursor = Cursor.Current;
+            Cursor.Current = Cursors.WaitCursor;
+            try
+            {
+                return new CalendarFolderService(Application).GetAvailableCalendars();
+            }
+            finally
+            {
+                Cursor.Current = previousCursor;
+            }
+        }
+
+        /// <summary>
+        /// Calendars to pre-check in the Save Date Range dialog: the last confirmed choice, or every
+        /// account's default calendar when none has been saved.
+        /// </summary>
+        public List<CalendarFolderInfo> GetPreselectedCalendars(IEnumerable<CalendarFolderInfo> available)
+        {
+            return CalendarFolderService.GetInitialSelection(available, _settings.AppointmentExportCalendars);
+        }
+
         public async void SaveTodaysAppointments()
         {
             if (!TryBeginOperation())
@@ -1134,92 +1162,164 @@ namespace SlingMD.Outlook
                 return;
             }
 
+            try
+            {
+                DateTime today = DateTime.Today;
+                await ExportAppointments(today, today, "Save Today's Appointments", showDateRange: false);
+            }
+            finally
+            {
+                EndOperation();
+            }
+        }
+
+        /// <param name="calendars">Calendars confirmed in the dialog. They are saved as the new
+        /// export choice. Null or empty keeps the saved choice.</param>
+        public async void SaveAppointmentRange(DateTime start, DateTime end, IList<CalendarFolderInfo> calendars)
+        {
+            if (!TryBeginOperation())
+            {
+                return;
+            }
+
+            try
+            {
+                if (calendars != null && calendars.Count > 0)
+                {
+                    RememberExportCalendars(calendars);
+                }
+
+                await ExportAppointments(start, end, "Save Appointment Range", showDateRange: true);
+            }
+            finally
+            {
+                EndOperation();
+            }
+        }
+
+        /// <summary>
+        /// Stores the calendars chosen in Save Date Range so the next range export, and Save Today,
+        /// use the same calendars. A failed save only costs persistence across restarts: the choice
+        /// still applies for this Outlook session.
+        /// </summary>
+        private void RememberExportCalendars(IList<CalendarFolderInfo> calendars)
+        {
+            _settings.AppointmentExportCalendars = ObsidianSettings.NormalizeCalendarList(new List<CalendarFolderInfo>(calendars));
+            try
+            {
+                _settings.Save();
+            }
+            catch (ArgumentException ex)
+            {
+                Logger.Instance.Warning($"ThisAddIn: calendar choice not saved, settings failed validation: {ex.Message}");
+            }
+            catch (IOException ex)
+            {
+                Logger.Instance.Warning($"ThisAddIn: calendar choice not saved: {ex.Message}");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Logger.Instance.Warning($"ThisAddIn: calendar choice not saved: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Exports every appointment starting from <paramref name="start"/> through the end of
+        /// <paramref name="end"/> in the saved export calendars (every account's default calendar
+        /// when none are saved), then shows a summary. Callers hold the operation lock.
+        /// </summary>
+        private async System.Threading.Tasks.Task ExportAppointments(DateTime start, DateTime end, string title, bool showDateRange)
+        {
             int saved = 0;
             int skipped = 0;
             int errors = 0;
             int total = 0;
 
-            NameSpace session = null;
+            List<OpenedCalendar> calendars = new List<OpenedCalendar>();
+            List<string> calendarErrors = new List<string>();
             try
             {
-                session = Application.Session;
-                Accounts accounts = session.Accounts;
-                try
+                CalendarFolderService calendarService = new CalendarFolderService(Application);
+                List<CalendarFolderInfo> wanted = _settings.AppointmentExportCalendars != null && _settings.AppointmentExportCalendars.Count > 0
+                    ? _settings.AppointmentExportCalendars
+                    : calendarService.GetAccountDefaultCalendars();
+
+                if (wanted.Count == 0)
                 {
-                    foreach (Account account in accounts)
+                    errors++;
+                    calendarErrors.Add("Outlook did not report any calendar to export.");
+                }
+
+                List<CalendarFolderInfo> unavailable = new List<CalendarFolderInfo>();
+                calendars = calendarService.OpenCalendars(wanted, unavailable);
+                foreach (CalendarFolderInfo missing in unavailable)
+                {
+                    errors++;
+                    calendarErrors.Add(string.Format("Could not open calendar \"{0}\".", missing));
+                }
+
+                DateTime rangeEnd = end.Date.AddDays(1);
+                string filter = string.Format(
+                    "[Start] >= '{0}' AND [Start] < '{1}'",
+                    start.Date.ToString("g"),
+                    rangeEnd.ToString("g"));
+
+                foreach (OpenedCalendar calendar in calendars)
+                {
+                    Items items = null;
+                    Items restricted = null;
+                    try
                     {
-                        MAPIFolder calendar = null;
-                        Items items = null;
-                        Items restricted = null;
-                        NameSpace accountSession = null;
-                        try
+                        items = calendar.Folder.Items;
+                        items.IncludeRecurrences = true;
+                        items.Sort("[Start]");
+                        restricted = items.Restrict(filter);
+
+                        foreach (object item in restricted)
                         {
-                            accountSession = account.Session;
-                            calendar = accountSession.GetDefaultFolder(OlDefaultFolders.olFolderCalendar);
-                            items = calendar.Items;
-                            items.IncludeRecurrences = true;
-                            items.Sort("[Start]");
+                            AppointmentItem appointment = item as AppointmentItem;
+                            if (appointment == null) continue;
 
-                            DateTime today = DateTime.Today;
-                            DateTime tomorrow = today.AddDays(1);
-                            string filter = string.Format(
-                                "[Start] >= '{0}' AND [Start] < '{1}'",
-                                today.ToString("g"),
-                                tomorrow.ToString("g"));
-                            restricted = items.Restrict(filter);
-
-                            foreach (object item in restricted)
+                            try
                             {
-                                AppointmentItem appointment = item as AppointmentItem;
-                                if (appointment == null) continue;
+                                total++;
 
-                                try
+                                AppointmentProcessingResult result =
+                                    await _appointmentProcessor.ProcessAppointment(
+                                        appointment, bulkMode: true);
+
+                                switch (result)
                                 {
-                                    total++;
-
-                                    AppointmentProcessingResult result =
-                                        await _appointmentProcessor.ProcessAppointment(
-                                            appointment, bulkMode: true);
-
-                                    switch (result)
-                                    {
-                                        case AppointmentProcessingResult.Success:
-                                            saved++;
-                                            break;
-                                        case AppointmentProcessingResult.Skipped:
-                                            skipped++;
-                                            break;
-                                        case AppointmentProcessingResult.Error:
-                                            errors++;
-                                            break;
-                                    }
+                                    case AppointmentProcessingResult.Success:
+                                        saved++;
+                                        break;
+                                    case AppointmentProcessingResult.Skipped:
+                                        skipped++;
+                                        break;
+                                    case AppointmentProcessingResult.Error:
+                                        errors++;
+                                        break;
                                 }
-                                finally
+                            }
+                            finally
+                            {
+                                if (appointment != null)
                                 {
-                                    if (appointment != null)
-                                    {
-                                        System.Runtime.InteropServices.Marshal.ReleaseComObject(appointment);
-                                    }
+                                    System.Runtime.InteropServices.Marshal.ReleaseComObject(appointment);
                                 }
                             }
                         }
-                        catch (System.Runtime.InteropServices.COMException)
-                        {
-                            errors++;
-                        }
-                        finally
-                        {
-                            if (restricted != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(restricted);
-                            if (items != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(items);
-                            if (calendar != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(calendar);
-                            if (accountSession != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(accountSession);
-                            if (account != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(account);
-                        }
                     }
-                }
-                finally
-                {
-                    if (accounts != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(accounts);
+                    catch (System.Runtime.InteropServices.COMException ex)
+                    {
+                        errors++;
+                        calendarErrors.Add(string.Format("Calendar \"{0}\": {1}", calendar.Info, ex.Message));
+                    }
+                    finally
+                    {
+                        if (restricted != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(restricted);
+                        if (items != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(items);
+                    }
                 }
 
                 List<string> bulkErrors = _appointmentProcessor.GetBulkErrors();
@@ -1228,143 +1328,15 @@ namespace SlingMD.Outlook
                     "Saved {0}/{1} appointments.\nSkipped: {2} (duplicates/cancelled)\nErrors: {3}",
                     saved, total, skipped, errors);
 
-                if (ambiguousCount > 0)
+                if (showDateRange)
                 {
-                    string logStem = System.IO.Path.GetFileNameWithoutExtension(_settings.BulkAmbiguousMatchLogPath);
-                    summary += string.Format("\n> ⚠ {0} ambiguous matches — see [[{1}]]", ambiguousCount, logStem);
+                    summary += string.Format("\nDate range: {0} to {1}", start.ToString("d"), end.ToString("d"));
                 }
 
-                if (bulkErrors.Count > 0)
+                if (calendars.Count > 0)
                 {
-                    summary += "\n\nError details:\n" + string.Join("\n", bulkErrors);
+                    summary += "\nCalendars: " + string.Join(", ", calendars.Select(c => c.Info.ToString()));
                 }
-
-                MessageBox.Show(
-                    summary,
-                    "Save Today's Appointments",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-
-                if (_settings.LaunchObsidian && saved > 0)
-                {
-                    _fileService.LaunchObsidian(_settings.VaultName, _settings.GetAppointmentsPath());
-                }
-            }
-            catch (System.Exception ex)
-            {
-                MessageBox.Show(
-                    string.Format("Error saving today's appointments: {0}", ex.Message),
-                    "Error",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
-            }
-            finally
-            {
-                if (session != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(session);
-                EndOperation();
-            }
-        }
-
-        public async void SaveAppointmentRange(DateTime start, DateTime end)
-        {
-            if (!TryBeginOperation())
-            {
-                return;
-            }
-
-            int saved = 0;
-            int skipped = 0;
-            int errors = 0;
-            int total = 0;
-
-            NameSpace session = null;
-            try
-            {
-                session = Application.Session;
-                Accounts accounts = session.Accounts;
-                try
-                {
-                    foreach (Account account in accounts)
-                    {
-                        MAPIFolder calendar = null;
-                        Items items = null;
-                        Items restricted = null;
-                        NameSpace accountSession = null;
-                        try
-                        {
-                            accountSession = account.Session;
-                            calendar = accountSession.GetDefaultFolder(OlDefaultFolders.olFolderCalendar);
-                            items = calendar.Items;
-                            items.IncludeRecurrences = true;
-                            items.Sort("[Start]");
-
-                            DateTime rangeEnd = end.AddDays(1);
-                            string filter = string.Format(
-                                "[Start] >= '{0}' AND [Start] < '{1}'",
-                                start.ToString("g"),
-                                rangeEnd.ToString("g"));
-                            restricted = items.Restrict(filter);
-
-                            foreach (object item in restricted)
-                            {
-                                AppointmentItem appointment = item as AppointmentItem;
-                                if (appointment == null) continue;
-
-                                try
-                                {
-                                    total++;
-
-                                    AppointmentProcessingResult result =
-                                        await _appointmentProcessor.ProcessAppointment(
-                                            appointment, bulkMode: true);
-
-                                    switch (result)
-                                    {
-                                        case AppointmentProcessingResult.Success:
-                                            saved++;
-                                            break;
-                                        case AppointmentProcessingResult.Skipped:
-                                            skipped++;
-                                            break;
-                                        case AppointmentProcessingResult.Error:
-                                            errors++;
-                                            break;
-                                    }
-                                }
-                                finally
-                                {
-                                    if (appointment != null)
-                                    {
-                                        System.Runtime.InteropServices.Marshal.ReleaseComObject(appointment);
-                                    }
-                                }
-                            }
-                        }
-                        catch (System.Runtime.InteropServices.COMException)
-                        {
-                            errors++;
-                        }
-                        finally
-                        {
-                            if (restricted != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(restricted);
-                            if (items != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(items);
-                            if (calendar != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(calendar);
-                            if (accountSession != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(accountSession);
-                            if (account != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(account);
-                        }
-                    }
-                }
-                finally
-                {
-                    if (accounts != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(accounts);
-                }
-
-                List<string> bulkErrors = _appointmentProcessor.GetBulkErrors();
-                int ambiguousCount = _appointmentProcessor.GetAndClearAmbiguousCount();
-                string summary = string.Format(
-                    "Saved {0}/{1} appointments.\nSkipped: {2} (duplicates/cancelled)\nErrors: {3}\nDate range: {4} to {5}",
-                    saved, total, skipped, errors,
-                    start.ToString("d"), end.ToString("d"));
 
                 if (ambiguousCount > 0)
                 {
@@ -1372,14 +1344,15 @@ namespace SlingMD.Outlook
                     summary += string.Format("\n> ⚠ {0} ambiguous matches — see [[{1}]]", ambiguousCount, logStem);
                 }
 
-                if (bulkErrors.Count > 0)
+                List<string> errorDetails = calendarErrors.Concat(bulkErrors).ToList();
+                if (errorDetails.Count > 0)
                 {
-                    summary += "\n\nError details:\n" + string.Join("\n", bulkErrors);
+                    summary += "\n\nError details:\n" + string.Join("\n", errorDetails);
                 }
 
                 MessageBox.Show(
                     summary,
-                    "Save Appointment Range",
+                    title,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
 
@@ -1398,8 +1371,10 @@ namespace SlingMD.Outlook
             }
             finally
             {
-                if (session != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(session);
-                EndOperation();
+                foreach (OpenedCalendar calendar in calendars)
+                {
+                    System.Runtime.InteropServices.Marshal.ReleaseComObject(calendar.Folder);
+                }
             }
         }
 

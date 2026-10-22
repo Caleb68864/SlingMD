@@ -292,6 +292,11 @@ namespace SlingMD.Outlook.Services
                     }
                     frontMatter.AppendLine($"{item.Key}: \"{EscapeYamlDoubleQuotedScalar(_dateFormatter.Format(dateTimeValue, format))}\"");
                 }
+                else if (item.Value is bool boolValue)
+                {
+                    // bool.ToString() yields "True"; Obsidian's checkbox property expects lowercase.
+                    frontMatter.AppendLine($"{item.Key}: {(boolValue ? "true" : "false")}");
+                }
                 else if (stringEnumerable != null && !(item.Value is string))
                 {
                     WriteYamlList(frontMatter, item.Key, stringEnumerable);
@@ -478,7 +483,8 @@ namespace SlingMD.Outlook.Services
                 "**Location:** {{location}}" + Environment.NewLine +
                 "**Start:** {{startDateTime}}" + Environment.NewLine +
                 "**End:** {{endDateTime}}" + Environment.NewLine +
-                "**Recurrence:** {{recurrence}}" + Environment.NewLine + Environment.NewLine +
+                "**Recurrence:** {{recurrence}}" + Environment.NewLine +
+                "**Calendar:** {{calendar}}" + Environment.NewLine + Environment.NewLine +
                 "## Notes" + Environment.NewLine + Environment.NewLine +
                 "{{body}}";
         }
@@ -863,6 +869,10 @@ for (const email of emails) {
                         format = ObsidianSettings.DefaultEmailDateFormat;
                     }
                     replacements[item.Key] = _dateFormatter.Format(dateTimeValue, format);
+                }
+                else if (item.Value is bool boolValue)
+                {
+                    replacements[item.Key] = boolValue ? "true" : "false";
                 }
                 else
                 {

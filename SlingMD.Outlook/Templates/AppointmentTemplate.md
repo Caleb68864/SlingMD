@@ -12,6 +12,7 @@
 **Start:** {{startDateTime}}
 **End:** {{endDateTime}}
 **Recurrence:** {{recurrence}}
+**Calendar:** {{calendar}}
 
 ## Notes
 

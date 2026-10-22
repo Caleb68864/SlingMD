@@ -82,6 +82,7 @@
     <Compile Include="Forms\SettingsFormVaultStatusTests.cs" />
     <Compile Include="Models\ObsidianSettingsTests.cs" />
     <Compile Include="Models\ObsidianSettingsAppointmentTests.cs" />
+    <Compile Include="Models\AppointmentExportCalendarsTests.cs" />
     <Compile Include="Models\AutoSlingRuleTests.cs" />
     <Compile Include="Models\WatchedFolderTests.cs" />
     <Compile Include="Services\AttachmentServiceTests.cs" />
@@ -93,6 +94,7 @@
     <Compile Include="Services\ContactServiceMeetingTests.cs" />
     <Compile Include="Services\EmailProcessorTests.cs" />
     <Compile Include="Services\AppointmentProcessorTests.cs" />
+    <Compile Include="Services\CalendarFolderServiceTests.cs" />
     <Compile Include="Services\ContactProcessorTests.cs" />
     <Compile Include="Services\TaskServiceTests.cs" />
     <Compile Include="Services\TemplateServiceTests.cs" />
@@ -108,6 +110,7 @@
     <Compile Include="Services\Formatting\ContactNameParserTests.cs" />
     <Compile Include="Services\Formatting\ContactLinkFormatterTests.cs" />
     <Compile Include="Services\Formatting\SubjectCleanerServiceTests.cs" />
+    <Compile Include="Services\Formatting\BodyCleanerServiceTests.cs" />
     <Compile Include="Services\Formatting\ThreadIdHasherTests.cs" />
     <Compile Include="Services\Formatting\FileNameSanitizerTests.cs" />
     <Compile Include="Services\Formatting\FilenameSubjectNormalizerTests.cs" />
@@ -151,25 +154,20 @@
       <Name>SlingMD.Outlook</Name>
     </ProjectReference>
   </ItemGroup>
+  <!--
+    Reference the Office primary interop assemblies directly, as SlingMD.Outlook does. A
+    COMReference resolves through the registered Outlook type library, which only exists where
+    Office is installed, so the test project failed to build on CI machines.
+  -->
   <ItemGroup>
-    <COMReference Include="Microsoft.Office.Core">
-      <Guid>{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}</Guid>
-      <VersionMajor>2</VersionMajor>
-      <VersionMinor>8</VersionMinor>
-      <Lcid>0</Lcid>
-      <WrapperTool>primary</WrapperTool>
-      <Isolated>False</Isolated>
-      <EmbedInteropTypes>True</EmbedInteropTypes>
-    </COMReference>
-    <COMReference Include="Microsoft.Office.Interop.Outlook">
-      <Guid>{00062FFF-0000-0000-C000-000000000046}</Guid>
-      <VersionMajor>9</VersionMajor>
-      <VersionMinor>6</VersionMinor>
-      <Lcid>0</Lcid>
-      <WrapperTool>primary</WrapperTool>
-      <Isolated>False</Isolated>
-      <EmbedInteropTypes>True</EmbedInteropTypes>
-    </COMReference>
+    <Reference Include="Office, Version=15.0.0.0, Culture=neutral, PublicKeyToken=71e9bce111e9429c">
+      <Private>False</Private>
+      <EmbedInteropTypes>true</EmbedInteropTypes>
+    </Reference>
+    <Reference Include="Microsoft.Office.Interop.Outlook, Version=15.0.0.0, Culture=neutral, PublicKeyToken=71e9bce111e9429c">
+      <Private>False</Private>
+      <EmbedInteropTypes>true</EmbedInteropTypes>
+    </Reference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
