@@ -143,6 +143,20 @@ namespace SlingMD.Outlook.Services
             ContactInteractionMode contactMode = ContactInteractionMode.Interactive,
             bool bulkMode = false)
         {
+            EmailSlingResult result = await ProcessEmailWithResult(mail, cancellationToken, contactMode, bulkMode);
+            return result.Outcome == EmailSlingOutcome.Saved;
+        }
+
+        /// <summary>
+        /// Same as <see cref="ProcessEmail"/>, but says whether the email was saved, was already in the
+        /// vault, or failed (and why), so batch callers can report each case.
+        /// </summary>
+        public async Task<EmailSlingResult> ProcessEmailWithResult(
+            MailItem mail,
+            System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken),
+            ContactInteractionMode contactMode = ContactInteractionMode.Interactive,
+            bool bulkMode = false)
+        {
             // Declare variables at method level so they're accessible throughout the method
             List<string> contactNames = new List<string>();
             string fileName = string.Empty;
@@ -155,6 +169,7 @@ namespace SlingMD.Outlook.Services
             string threadNotePath = string.Empty;
             bool shouldGroupThread = false;
             bool coreExportSucceeded = false;
+            string failureMessage = null;
 
             // Get task options first if needed. Never prompt in bulk mode — a batch of emails would
             // otherwise pop one modal date dialog per email.
@@ -345,7 +360,7 @@ namespace SlingMD.Outlook.Services
                             // The progress window closes as soon as this returns, so say it where it stays visible.
                             ToastForm.ShowToast("SlingMD: this email is already in your vault.");
                         }
-                        return false;
+                        return new EmailSlingResult { Outcome = EmailSlingOutcome.Duplicate };
                     }
 
                     if (shouldGroupThread)
@@ -597,6 +612,7 @@ namespace SlingMD.Outlook.Services
                 catch (System.Exception ex)
                 {
                     Logger.Instance.Error($"EmailProcessor.ProcessEmail failed: {ex.Message}");
+                    failureMessage = ex.Message;
                     if (bulkMode)
                     {
                         // Background monitors and batch slings share this path; a modal dialog per
@@ -618,7 +634,7 @@ namespace SlingMD.Outlook.Services
 
             if (!coreExportSucceeded)
             {
-                return false;
+                return new EmailSlingResult { Outcome = EmailSlingOutcome.Failed, ErrorMessage = failureMessage };
             }
 
             // Process contacts outside the StatusService block
@@ -742,7 +758,7 @@ namespace SlingMD.Outlook.Services
                 ToastForm.ShowToast($"SlingMD: saved {GetVaultRelativePath(filePath) ?? Path.GetFileName(filePath)}");
             }
 
-            return true;
+            return new EmailSlingResult { Outcome = EmailSlingOutcome.Saved, NotePath = filePath };
         }
 
         private string CleanSubject(string subject) => _subjectFilenameCleaner.Clean(subject);

@@ -966,14 +966,8 @@ namespace SlingMD.Outlook
                     batchProcessor = new EmailProcessor(batchSettings);
                 }
 
-                int slung = 0;
-                foreach (MailItem selectedMail in mails)
-                {
-                    if (await batchProcessor.ProcessEmail(selectedMail, contactMode: ContactInteractionMode.Automated, bulkMode: true))
-                    {
-                        slung++;
-                    }
-                }
+                BatchSlingReport report = await SlingBatchAsync(batchProcessor, mails, "SlingMD - Sling Multiple");
+                int slung = report.Saved;
 
                 if (slung == 0)
                 {
@@ -987,12 +981,9 @@ namespace SlingMD.Outlook
                     _fileService.LaunchObsidian(_settings.VaultName, vaultRelativeTarget);
                 }
 
-                int failed = mails.Count - slung;
                 string noun = mails.Count == 1 ? "email" : "emails";
-                string message = failed == 0
-                    ? $"Slung {slung} of {mails.Count} {noun}."
-                    : $"Slung {slung} of {mails.Count} {noun}. {failed} were skipped or failed (see any error messages).";
-                MessageBox.Show(message, "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(report.BuildMessage(noun), "SlingMD", MessageBoxButtons.OK,
+                    report.Failed > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
             }
             catch (System.Exception ex)
             {
@@ -1412,27 +1403,17 @@ namespace SlingMD.Outlook
                     if (dialog.ShowDialog() == DialogResult.OK)
                     {
                         List<MailItem> selected = dialog.SelectedEmails;
-                        int slung = 0;
-                        foreach (MailItem selectedMail in selected)
-                        {
-                            // Bulk mode, as in SlingMultipleEmails: no task-date dialog, contact prompt,
-                            // countdown or Obsidian launch per email.
-                            if (await _emailProcessor.ProcessEmail(selectedMail, contactMode: ContactInteractionMode.Automated, bulkMode: true))
-                            {
-                                slung++;
-                            }
-                        }
+                        // Bulk mode, as in SlingMultipleEmails: no task-date dialog, contact prompt,
+                        // countdown or Obsidian launch per email.
+                        BatchSlingReport report = await SlingBatchAsync(_emailProcessor, selected, "SlingMD - Complete Thread");
 
-                        if (_settings.LaunchObsidian && slung > 0)
+                        if (_settings.LaunchObsidian && report.Saved > 0)
                         {
                             _fileService.LaunchObsidian(_settings.VaultName, GetThreadLaunchTarget(threadService, conversationId));
                         }
 
-                        int failedOrSkipped = selected.Count - slung;
-                        string message = failedOrSkipped == 0
-                            ? $"Slung {slung} of {selected.Count} emails from this thread."
-                            : $"Slung {slung} of {selected.Count} emails from this thread. {failedOrSkipped} were skipped or failed (details are in the SlingMD log).";
-                        MessageBox.Show(message, "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        MessageBox.Show(report.BuildMessage("emails from this thread"), "SlingMD", MessageBoxButtons.OK,
+                            report.Failed > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
                     }
                 }
             }
@@ -1455,6 +1436,49 @@ namespace SlingMD.Outlook
                 if (selection != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(selection);
                 if (explorer != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(explorer);
                 EndOperation();
+            }
+        }
+
+        /// <summary>
+        /// Slings <paramref name="mails"/> in bulk mode behind a progress window with a Cancel button,
+        /// and returns what happened to each. Cancel takes effect between emails.
+        /// </summary>
+        private async System.Threading.Tasks.Task<BatchSlingReport> SlingBatchAsync(EmailProcessor processor, IList<MailItem> mails, string title)
+        {
+            BatchSlingReport report = new BatchSlingReport(mails.Count);
+            using (BatchProgressForm progress = new BatchProgressForm(title, mails.Count))
+            {
+                progress.Show();
+                for (int i = 0; i < mails.Count; i++)
+                {
+                    // Yield to the message loop so the window repaints and Cancel can be clicked;
+                    // ProcessEmail itself mostly runs synchronously on this thread.
+                    await System.Threading.Tasks.Task.Yield();
+                    if (progress.CancelRequested)
+                    {
+                        report.Cancelled = true;
+                        break;
+                    }
+
+                    string subject = GetSubjectOrEmpty(mails[i]);
+                    progress.ShowItem(i + 1, subject);
+                    EmailSlingResult result = await processor.ProcessEmailWithResult(
+                        mails[i], contactMode: ContactInteractionMode.Automated, bulkMode: true);
+                    report.Add(subject, result);
+                }
+            }
+            return report;
+        }
+
+        private static string GetSubjectOrEmpty(MailItem mail)
+        {
+            try
+            {
+                return mail.Subject ?? string.Empty;
+            }
+            catch (System.Runtime.InteropServices.COMException)
+            {
+                return string.Empty;
             }
         }
 

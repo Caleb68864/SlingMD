@@ -97,6 +97,7 @@
     <Compile Include="Services\TemplateServiceTests.cs" />
     <Compile Include="Services\TemplateServiceAppointmentTests.cs" />
     <Compile Include="Services\ThreadServiceTests.cs" />
+    <Compile Include="Services\BatchSlingReportTests.cs" />
     <Compile Include="Services\FolderMonitorServiceTests.cs" />
     <Compile Include="Services\ThreadCompletionServiceTests.cs" />
     <Compile Include="Services\Formatting\NoteTitleBuilderTests.cs" />

@@ -269,6 +269,9 @@
     <Compile Include="Forms\HelpForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\BatchProgressForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Forms\CountdownForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -294,6 +297,7 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Models\ObsidianSettings.cs" />
+    <Compile Include="Models\EmailSlingResult.cs" />
     <Compile Include="Models\AutoSlingRule.cs" />
     <Compile Include="Models\WatchedFolder.cs" />
     <Compile Include="Models\AttachmentInfo.cs" />
@@ -314,6 +318,7 @@
     <Compile Include="Services\ContactService.cs" />
     <Compile Include="Services\ClipboardEmailService.cs" />
     <Compile Include="Services\EmailProcessor.cs" />
+    <Compile Include="Services\BatchSlingReport.cs" />
     <Compile Include="Services\Formatting\ContactLinkFormatter.cs" />
     <Compile Include="Services\Formatting\ContactNameParser.cs" />
     <Compile Include="Services\Formatting\DateFormatter.cs" />
