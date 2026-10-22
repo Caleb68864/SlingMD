@@ -653,35 +653,32 @@ namespace SlingMD.Outlook.Services
         /// <returns>The new path for <c>currentEmailPath</c> if it was provided; otherwise <c>null</c>.</returns>
         /// <summary>
         /// Parses a date string from a thread note's frontmatter.
-        /// Accepts second-precision dates written by the current exporter ("yyyy-MM-dd HH:mm:ss")
-        /// and legacy minute-precision dates ("yyyy-MM-dd HH:mm") for backward compatibility.
+        /// Accepts the ISO 8601 dates the exporter writes by default ("yyyy-MM-ddTHH:mm:ss"), the
+        /// space-separated form earlier versions wrote ("yyyy-MM-dd HH:mm:ss"), and both at minute precision.
         /// </summary>
         /// <param name="value">The raw date string extracted from the frontmatter.</param>
         /// <param name="result">The parsed date, if successful.</param>
         /// <returns><c>true</c> if the date could be parsed; otherwise <c>false</c>.</returns>
         public static bool TryParseThreadDate(string value, out DateTime result)
         {
-            if (DateTime.TryParseExact(value, "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture,
-                    System.Globalization.DateTimeStyles.None, out result))
-            {
-                return true;
-            }
-
-            if (DateTime.TryParseExact(value, "yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture,
-                    System.Globalization.DateTimeStyles.None, out result))
-            {
-                return true;
-            }
-
-            return false;
+            return DateTime.TryParseExact(value, ThreadDateFormats, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out result);
         }
+
+        private static readonly string[] ThreadDateFormats =
+        {
+            "yyyy-MM-ddTHH:mm:ss",
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy-MM-ddTHH:mm",
+            "yyyy-MM-dd HH:mm"
+        };
 
         /// <summary>
         /// Parses a note's <c>date</c> front-matter value the way <see cref="ResuffixThreadNotes"/> does.
         /// </summary>
         internal static bool TryParseNoteDate(string value, out DateTime date)
         {
-            return DateTime.TryParseExact(value, "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out date)
+            return TryParseThreadDate(value, out date)
                 || DateTime.TryParse(value, out date);
         }
 

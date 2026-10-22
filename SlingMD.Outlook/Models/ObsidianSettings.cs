@@ -138,9 +138,21 @@ namespace SlingMD.Outlook.Models
         public List<string> ContactLinkFormats { get; set; } = new List<string> { "[[{FullName}]]", "[[{Email}]]" };
 
         /// <summary>
-        /// .NET format string for email received dates in exported notes. Default: "yyyy-MM-dd HH:mm:ss".
+        /// Default <see cref="EmailDateFormat"/>: ISO 8601, which Obsidian Properties and Dataview read
+        /// as a date. Installs before 1.2.5 defaulted to "yyyy-MM-dd HH:mm:ss" and keep their saved value.
         /// </summary>
-        public string EmailDateFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";
+        public const string DefaultEmailDateFormat = "yyyy-MM-ddTHH:mm:ss";
+
+        /// <summary>
+        /// Default <see cref="AppointmentDateFormat"/>: ISO 8601. Installs before 1.2.5 defaulted to
+        /// "yyyy-MM-dd HH:mm" and keep their saved value.
+        /// </summary>
+        public const string DefaultAppointmentDateFormat = "yyyy-MM-ddTHH:mm";
+
+        /// <summary>
+        /// .NET format string for email received dates in exported notes. Default: <see cref="DefaultEmailDateFormat"/>.
+        /// </summary>
+        public string EmailDateFormat { get; set; } = DefaultEmailDateFormat;
 
         /// <summary>
         /// .NET format string for the "{{created}}" placeholder in contact notes. Default: "yyyy-MM-dd".
@@ -148,9 +160,9 @@ namespace SlingMD.Outlook.Models
         public string ContactDateFormat { get; set; } = "yyyy-MM-dd";
 
         /// <summary>
-        /// .NET format string for appointment dates/times in exported notes. Default: "yyyy-MM-dd HH:mm".
+        /// .NET format string for appointment dates/times in exported notes. Default: <see cref="DefaultAppointmentDateFormat"/>.
         /// </summary>
-        public string AppointmentDateFormat { get; set; } = "yyyy-MM-dd HH:mm";
+        public string AppointmentDateFormat { get; set; } = DefaultAppointmentDateFormat;
 
         /// <summary>
         /// Default tags to apply to the note's frontmatter.
@@ -704,9 +716,9 @@ namespace SlingMD.Outlook.Models
                 ContactLinkFormats.Add("[[{FullName}]]");
                 ContactLinkFormats.Add("[[{Email}]]");
             }
-            EmailDateFormat = string.IsNullOrWhiteSpace(EmailDateFormat) ? "yyyy-MM-dd HH:mm:ss" : EmailDateFormat;
+            EmailDateFormat = string.IsNullOrWhiteSpace(EmailDateFormat) ? DefaultEmailDateFormat : EmailDateFormat;
             ContactDateFormat = string.IsNullOrWhiteSpace(ContactDateFormat) ? "yyyy-MM-dd" : ContactDateFormat;
-            AppointmentDateFormat = string.IsNullOrWhiteSpace(AppointmentDateFormat) ? "yyyy-MM-dd HH:mm" : AppointmentDateFormat;
+            AppointmentDateFormat = string.IsNullOrWhiteSpace(AppointmentDateFormat) ? DefaultAppointmentDateFormat : AppointmentDateFormat;
             ValidateContactLinkFormatTokens();
             SubjectCleanupPatterns = SubjectCleanupPatterns ?? CreateDefaultSubjectCleanupPatterns();
             FilenameSubjectPatterns = (FilenameSubjectPatterns != null && FilenameSubjectPatterns.Count > 0)

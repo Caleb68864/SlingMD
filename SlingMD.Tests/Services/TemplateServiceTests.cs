@@ -150,7 +150,7 @@ namespace SlingMD.Tests.Services
 
             string frontmatter = _templateService.BuildFrontMatter(metadata);
 
-            Assert.Contains("date: \"2026-04-21 14:05:09\"", frontmatter);
+            Assert.Contains("date: \"2026-04-21T14:05:09\"", frontmatter);
         }
 
         [Fact]

@@ -953,7 +953,7 @@ namespace SlingMD.Outlook.Services
                 SenderShortName = senderClean,
                 SenderEmail = _contactService.GetSenderEmail(mail),
                 Date = mail.ReceivedTime.ToString("yyyy-MM-dd"),
-                Timestamp = _dateFormatter.FormatOrDefault(mail.ReceivedTime, _settings.EmailDateFormat, _dateFormatter.Format(mail.ReceivedTime, "yyyy-MM-dd HH:mm:ss")),
+                Timestamp = _dateFormatter.FormatOrDefault(mail.ReceivedTime, _settings.EmailDateFormat, _dateFormatter.Format(mail.ReceivedTime, ObsidianSettings.DefaultEmailDateFormat)),
                 Body = ConvertBody(mail),
                 TaskBlock = taskBlock,
                 FileName = fileNameNoExt + ".md",
@@ -1033,7 +1033,7 @@ namespace SlingMD.Outlook.Services
                 // same front-matter date the thread rename pass reads. Moving it into a thread
                 // folder later then keeps its name, so the Obsidian task link and links from other
                 // notes don't break when a reply is slung.
-                string frontMatterDate = _dateFormatter.FormatOrDefault(mail.ReceivedTime, _settings.EmailDateFormat, _dateFormatter.Format(mail.ReceivedTime, "yyyy-MM-dd HH:mm:ss"));
+                string frontMatterDate = _dateFormatter.FormatOrDefault(mail.ReceivedTime, _settings.EmailDateFormat, _dateFormatter.Format(mail.ReceivedTime, ObsidianSettings.DefaultEmailDateFormat));
                 if (ThreadService.TryParseNoteDate(frontMatterDate, out DateTime noteDate))
                 {
                     fileNameNoExtResult = _threadService.GetThreadedNoteName(fileNameNoExtResult, noteDate, threadFolderPath);
@@ -1079,7 +1079,7 @@ namespace SlingMD.Outlook.Services
                 { "to", toLinked },
                 { "toEmail", toEmails },
                 { "threadId", conversationId },
-                { "date", _dateFormatter.FormatOrDefault(receivedTime, _settings.EmailDateFormat, _dateFormatter.Format(receivedTime, "yyyy-MM-dd HH:mm:ss")) },
+                { "date", _dateFormatter.FormatOrDefault(receivedTime, _settings.EmailDateFormat, _dateFormatter.Format(receivedTime, ObsidianSettings.DefaultEmailDateFormat)) },
                 { "internetMessageId", realInternetMessageId },
                 { "entryId", realEntryId }
             };

@@ -592,9 +592,9 @@ namespace SlingMD.Tests.Models
             // Sanity: before load the defaults must differ from the values we just saved,
             // otherwise the test would pass trivially.
             Assert.Equal(new[] { "[[{FullName}]]", "[[{Email}]]" }, loaded.ContactLinkFormats);
-            Assert.Equal("yyyy-MM-dd HH:mm:ss", loaded.EmailDateFormat);
+            Assert.Equal(ObsidianSettings.DefaultEmailDateFormat, loaded.EmailDateFormat);
             Assert.Equal("yyyy-MM-dd", loaded.ContactDateFormat);
-            Assert.Equal("yyyy-MM-dd HH:mm", loaded.AppointmentDateFormat);
+            Assert.Equal(ObsidianSettings.DefaultAppointmentDateFormat, loaded.AppointmentDateFormat);
 
             loaded.Load();
 
@@ -624,9 +624,9 @@ namespace SlingMD.Tests.Models
             loaded.Load();
 
             Assert.Equal(new[] { "[[{FullName}]]", "[[{Email}]]" }, loaded.ContactLinkFormats);
-            Assert.Equal("yyyy-MM-dd HH:mm:ss", loaded.EmailDateFormat);
+            Assert.Equal(ObsidianSettings.DefaultEmailDateFormat, loaded.EmailDateFormat);
             Assert.Equal("yyyy-MM-dd", loaded.ContactDateFormat);
-            Assert.Equal("yyyy-MM-dd HH:mm", loaded.AppointmentDateFormat);
+            Assert.Equal(ObsidianSettings.DefaultAppointmentDateFormat, loaded.AppointmentDateFormat);
         }
 
         [Fact]

@@ -54,6 +54,21 @@ namespace SlingMD.Tests.Services
         }
 
         /// <summary>
+        /// Verifies that the ISO 8601 dates written by default since 1.2.5 are parsed, at second and
+        /// minute precision.
+        /// </summary>
+        [Fact]
+        public void TryParseThreadDate_ParsesIsoDates()
+        {
+            DateTime result;
+
+            Assert.True(ThreadService.TryParseThreadDate("2026-03-12T09:30:45", out result));
+            Assert.Equal(new DateTime(2026, 3, 12, 9, 30, 45), result);
+            Assert.True(ThreadService.TryParseThreadDate("2026-03-12T09:30", out result));
+            Assert.Equal(new DateTime(2026, 3, 12, 9, 30, 0), result);
+        }
+
+        /// <summary>
         /// Verifies that the legacy minute-precision date format ("yyyy-MM-dd HH:mm") used in
         /// notes generated before the seconds fix is still accepted for backward compatibility.
         /// </summary>

@@ -377,10 +377,12 @@ namespace SlingMD.Outlook.Forms
                     Tab = "Email",
                     Title = "Email Date Format",
                     Summary = ".NET DateTime format string used for the date field in email frontmatter.",
-                    Default = "yyyy-MM-dd HH:mm:ss",
+                    Description = "Keep the T between date and time (ISO 8601) so Obsidian Properties and Dataview treat the value as a date and sort it correctly. Installs from before 1.2.5 keep their old default, yyyy-MM-dd HH:mm:ss, which Obsidian shows as text; change it here to switch. Existing notes are not rewritten.",
+                    Default = "yyyy-MM-ddTHH:mm:ss",
                     Examples = new List<HelpExample>
                     {
-                        new HelpExample { Input = "yyyy-MM-dd HH:mm:ss", Output = "2026-04-22 14:05:30" },
+                        new HelpExample { Input = "yyyy-MM-ddTHH:mm:ss", Output = "2026-04-22T14:05:30" },
+                        new HelpExample { Input = "yyyy-MM-dd HH:mm:ss", Output = "2026-04-22 14:05:30 (shown as text in Obsidian)" },
                         new HelpExample { Input = "MM/dd/yyyy h:mm tt", Output = "04/22/2026 2:05 PM" },
                     }
                 },
@@ -473,7 +475,8 @@ namespace SlingMD.Outlook.Forms
                     Tab = "Appointments",
                     Title = "Appointment Date Format",
                     Summary = ".NET DateTime format used for appointment start/end fields.",
-                    Default = "yyyy-MM-dd HH:mm"
+                    Description = "Keep the T between date and time (ISO 8601) so Obsidian Properties treat the value as a date. Installs from before 1.2.5 keep their old default, yyyy-MM-dd HH:mm.",
+                    Default = "yyyy-MM-ddTHH:mm"
                 },
                 new HelpEntry
                 {

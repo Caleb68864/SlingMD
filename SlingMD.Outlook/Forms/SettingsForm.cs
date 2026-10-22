@@ -1153,8 +1153,8 @@ namespace SlingMD.Outlook.Forms
             }
             txtContactLinkFormat.Text = string.Join(Environment.NewLine, linkFormats);
             txtContactDateFormat.Text = _settings.ContactDateFormat ?? "yyyy-MM-dd";
-            txtEmailDateFormat.Text = _settings.EmailDateFormat ?? "yyyy-MM-dd HH:mm:ss";
-            txtAppointmentDateFormat.Text = _settings.AppointmentDateFormat ?? "yyyy-MM-dd HH:mm";
+            txtEmailDateFormat.Text = _settings.EmailDateFormat ?? ObsidianSettings.DefaultEmailDateFormat;
+            txtAppointmentDateFormat.Text = _settings.AppointmentDateFormat ?? ObsidianSettings.DefaultAppointmentDateFormat;
 
             // Tasks tab
             chkCreateObsidianTask.Checked = _settings.CreateObsidianTask;
