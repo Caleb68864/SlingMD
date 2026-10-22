@@ -340,6 +340,11 @@ namespace SlingMD.Outlook.Services
                     if (IsDuplicateEmail(_settings.GetInboxPath(), realInternetMessageId, realEntryId))
                     {
                         status.UpdateProgress("Duplicate email detected. Skipping note creation.", 100);
+                        if (!bulkMode)
+                        {
+                            // The progress window closes as soon as this returns, so say it where it stays visible.
+                            ToastForm.ShowToast("SlingMD: this email is already in your vault.");
+                        }
                         return false;
                     }
 
@@ -730,6 +735,11 @@ namespace SlingMD.Outlook.Services
                 {
                     MessageBox.Show($"Error launching Obsidian: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
+            }
+            else if (!bulkMode)
+            {
+                // Without Obsidian opening on the note, nothing else confirms the sling worked.
+                ToastForm.ShowToast($"SlingMD: saved {GetVaultRelativePath(filePath) ?? Path.GetFileName(filePath)}");
             }
 
             return true;

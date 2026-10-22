@@ -195,7 +195,9 @@ namespace SlingMD.Outlook.Services
         }
 
         /// <summary>
-        /// Generates or refreshes the <c>0-threadnote.md</c> summary file that lives inside a thread folder.
+        /// Generates the <c>0-threadnote.md</c> summary file that lives inside a thread folder. An existing
+        /// summary is left alone: its content is rendered live by Dataview, so rewriting it on every sling
+        /// only wiped whatever the user had added to it.
         /// </summary>
         /// <param name="threadFolderPath">Full path to the thread folder inside the vault inbox.</param>
         /// <param name="threadNotePath">Full path to the summary note file.</param>
@@ -204,6 +206,11 @@ namespace SlingMD.Outlook.Services
         /// <param name="mail">The current email being processed – used only for the title.</param>
         public Task UpdateThreadNote(string threadFolderPath, string threadNotePath, string conversationId, string threadNoteName, MailItem mail)
         {
+            if (File.Exists(threadNotePath))
+            {
+                return Task.CompletedTask;
+            }
+
             string threadTitle = mail.ConversationTopic ?? mail.Subject;
             threadTitle = _fileService.CleanFileName(threadTitle);
 

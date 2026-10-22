@@ -418,6 +418,24 @@ namespace SlingMD.Tests.Services
             Assert.Contains("[[" + noteName + "]] follow up", File.ReadAllText(finalPath));
         }
 
+        /// <summary>
+        /// The summary note renders through Dataview, so an existing one is never rewritten — that used
+        /// to wipe anything the user had added to it on every sling into the thread.
+        /// </summary>
+        [Fact]
+        public void UpdateThreadNote_ExistingSummary_KeepsUserContent()
+        {
+            string threadFolder = Path.Combine(_testDir, "Vault", "Inbox", "Budget review-SaraA-CalebB");
+            Directory.CreateDirectory(threadFolder);
+            string summaryPath = Path.Combine(threadFolder, "0-Budget review-SaraA-CalebB.md");
+            string userContent = "---\nthreadId: \"T\"\n---\n\nMy notes about this thread";
+            File.WriteAllText(summaryPath, userContent);
+
+            _threadService.UpdateThreadNote(threadFolder, summaryPath, "T", "Budget review-SaraA-CalebB", null).Wait();
+
+            Assert.Equal(userContent, File.ReadAllText(summaryPath));
+        }
+
         // -----------------------------------------------------------------------------------------
         // Path length budget
         // -----------------------------------------------------------------------------------------

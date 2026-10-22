@@ -361,6 +361,13 @@ namespace SlingMD.Outlook
 
         public async void ProcessSelection()
         {
+            // Sling on several items used to export only the first one, silently.
+            if (GetActiveSelectionCount() > 1)
+            {
+                SlingMultipleEmails();
+                return;
+            }
+
             if (!TryBeginOperation())
             {
                 return;
@@ -525,6 +532,31 @@ namespace SlingMD.Outlook
                 if (appointment != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(appointment);
                 if (inspector != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(inspector);
                 EndOperation();
+            }
+        }
+
+        /// <summary>
+        /// Returns how many items are selected in the active explorer, or 0 when the selection can't be read.
+        /// </summary>
+        private int GetActiveSelectionCount()
+        {
+            Explorer explorer = null;
+            Selection selection = null;
+            try
+            {
+                explorer = Application.ActiveExplorer();
+                selection = explorer?.Selection;
+                return selection?.Count ?? 0;
+            }
+            catch (System.Runtime.InteropServices.COMException)
+            {
+                // Some views (e.g. a folder with nothing selectable) throw on Selection.
+                return 0;
+            }
+            finally
+            {
+                if (selection != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(selection);
+                if (explorer != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(explorer);
             }
         }
 
@@ -1383,16 +1415,23 @@ namespace SlingMD.Outlook
                         int slung = 0;
                         foreach (MailItem selectedMail in selected)
                         {
-                            if (await _emailProcessor.ProcessEmail(selectedMail))
+                            // Bulk mode, as in SlingMultipleEmails: no task-date dialog, contact prompt,
+                            // countdown or Obsidian launch per email.
+                            if (await _emailProcessor.ProcessEmail(selectedMail, contactMode: ContactInteractionMode.Automated, bulkMode: true))
                             {
                                 slung++;
                             }
                         }
 
+                        if (_settings.LaunchObsidian && slung > 0)
+                        {
+                            _fileService.LaunchObsidian(_settings.VaultName, GetThreadLaunchTarget(threadService, conversationId));
+                        }
+
                         int failedOrSkipped = selected.Count - slung;
                         string message = failedOrSkipped == 0
                             ? $"Slung {slung} of {selected.Count} emails from this thread."
-                            : $"Slung {slung} of {selected.Count} emails from this thread. {failedOrSkipped} were skipped or failed (see any error messages above).";
+                            : $"Slung {slung} of {selected.Count} emails from this thread. {failedOrSkipped} were skipped or failed (details are in the SlingMD log).";
                         MessageBox.Show(message, "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
                 }
@@ -1417,6 +1456,22 @@ namespace SlingMD.Outlook
                 if (explorer != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(explorer);
                 EndOperation();
             }
+        }
+
+        /// <summary>
+        /// Returns the vault-relative path Obsidian should open after a thread was completed: the
+        /// thread's summary note when the emails are grouped in a thread folder, otherwise the inbox.
+        /// </summary>
+        private string GetThreadLaunchTarget(ThreadService threadService, string conversationId)
+        {
+            string inboxPath = _settings.GetInboxPath();
+            string threadName = threadService.FindExistingThread(conversationId, inboxPath).earliestEmailThreadName;
+            if (string.IsNullOrEmpty(threadName))
+            {
+                return _settings.InboxFolder;
+            }
+
+            return System.IO.Path.Combine(_settings.InboxFolder, threadName, "0-" + threadName + ".md");
         }
 
         public void ShowSettings()
