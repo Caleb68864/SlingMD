@@ -109,6 +109,19 @@ Copy-Item ".\SlingMD.Outlook\publish\SlingMD.Outlook.vsto" $tempDir
 Copy-Item ".\SlingMD.Outlook\publish\setup.exe" $tempDir
 Copy-Item $latestVersion.FullName "$tempDir\Application Files\$($latestVersion.Name)" -Recurse
 
+# The add-in is signed with a self-signed certificate that Windows doesn't know, so ship its public
+# half (taken from the deployment manifest, so it always matches this build) and a script that
+# unblocks the files and trusts it. See the Installation section of README.md.
+$vstoText = Get-Content ".\SlingMD.Outlook\publish\SlingMD.Outlook.vsto" -Raw
+$certMatch = [regex]::Match($vstoText, '<X509Certificate>([^<]+)</X509Certificate>')
+if (-not $certMatch.Success) {
+    Write-Error "The published SlingMD.Outlook.vsto has no signing certificate. Check the signing settings and re-publish."
+    exit 1
+}
+[IO.File]::WriteAllBytes((Join-Path (Resolve-Path $tempDir) "SlingMD.cer"), [Convert]::FromBase64String($certMatch.Groups[1].Value))
+Copy-Item ".\install\Trust-SlingMD.ps1" $tempDir
+Copy-Item ".\install\Trust-SlingMD.cmd" $tempDir
+
 # Create the zip file
 Compress-Archive -Path "$tempDir\*" -DestinationPath $zipFilePath -Force
 

@@ -19,6 +19,11 @@ All notable changes to SlingMD are documented in this file.
   on the quoted history before it is folded, and a note that had text removed gets `bodyCleaned: true`
   so it isn't mistaken for a verbatim copy. The list starts empty. (From the wadukejr fork.)
 
+- **Release ZIPs include `Trust-SlingMD.cmd`** for computers that refuse to install SlingMD because
+  its publisher can't be verified. It unblocks the extracted files, trusts SlingMD's own signing
+  certificate (`SlingMD.cer`, also in the ZIP) and runs setup. See *Installing on a locked-down
+  computer* in the README.
+
 ### Changed
 - **True/false properties are written in lowercase** (`true`, not `True`), so Obsidian shows them as
   checkboxes.

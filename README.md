@@ -63,7 +63,11 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook e
    
    This step ensures all extracted files are trusted and in the same security zone, preventing potential issues.
 
-4. Run the setup executable to install the Outlook add-in
+4. Run the setup executable to install the Outlook add-in.
+   If the installer says the add-in **isn't signed** or the **publisher can't be verified**, double-click
+   `Trust-SlingMD.cmd` in the extracted folder instead. It unblocks the files, adds SlingMD's certificate
+   to the computer's trusted publishers (it asks for administrator rights) and then offers to run setup.
+   You only need to do this once per computer. See [Installing on a locked-down computer](#installing-on-a-locked-down-computer).
 5. Restart Outlook after installation
 6. Enable the Sling Ribbon:
    - In Outlook, click "File" > "Options" > "Customize Ribbon"
@@ -72,6 +76,34 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook e
    - Click "Add >>" to add it to your ribbon
    - Click "OK" to save changes
 7. The SlingMD ribbon will now appear in your Outlook interface
+
+### Installing on a locked-down computer
+
+SlingMD is signed with its own certificate ("SlingMD Development"), not one bought from a certificate
+authority, so Windows and Office don't recognise the publisher. On a home PC you get a prompt and can
+choose **Install**. On a work computer, or when the files came from a downloaded ZIP, Office may refuse
+instead, with an error that the add-in isn't signed or its publisher can't be verified.
+
+`Trust-SlingMD.cmd` (included in every release ZIP) fixes this:
+
+1. Extract the whole ZIP.
+2. Double-click `Trust-SlingMD.cmd` and approve the administrator prompt.
+3. Answer **Y** to run setup.
+
+The script only trusts `SlingMD.cer`, the public half of the certificate SlingMD is signed with. Check
+that the thumbprint it shows matches the one listed on the release. To do the same by hand in an
+administrator PowerShell, run this in the extracted folder:
+
+```powershell
+Get-ChildItem . -Recurse | Unblock-File
+Import-Certificate -FilePath .\SlingMD.cer -CertStoreLocation Cert:\LocalMachine\Root
+Import-Certificate -FilePath .\SlingMD.cer -CertStoreLocation Cert:\LocalMachine\TrustedPublisher
+```
+
+If it still won't install, your organisation probably only allows add-ins from publishers IT has
+approved (for example, Outlook's *Trust Center → Add-ins → Require Application Add-ins to be signed by
+Trusted Publisher*). Ask IT to trust `SlingMD.cer` for you. If the error says SlingMD is already
+installed from a different location, uninstall the old version from *Apps & features* first.
 
 ## System Requirements
 

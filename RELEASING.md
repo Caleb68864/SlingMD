@@ -13,7 +13,16 @@ payload for VSTO projects, so the steps below are the only supported path.
    `SlingMD.Outlook/publish/Application Files/SlingMD.Outlook_<version>/`.
 4. **Package.** Run `.\package-release.ps1`. It rebuilds Release and refuses to package if the
    published DLL doesn't match the fresh build, then writes a versioned ZIP to `Releases/`.
-5. **Tag and upload.** Tag the commit `v<version>` and attach the ZIP to a GitHub release.
+   The ZIP also gets `SlingMD.cer` (taken from the published manifest) and `Trust-SlingMD.cmd`/`.ps1`
+   from `install/`, for computers that refuse the self-signed certificate.
+5. **Tag and upload.** Tag the commit `v<version>` and attach the ZIP to a GitHub release. Put the
+   signing certificate's thumbprint in the release notes so people can check what
+   `Trust-SlingMD.cmd` shows them. The current certificate is
+   `736CF7BD97289EC0E7B925A4364C54B1822892F2`, valid until 2031-03-25.
+
+**Keep the signing key.** `SlingMD.Outlook_TemporaryKey.pfx` is git-ignored and lives only on the
+release machine. Back it up. Installed copies only accept updates signed with the same certificate,
+so a new key means everyone has to uninstall and reinstall, and trust the new certificate again.
 
 The old `build-and-publish*.ps1` scripts are kept in `archive/` for reference only. They use the
 `dotnet` CLI or CLI publish and can produce a stale payload, so don't use them for releases.
