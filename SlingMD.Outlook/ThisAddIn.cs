@@ -833,10 +833,12 @@ namespace SlingMD.Outlook
                 ConversationId = mail.ConversationID ?? string.Empty,
                 Subject = mail.Subject ?? string.Empty,
                 SenderName = mail.SenderName ?? string.Empty,
-                SenderEmail = mail.SenderEmailAddress ?? string.Empty,
+                SenderEmail = SmtpAddressResolver.ForSender(mail) ?? string.Empty,
                 SentOn = mail.SentOn,
                 ReceivedTime = mail.ReceivedTime,
-                Body = mail.Body ?? string.Empty
+                // Same Markdown conversion as notes, so headings, lists and links survive the paste.
+                Body = ClipboardEmailService.ReplaceInlineImageReferences(
+                    SlingMD.Outlook.Services.Formatting.HtmlToMarkdownConverter.Convert(mail.HTMLBody, mail.Body))
             };
 
             Recipients recipients = null;
@@ -847,9 +849,10 @@ namespace SlingMD.Outlook
                 {
                     try
                     {
-                        string display = string.IsNullOrWhiteSpace(recipient.Address)
+                        string address = SmtpAddressResolver.ForRecipient(recipient);
+                        string display = string.IsNullOrWhiteSpace(address)
                             ? recipient.Name
-                            : $"{recipient.Name} <{recipient.Address}>";
+                            : $"{recipient.Name} <{address}>";
                         if (recipient.Type == (int)OlMailRecipientType.olCC)
                         {
                             snapshot.Cc.Add(display);

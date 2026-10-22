@@ -10,6 +10,9 @@ All notable changes to SlingMD are documented in this file.
 ### Added
 
 #### Copy emails for an AI session
+- **Copied emails use the same Markdown conversion as notes**, show real addresses instead of
+  Exchange paths like `/O=EXCHANGELABS/…`, turn embedded-image references into `[image: …]`, and
+  write an empty To/CC as `[]`.
 - **New `Copy Email` menu** on the Sling ribbon. It copies the selected emails, or their complete
   threads, to the clipboard as plain text, with or without a metadata header per email. When the
   text is too large for the clipboard, SlingMD offers to save it as a UTF-8 text file instead.

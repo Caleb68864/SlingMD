@@ -12,7 +12,7 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook e
 
 - Export Outlook emails directly to Obsidian markdown format
 - **HTML email bodies converted to Markdown** — headings, lists, links and quotes come through, and inline images (screenshots, pasted pictures) are saved and linked
-- **Copy Email** — copy selected emails or their complete threads to the clipboard as text, with or without metadata, for pasting into an AI session
+- **Copy Email** — copy selected emails or their complete threads to the clipboard as Markdown, with or without metadata, for pasting into an AI session
 - **Long paths handled automatically** — file and folder names are shortened at a word break so nothing passes the Windows path limit, even in deep vaults
 - **Export Outlook calendar appointments to Obsidian markdown** with full attendee, location, and recurrence metadata
 - Preserve email metadata and formatting

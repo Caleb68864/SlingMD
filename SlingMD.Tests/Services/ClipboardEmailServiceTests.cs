@@ -33,7 +33,17 @@ namespace SlingMD.Tests.Services
             Assert.Contains("title: \"A \\\"quoted\\\" subject\"", result);
             Assert.Contains("fromEmail: \"ada@example.com\"", result);
             Assert.Contains("to:\n  - \"Charles Babbage <charles@example.com>\"", result.Replace("\r\n", "\n"));
+            Assert.Contains("cc: []", result);
             Assert.EndsWith("Message", result);
+        }
+
+        [Fact]
+        public void ReplaceInlineImageReferences_UsesAltTextOrDropsReference()
+        {
+            Assert.Equal(
+                "Logo: [image: Company logo] and ",
+                ClipboardEmailService.ReplaceInlineImageReferences("Logo: ![Company logo](cid:image001.png@01DA) and ![](cid:image002.png)"));
+            Assert.Equal("[Site](https://example.com)", ClipboardEmailService.ReplaceInlineImageReferences("[Site](https://example.com)"));
         }
 
         [Fact]

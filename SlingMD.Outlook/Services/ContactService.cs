@@ -202,27 +202,7 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         public string GetSenderEmail(MailItem mail)
         {
-            // mail.PropertyAccessor mints a COM object that must be released, or one leaks per email
-            // (GetSenderEmail runs 2-3x per slung email). The fallback read is also guarded so a
-            // COMException on SenderEmailAddress can't escape and abort the whole export.
-            PropertyAccessor pa = null;
-            try
-            {
-                pa = mail.PropertyAccessor;
-                return (string)pa.GetProperty(MapiPropertyTags.PrSmtpAddress);
-            }
-            catch (System.Exception ex)
-            {
-                Logger.Instance.Warning($"ContactService.GetSenderEmail: PropertyAccessor failed, falling back to SenderEmailAddress: {ex.Message}");
-                return SafeComAction.Execute(
-                    () => mail.SenderEmailAddress ?? string.Empty,
-                    "ContactService.GetSenderEmail: SenderEmailAddress fallback",
-                    string.Empty);
-            }
-            finally
-            {
-                if (pa != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(pa);
-            }
+            return SmtpAddressResolver.ForSender(mail);
         }
 
         /// <summary>
@@ -316,22 +296,7 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         public string GetSMTPEmailAddress(Recipient recipient)
         {
-            PropertyAccessor pa = null;
-            try
-            {
-                pa = recipient.PropertyAccessor;
-                return pa.GetProperty(MapiPropertyTags.PrSmtpAddress) as string ?? recipient.Address;
-            }
-            catch
-            {
-                return recipient.Address;
-            }
-            finally
-            {
-                // Release the PropertyAccessor COM object (distinct from recipient) to avoid a
-                // per-recipient leak on every appointment/meeting note build.
-                if (pa != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(pa);
-            }
+            return SmtpAddressResolver.ForRecipient(recipient);
         }
 
         /// <summary>
