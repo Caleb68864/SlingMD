@@ -44,6 +44,9 @@ All notable changes to SlingMD are documented in this file.
   note's full path is on the clipboard.
 
 #### Feedback
+- **Toasts no longer steal focus.** They stack instead of overlapping, grow to fit long messages,
+  pause while the mouse is over them and close when clicked. Copy Email confirms with a toast
+  instead of a dialog you had to dismiss before pasting.
 - **Batch progress with Cancel.** Sling Multiple and Complete Thread show one progress window
   ("Slinging 3 of 25") with a Cancel button, and the summary separates emails already in the vault
   from failures, listing each failure with its error.

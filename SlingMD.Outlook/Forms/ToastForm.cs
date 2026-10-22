@@ -4,16 +4,50 @@ using System.Windows.Forms;
 
 namespace SlingMD.Outlook.Forms
 {
+    /// <summary>
+    /// Small notification shown in the top-right corner. It never takes keyboard focus, stacks below
+    /// any toasts already showing, grows to fit its text, pauses while the mouse is over it and closes
+    /// when clicked.
+    /// </summary>
     public class ToastForm : Form
     {
+        private const int ToastWidth = 360;
+        private const int MinHeight = 56;
+        private const int MaxHeight = 220;
+        private const int ScreenMargin = 12;
+        private const int Gap = 8;
+
+        // Win32 extended styles: no activation, no taskbar/Alt+Tab entry, always on top. TopMost is set
+        // through the style rather than the property, because setting the property activates the window.
+        private const int WsExNoActivate = 0x08000000;
+        private const int WsExToolWindow = 0x00000080;
+        private const int WsExTopMost = 0x00000008;
+
+        // Toasts currently on screen, top to bottom; UI thread only.
+        private static readonly System.Collections.Generic.List<ToastForm> OpenToasts = new System.Collections.Generic.List<ToastForm>();
+
         private readonly int _durationMs;
         private Timer _timer;
         private Label _lblMessage;
 
         public ToastForm(string message, bool isError = false, int durationMs = 4000)
         {
-            _durationMs = durationMs;
+            // Longer messages stay up longer: about 60 ms per character past the first 80.
+            int length = message?.Length ?? 0;
+            _durationMs = Math.Max(durationMs, durationMs + (length - 80) * 60);
             InitializeComponent(message, isError);
+        }
+
+        protected override bool ShowWithoutActivation => true;
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                cp.ExStyle |= WsExNoActivate | WsExToolWindow | WsExTopMost;
+                return cp;
+            }
         }
 
         private void InitializeComponent(string message, bool isError)
@@ -23,29 +57,37 @@ namespace SlingMD.Outlook.Forms
             _lblMessage = new Label();
             _lblMessage.AutoSize = false;
             _lblMessage.Dock = DockStyle.Fill;
-            _lblMessage.TextAlign = ContentAlignment.MiddleCenter;
+            _lblMessage.TextAlign = ContentAlignment.MiddleLeft;
             _lblMessage.Font = SystemFonts.MessageBoxFont;
             _lblMessage.ForeColor = Color.White;
             _lblMessage.Text = message;
-            _lblMessage.Padding = new Padding(8);
+            _lblMessage.Padding = new Padding(10, 8, 10, 8);
+            _lblMessage.AutoEllipsis = true;
 
             this.Controls.Add(_lblMessage);
 
-            this.ClientSize = new Size(350, 80);
+            Size textSize = TextRenderer.MeasureText(
+                message ?? string.Empty,
+                _lblMessage.Font,
+                new Size(ToastWidth - _lblMessage.Padding.Horizontal, 0),
+                TextFormatFlags.WordBreak);
+            int height = Math.Max(MinHeight, Math.Min(MaxHeight, textSize.Height + _lblMessage.Padding.Vertical + 4));
+
+            this.ClientSize = new Size(ToastWidth, height);
             this.FormBorderStyle = FormBorderStyle.None;
             this.BackColor = isError ? Color.FromArgb(180, 60, 60) : Color.FromArgb(50, 50, 50);
-            this.TopMost = true;
             this.ShowInTaskbar = false;
             this.StartPosition = FormStartPosition.Manual;
-
-            Rectangle workingArea = Screen.PrimaryScreen.WorkingArea;
-            this.Location = new Point(
-                workingArea.Right - this.Width - 12,
-                workingArea.Top + 12);
+            this.Cursor = Cursors.Hand;
 
             _timer = new Timer();
-            _timer.Interval = _durationMs;
+            _timer.Interval = Math.Max(1, _durationMs);
             _timer.Tick += Timer_Tick;
+
+            // Hovering pauses the countdown so a long message can be read; clicking dismisses.
+            _lblMessage.MouseEnter += (sender, e) => _timer.Stop();
+            _lblMessage.MouseLeave += (sender, e) => _timer.Start();
+            _lblMessage.Click += (sender, e) => this.Close();
 
             this.ResumeLayout(false);
             this.Load += ToastForm_Load;
@@ -53,7 +95,33 @@ namespace SlingMD.Outlook.Forms
 
         private void ToastForm_Load(object sender, EventArgs e)
         {
+            OpenToasts.Add(this);
+            LayoutOpenToasts();
             _timer.Start();
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            OpenToasts.Remove(this);
+            LayoutOpenToasts();
+            base.OnFormClosed(e);
+        }
+
+        /// <summary>Stacks the open toasts downward from the top-right corner of the primary screen.</summary>
+        private static void LayoutOpenToasts()
+        {
+            Rectangle workingArea = Screen.PrimaryScreen.WorkingArea;
+            int top = workingArea.Top + ScreenMargin;
+            foreach (ToastForm toast in OpenToasts)
+            {
+                if (toast.IsDisposed)
+                {
+                    continue;
+                }
+
+                toast.Location = new Point(workingArea.Right - toast.Width - ScreenMargin, top);
+                top += toast.Height + Gap;
+            }
         }
 
         private void Timer_Tick(object sender, EventArgs e)
