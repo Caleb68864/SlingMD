@@ -99,6 +99,14 @@ All notable changes to SlingMD are documented in this file.
   correctly when the Inbox isn't the vault root.
 
 ### Fixed
+- **The Appointment Template File setting now works.** Appointment notes were always built from a
+  fixed layout, so a custom template was ignored. It's now used whenever the file exists in your
+  Templates folder; without one, notes look the same as before. Label lines left empty (e.g.
+  `**Optional:**` with no optional attendees) are dropped.
+- **Appointment recurrence reads `None`, `Series`, `Occurrence` or `Exception`** instead of Outlook's
+  internal names like `olApptNotRecurring`.
+- **A malformed daily-note link format no longer aborts an appointment export**; it falls back to
+  `yyyy-MM-dd`, as emails already did.
 - **Subjects with " - " no longer lose the separator.** A former default subject-cleanup pattern
   (`[-_\s]{2,}`) removed it and fused the words on either side ("Renewal Meeting - BOT DOC" became
   "Renewal MeetingBOT DOC"). It's removed from existing settings automatically on load.

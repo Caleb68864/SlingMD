@@ -121,6 +121,27 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
+        public void RenderAppointmentContent_EmptyFields_DropsTheirLabelLines()
+        {
+            AppointmentTemplateContext context = new AppointmentTemplateContext
+            {
+                Subject = "Standup",
+                Organizer = "[[John Smith]]",
+                Attendees = "[[Jane Doe]]",
+                StartDateTime = "2026-03-13T09:00",
+                EndDateTime = "2026-03-13T10:00",
+                Recurrence = "None"
+            };
+
+            string result = _templateService.RenderAppointmentContent(context);
+
+            Assert.Contains("**Required:** [[Jane Doe]]", result);
+            Assert.DoesNotContain("**Optional:**", result);
+            Assert.DoesNotContain("**Resources:**", result);
+            Assert.DoesNotContain("**Location:**", result);
+        }
+
+        [Fact]
         public void RenderMeetingNoteContent_WithValidContext_ProducesStubWithBacklink()
         {
             // Arrange

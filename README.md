@@ -307,7 +307,7 @@ Every note template supports `{{frontmatter}}` (the YAML properties block). Each
 **Email templates** (`EmailTemplate.md`, default `{{frontmatter}}{{taskBlock}}{{body}}`):
 `{{body}}`, `{{taskBlock}}`, `{{subject}}`, `{{noteTitle}}`, `{{senderName}}`, `{{senderShortName}}`, `{{senderEmail}}`, `{{from}}`, `{{fromEmail}}`, `{{to}}`, `{{toEmail}}`, `{{cc}}`, `{{ccEmail}}`, `{{date}}`, `{{timestamp}}`, `{{dailyNoteLink}}`, `{{threadNote}}`, `{{threadId}}`, `{{internetMessageId}}`, `{{entryId}}`, `{{tags}}`, `{{fileName}}`, `{{fileNameNoExt}}`
 
-**Appointment templates:**
+**Appointment templates** (used when the file exists in your Templates folder; otherwise SlingMD uses its built-in layout). Label lines such as `**Optional:**` are dropped when their value is empty:
 `{{body}}`, `{{taskBlock}}`, `{{subject}}`, `{{noteTitle}}`, `{{organizer}}`, `{{organizerEmail}}`, `{{attendees}}`, `{{optionalAttendees}}`, `{{resources}}`, `{{location}}`, `{{startDateTime}}`, `{{endDateTime}}`, `{{date}}`, `{{recurrence}}`, `{{meetingNotes}}`, `{{dailyNoteLink}}`, `{{globalAppointmentId}}`, `{{tags}}`, `{{fileName}}`, `{{fileNameNoExt}}`
 
 **Meeting note templates:**
