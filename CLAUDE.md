@@ -15,7 +15,7 @@ SlingMD is a .NET Framework 4.7.2 C# Outlook VSTO add-in that exports emails to 
 - **Build single project**: same MSBuild.exe with `SlingMD.Outlook\SlingMD.Outlook.csproj`
 - **Run tests**: build Debug, then `& "C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\IDE\Extensions\TestPlatform\vstest.console.exe" SlingMD.Tests\bin\Debug\SlingMD.Tests.dll` (filter with `/Tests:Name` or `/TestCaseFilter:"FullyQualifiedName~X"`)
 - **Publish add-in**: use Visual Studio interactively (Build > Publish SlingMD.Outlook). CLI `msbuild -t:Publish` does not reliably regenerate the ClickOnce payload for VSTO projects.
-- **Package for distribution**: `.\package-release.ps1` (creates versioned ZIP in Releases/; refuses to package if the publish payload is stale vs the fresh Release build)
+- **Package for distribution**: `.\package-release.ps1` (creates versioned ZIP in Releases/; refuses to package if the publish payload is stale vs the fresh Release build) — full steps in `RELEASING.md`
 
 **Test files must be added to `SlingMD.Tests.csproj` explicitly** — the project uses
 explicit `<Compile Include=...>` items, no globbing. A new test .cs file that isn't

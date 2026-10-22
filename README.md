@@ -11,6 +11,9 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook e
 ## Features
 
 - Export Outlook emails directly to Obsidian markdown format
+- **HTML email bodies converted to Markdown** — headings, lists, links and quotes come through, and inline images (screenshots, pasted pictures) are saved and linked
+- **Copy Email** — copy selected emails or their complete threads to the clipboard as text, with or without metadata, for pasting into an AI session
+- **Long paths handled automatically** — file and folder names are shortened at a word break so nothing passes the Windows path limit, even in deep vaults
 - **Export Outlook calendar appointments to Obsidian markdown** with full attendee, location, and recurrence metadata
 - Preserve email metadata and formatting
 - Create follow-up tasks in Obsidian notes and/or Outlook
@@ -36,11 +39,12 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook e
 - **Searchable settings help** — every setting has a ⓘ indicator, hover tooltips with tokens/examples, and a pop-out `Help` window with live search across all settings
 - **Auto-sling** — rule-based automatic export for new mail (sender, domain, or category) with toast or silent notifications
 - **Complete Thread** — backfill missing emails from the currently-selected conversation in one click
+- **Sling Multiple** — export a whole selection at once, optionally into a subfolder of your Inbox
 
 ## Installation
 
 1. Go to the [Releases page](https://github.com/Caleb68864/SlingMD/releases/latest) for the newest version
-2. Download the versioned ZIP attached to that release (currently `SlingMD.Outlook_1_2_3_0.zip`)
+2. Download the versioned ZIP attached to that release (named like `SlingMD.Outlook_1_2_5_0.zip`)
 3. **Important Security Step - Unblock the ZIP File**:
    - Right-click the downloaded ZIP file
    - Click "Properties"
@@ -124,6 +128,8 @@ Before using SlingMD, you'll need to configure your Obsidian vault settings:
    - **Email / Contact Filename Format**: Optional filename formats using tokens like `{Subject}`, `{Sender}`, `{Timestamp}`, `{ContactName}`, and `{ContactShortName}`
    - **Show Development Settings**: Reveals additional debug options in the settings dialog
    - **Show Thread Debug**: Pops up a diagnostic window listing every file that matches a conversationId
+
+   Newer settings — attachments (storage location, inline images, duplicate reuse, grouping a note with its files), auto-sling rules, appointments, *Always create a thread folder*, *Ask where to sling* and *Copy note path to clipboard* — are described in the app: hover the ⓘ next to any setting, or click **Help** in the Settings dialog to search them all.
 
 3. Click "Save" to apply your settings
 
@@ -232,7 +238,7 @@ When email threading is enabled (via the "Group Email Threads" setting), SlingMD
    - List of participants
    - Timeline view of all emails in the thread
 4. Move all related emails into the thread folder
-5. Update thread summary when new emails are added
+5. Keep the thread summary current — its timeline and participants are rendered live by Dataview, so the note itself is written once and anything you add to it is kept
 6. Link emails to their thread summary for easy navigation
 
 This organization helps keep related emails together and provides a clear overview of email conversations in your vault.
@@ -243,7 +249,7 @@ SlingMD can export your Outlook contacts directly to Obsidian as rich markdown n
 
 ### Single Contact
 1. Select a contact in Outlook
-2. Click "Sling Contact" in the Contacts group on the Sling ribbon
+2. Click "Sling" on the Sling ribbon
 3. The contact is exported with all available details (phone, email, company, address, etc.)
 
 ### All Contacts
@@ -286,21 +292,27 @@ If no custom template is configured, SlingMD uses sensible built-in defaults.
 
 ### Available Placeholders
 
-Every template type supports `{{frontmatter}}` (generates the YAML frontmatter block) plus type-specific fields:
+Every note template supports `{{frontmatter}}` (the YAML properties block). Each property in that block is also available on its own — for example `{{fromEmail}}` or `{{tags}}` — and every list property has `Csv` and `Yaml` variants (`{{toCsv}}`, `{{tagsYaml}}`). The same lists appear in the app: hover a template setting or search **Help** in Settings.
 
-**Email Templates:**
-`{{subject}}`, `{{from}}`, `{{to}}`, `{{cc}}`, `{{date}}`, `{{body}}`, `{{attachments}}`, `{{fileName}}`, `{{fileNameNoExt}}`, `{{threadNote}}`, `{{threadId}}`
+**Email templates** (`EmailTemplate.md`, default `{{frontmatter}}{{taskBlock}}{{body}}`):
+`{{body}}`, `{{taskBlock}}`, `{{subject}}`, `{{noteTitle}}`, `{{senderName}}`, `{{senderShortName}}`, `{{senderEmail}}`, `{{from}}`, `{{fromEmail}}`, `{{to}}`, `{{toEmail}}`, `{{cc}}`, `{{ccEmail}}`, `{{date}}`, `{{timestamp}}`, `{{dailyNoteLink}}`, `{{threadNote}}`, `{{threadId}}`, `{{internetMessageId}}`, `{{entryId}}`, `{{tags}}`, `{{fileName}}`, `{{fileNameNoExt}}`
 
-**Contact Templates:**
-`{{contactName}}`, `{{contactShortName}}`, `{{created}}`, `{{fileName}}`, `{{fileNameNoExt}}`, `{{phone}}`, `{{email}}`, `{{company}}`, `{{jobTitle}}`, `{{address}}`, `{{birthday}}`, `{{notes}}`
+**Appointment templates:**
+`{{body}}`, `{{taskBlock}}`, `{{subject}}`, `{{noteTitle}}`, `{{organizer}}`, `{{organizerEmail}}`, `{{attendees}}`, `{{optionalAttendees}}`, `{{resources}}`, `{{location}}`, `{{startDateTime}}`, `{{endDateTime}}`, `{{date}}`, `{{recurrence}}`, `{{meetingNotes}}`, `{{dailyNoteLink}}`, `{{globalAppointmentId}}`, `{{tags}}`, `{{fileName}}`, `{{fileNameNoExt}}`
 
-All 12 contact placeholders are available regardless of how the contact was created. When a contact comes from email (name only), the detail fields (`{{phone}}`, `{{email}}`, etc.) render as empty strings. When a contact is slung from Outlook, all available fields are populated.
+**Meeting note templates:**
+`{{appointmentTitle}}`, `{{appointmentLink}}`, `{{organizer}}`, `{{attendees}}`, `{{date}}`, `{{location}}`
 
-**Appointment Templates:**
-`{{subject}}`, `{{organizer}}`, `{{start}}`, `{{end}}`, `{{location}}`, `{{body}}`, `{{requiredAttendees}}`, `{{optionalAttendees}}`, `{{resourceAttendees}}`, `{{categories}}`, `{{recurrenceInfo}}`, `{{fileName}}`, `{{fileNameNoExt}}`
+**Contact templates:**
+`{{contactName}}`, `{{contactShortName}}`, `{{firstName}}`, `{{middleName}}`, `{{lastName}}`, `{{suffix}}`, `{{fullName}}`, `{{displayName}}`, `{{created}}`, `{{phone}}`, `{{email}}`, `{{company}}`, `{{jobTitle}}`, `{{address}}`, `{{birthday}}`, `{{notes}}`, `{{fileName}}`, `{{fileNameNoExt}}`
 
-**Task Templates:**
-`{{taskText}}`, `{{dueDate}}`, `{{scheduledDate}}`, `{{tags}}`
+All contact placeholders are available regardless of how the contact was created. When a contact comes from email (name only), the detail fields (`{{phone}}`, `{{email}}`, etc.) render as empty strings. When a contact is slung from Outlook, all available fields are populated.
+
+**Task templates** (the inline `- [ ]` line only):
+`{{noteLink}}`, `{{noteName}}`, `{{tags}}`, `{{createdDate}}`, `{{dueDate}}`, `{{reminderDate}}`
+
+**Thread summary templates:**
+`{{title}}`, `{{threadId}}`, `{{folderPath}}`
 
 ### Example Custom Contact Template
 
@@ -345,97 +357,7 @@ If you encounter any issues or have questions, please open an issue in the GitHu
 
 ## Changelog
 
-### Version 1.2.3.0
-- **Settings persistence fixed** ([#13](https://github.com/Caleb68864/SlingMD/issues/13)) — settings on the Contacts, Tasks, Threading, and Developer tabs now survive an Outlook restart. The Settings dialog no longer closes when a save fails; it reports the specific error instead
-- **Attachments fixed** ([#12](https://github.com/Caleb68864/SlingMD/issues/12)) — real attachments are now saved under default settings
-- **Atomic settings writes** — settings are written to a temp file and swapped into place, so an interrupted write can no longer truncate the file and silently reset every setting
-- **Numeric settings clamped on load**, so an out-of-range value can no longer prevent the Settings dialog from opening
-- **Resource leaks fixed** — Outlook COM objects (Explorer, Selection, MailItem, Session) and GDI bitmaps are now released across the ribbon, auto-sling, and bulk paths
-- **Hardening sweep** — file I/O and path safety, exception and null safety in the export path, background-monitor thread safety, and input validation
-- **Release packaging verifies binaries** — the packaging script rebuilds and refuses to publish unless the shipped DLL matches the freshly built one byte-for-byte
-
-### Version 1.2.2 (pre-release)
-- **Searchable settings help** — new `Help` button in the Settings footer opens a pop-out window with live search, tab-grouped TreeView, and a detail pane showing each setting's summary, description, default, token reference, and worked examples
-- **Hover tooltips on every setting**, with a ⓘ glyph indicator on every labelled setting as the visual cue that hover-help exists
-- **Complete Thread fix** — the ribbon button now lists only emails in the currently-selected conversation (previously: every email in the inbox not yet slung)
-- **Complete Thread icon** — Sling logo with a green-check badge, composited programmatically
-- **Auto-sling eligibility** extracted to a pure static method with 10 unit tests
-- **Deduplicated** `CleanSubject` / `TrailingDashSpaceRegex` across `EmailProcessor` and `AppointmentProcessor`
-- **Centralized MAPI property tags** in `Infrastructure/MapiPropertyTags.cs`
-- `IClock` threaded through every date-touching service for deterministic tests
-- `FlagMonitorService` + `FolderMonitorService` implement `IDisposable`
-- Template file caching in `TemplateService` (mtime-based invalidation)
-- Logging on previously-silent COM-read failures in `ContactService`
-- GitHub Actions CI on `windows-latest` (MSBuild + vstest)
-- `Services/Formatting/*` helpers marked `internal`
-- Signing key removed from repo; `*.pfx` added to `.gitignore`
-- **381 unit tests** (up from 356)
-
-### Version 1.1.0.7
-- **Contact Slinging** — export single contacts or your entire address book to Obsidian with rich detail notes (phone, email, company, address, birthday)
-- **Appointment Contact Linking** — after exporting an appointment, attendees are checked against vault contacts; existing managed notes are refreshed, new contacts offered via dialog
-- **Unified Sling Button** — main Sling button now handles emails, appointments, and contacts; dispatches based on selected item type
-- **Obsidian Launch on Contact Export** — single-contact export now launches Obsidian for immediate feedback, matching email behavior
-- **Unified Contact Template System** — one `RenderContactContent()` path for all contacts; custom templates get all 13 placeholders regardless of source (email or slung)
-- **ContactNoteIncludeDetails Setting** — toggle `## Contact Details` section on/off for slung contacts in Settings > Contacts
-- **"Sling All Contacts" Ribbon Button** — bulk-export entire address book with progress tracking and summary dialog
-- **Contact Confirmation Dialog Clarity** — Cancel button renamed to "Skip Creating Contacts" for clearer intent
-- **Custom Templates Documentation** — README now documents all template types, available placeholders, and includes example custom contact template
-- New `ContactProcessor` orchestrator, `ExtractContactData()`, `CreateContactNote(ContactTemplateContext)` overload
-- 12 new tests (87/87 total passing)
-
-### Version 1.1.0.1
-- **Appointment Processing** — full pipeline for exporting Outlook calendar appointments to Obsidian markdown, with attendee lists, location, recurrence metadata, and configurable templates
-- **Appointment Ribbon Integration** — "Save Today's Appointments" bulk-export button and appointment inspector "Sling" button
-- **Recurring Meeting Threading** — recurring instances grouped into thread folders with summary notes
-- **Companion Meeting Notes** — optional blank meeting note linked bidirectionally to the appointment note
-- **Appointment Task Creation** — configurable task creation for appointments (None / Obsidian / Outlook / Both)
-- **Tabbed Settings Form** — settings reorganized into 8 focused tabs (General, Email, Appointments, Contacts, Tasks, Threading, Attachments, Developer)
-- **Settings Form UI Fix** — last row on all tabs no longer stretches; form now displays the SlingMD icon
-- 10 new appointment-related settings and dedicated appointment/meeting note templates
-- 13 new tests (75/75 total passing)
-
-### Version 1.0.0.124
-- **Reliability Hardening** — corrupt or malformed settings files no longer crash the add-in on startup; safe defaults are loaded instead ([#6](https://github.com/Caleb68864/SlingMD/issues/6))
-- **Settings Persistence Fix** — settings now persist correctly across Outlook restarts ([#6](https://github.com/Caleb68864/SlingMD/issues/6))
-- **Export Flow Safeguards** — a fatal export error no longer continues into contact creation or Obsidian launch
-- **Task State Reset** — canceling the task-options dialog no longer disables task creation for the rest of the Outlook session
-- **Thread Summary Fix** — the DataviewJS query in thread summary notes (0-file) now correctly scopes to the thread folder instead of producing a JavaScript syntax error
-- **Thread Date Alignment** — thread discovery now parses both second-precision and legacy minute-precision date formats for backward compatibility
-- **YAML-Safe Frontmatter** — email metadata containing double quotes, backslashes, or newlines is now properly escaped in frontmatter
-- **Attachment Link Hardening** — attachment links now resolve correctly for same-folder, per-note-subfolder, and centralized storage modes
-- **Missing Vault Handling** — exporting into a fresh vault with no inbox folder no longer throws during duplicate detection
-- **Customizable Templates** — email, contact, task, and thread templates are fully configurable via the Templates settings ([#8](https://github.com/Caleb68864/SlingMD/issues/8))
-- **Contact Note Dataview Fix** — contact notes now use `## Communication History` with a working DataviewJS query for email history display ([#4](https://github.com/Caleb68864/SlingMD/issues/4))
-- **VSTO Build Documentation** — README now documents the Visual Studio Office/VSTO prerequisite for building and testing
-- Added regression test coverage for all hardened behaviors
-
-### Version 1.0.0.44
-- Added automatic email thread detection and organization
-- Added thread summary pages with timeline views
-- Added configurable subject cleanup patterns
-- Added thread folder creation for related emails
-- Added participant tracking in thread summaries
-- Added dataview integration for thread visualization
-- Improved email relationship detection
-- Enhanced thread navigation with bidirectional links
-- Fixed various bugs and improved stability
-
-### Version 1.0.0.14
-- Added ability to create follow-up tasks in Obsidian notes
-- Added ability to create follow-up tasks in Outlook
-- Added configurable due dates for tasks
-- Added configurable reminder times for tasks
-- Added option to prompt for due date and reminder time
-- Added task options dialog for custom timing
-- Updated settings interface with task configuration options
-
-### Version 1.0.0.8
-- Initial release
-- Basic email to Obsidian note conversion
-- Email metadata preservation
-- Obsidian vault configuration
-- Launch delay settings
+See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
 ## Disclaimer
 

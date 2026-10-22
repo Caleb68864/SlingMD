@@ -791,7 +791,7 @@ namespace SlingMD.Outlook.Forms
             this.chkReuseDuplicateAttachments = new CheckBox { Text = "Reuse duplicate attachments", AutoSize = true, Margin = new Padding(20, 0, 0, 0) };
             checkboxLayout.Controls.Add(this.chkUseObsidianWikilinks);
             checkboxLayout.Controls.Add(this.chkReuseDuplicateAttachments);
-            this.chkGroupNoteWithAttachments = new CheckBox { Text = "Put note in its attachment folder", AutoSize = true, Margin = new Padding(20, 0, 0, 0) };
+            this.chkGroupNoteWithAttachments = new CheckBox { Text = "Put note in its attachment folder (Subfolder per note only)", AutoSize = true, Margin = new Padding(20, 0, 0, 0) };
             checkboxLayout.Controls.Add(this.chkGroupNoteWithAttachments);
             attachmentLayout.Controls.Add(checkboxLayout, 1, 2);
             BindHelpInline("Attachments.SaveRealAttachments", chkSaveRealAttachments);
