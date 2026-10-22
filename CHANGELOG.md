@@ -25,6 +25,11 @@ All notable changes to SlingMD are documented in this file.
   pictures, signature logos) are saved with the attachments and the `cid:` references in the note
   point at the saved files.
 
+#### Appointments
+- **Meeting join links are captured.** The Teams, Zoom, Google Meet or Webex link in an invitation
+  (Safe Links unwrapped) becomes a `meetingUrl` property and a *Join the meeting* line in the note,
+  and is available to templates as `{{meetingUrl}}`.
+
 #### New options
 - **Fold quoted replies** (Email tab, off by default) — the quoted history under a reply goes into a
   collapsed *Earlier messages* callout, so thread notes stop repeating every earlier message.

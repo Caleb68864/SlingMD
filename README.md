@@ -24,6 +24,7 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook e
 - Automatic email thread organization
 - **Recurring meeting threading** — group recurring meeting instances into thread folders with summary notes
 - Thread summary pages with timeline views
+- **Meeting join links** — the Teams, Zoom, Google Meet or Webex link in an invitation becomes a clickable *Join* line and a `meetingUrl` property
 - **Companion meeting notes** — optional blank note for real-time meeting capture, linked to the appointment note
 - **Bulk "Save Today's Appointments"** — one-click export of all today's calendar items
 - Automatic contact note creation with communication-history Dataview tables
@@ -308,7 +309,7 @@ Every note template supports `{{frontmatter}}` (the YAML properties block). Each
 `{{body}}`, `{{taskBlock}}`, `{{subject}}`, `{{noteTitle}}`, `{{senderName}}`, `{{senderShortName}}`, `{{senderEmail}}`, `{{from}}`, `{{fromEmail}}`, `{{to}}`, `{{toEmail}}`, `{{cc}}`, `{{ccEmail}}`, `{{date}}`, `{{timestamp}}`, `{{dailyNoteLink}}`, `{{threadNote}}`, `{{threadId}}`, `{{internetMessageId}}`, `{{entryId}}`, `{{tags}}`, `{{fileName}}`, `{{fileNameNoExt}}`
 
 **Appointment templates** (used when the file exists in your Templates folder; otherwise SlingMD uses its built-in layout). Label lines such as `**Optional:**` are dropped when their value is empty:
-`{{body}}`, `{{taskBlock}}`, `{{subject}}`, `{{noteTitle}}`, `{{organizer}}`, `{{organizerEmail}}`, `{{attendees}}`, `{{optionalAttendees}}`, `{{resources}}`, `{{location}}`, `{{startDateTime}}`, `{{endDateTime}}`, `{{date}}`, `{{recurrence}}`, `{{meetingNotes}}`, `{{dailyNoteLink}}`, `{{globalAppointmentId}}`, `{{tags}}`, `{{fileName}}`, `{{fileNameNoExt}}`
+`{{body}}`, `{{taskBlock}}`, `{{subject}}`, `{{noteTitle}}`, `{{organizer}}`, `{{organizerEmail}}`, `{{attendees}}`, `{{optionalAttendees}}`, `{{resources}}`, `{{location}}`, `{{startDateTime}}`, `{{endDateTime}}`, `{{date}}`, `{{recurrence}}`, `{{meetingNotes}}`, `{{meetingUrl}}`, `{{dailyNoteLink}}`, `{{globalAppointmentId}}`, `{{tags}}`, `{{fileName}}`, `{{fileNameNoExt}}`
 
 **Meeting note templates:**
 `{{appointmentTitle}}`, `{{appointmentLink}}`, `{{organizer}}`, `{{attendees}}`, `{{date}}`, `{{location}}`

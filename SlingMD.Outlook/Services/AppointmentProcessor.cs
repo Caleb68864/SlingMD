@@ -438,6 +438,14 @@ namespace SlingMD.Outlook.Services
                 globalAppointmentId,
                 fileNameNoExt);
 
+            // A Teams/Zoom/Meet/Webex join link becomes a property, so it can be clicked from the note
+            // or queried, instead of staying buried in the invitation text.
+            string meetingUrl = MeetingLinkFinder.Find(body);
+            if (meetingUrl != null)
+            {
+                metadata["meetingUrl"] = meetingUrl;
+            }
+
             // --- Generate Obsidian task block ---
             string taskBlock = string.Empty;
             if (createObsidianTask && _taskService.ShouldCreateTasks)
@@ -1119,6 +1127,13 @@ namespace SlingMD.Outlook.Services
             if (!string.IsNullOrWhiteSpace(location))
             {
                 content.AppendLine($"**Location:** {location}");
+                content.AppendLine();
+            }
+
+            object meetingUrl;
+            if (metadata.TryGetValue("meetingUrl", out meetingUrl) && meetingUrl is string joinUrl)
+            {
+                content.AppendLine($"**Join:** [Join the meeting]({joinUrl})");
                 content.AppendLine();
             }
 
