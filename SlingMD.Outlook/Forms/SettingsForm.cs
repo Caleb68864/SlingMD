@@ -14,6 +14,7 @@ namespace SlingMD.Outlook.Forms
 
         // General tab controls
         private TextBox txtVaultName;
+        private Label lblVaultStatus;
         private TextBox txtVaultPath;
         private Button btnBrowse;
         private CheckBox chkLaunchObsidian;
@@ -254,6 +255,12 @@ namespace SlingMD.Outlook.Forms
             this.btnBrowse = new Button { Text = "Browse...", Anchor = AnchorStyles.Left };
             this.btnBrowse.Click += btnBrowse_Click;
             generalTabLayout.Controls.Add(this.btnBrowse, 1, gRow++);
+
+            generalTabLayout.Controls.Add(new Label(), 0, gRow);
+            this.lblVaultStatus = new Label { AutoSize = true, MaximumSize = new Size(420, 0), Anchor = AnchorStyles.Left, Margin = new Padding(3, 0, 3, 6) };
+            generalTabLayout.Controls.Add(this.lblVaultStatus, 1, gRow++);
+            this.txtVaultName.TextChanged += (sender, e) => UpdateVaultStatus();
+            this.txtVaultPath.TextChanged += (sender, e) => UpdateVaultStatus();
 
             this.chkLaunchObsidian = new CheckBox { Text = "Launch Obsidian after saving", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
             generalTabLayout.Controls.Add(this.chkLaunchObsidian, 0, gRow);
@@ -1204,14 +1211,82 @@ namespace SlingMD.Outlook.Forms
         {
             using (FolderBrowserDialog dialog = new FolderBrowserDialog())
             {
-                dialog.Description = "Select Obsidian Vault Base Directory";
-                dialog.SelectedPath = txtVaultPath.Text;
+                dialog.Description = "Select your Obsidian vault folder";
+                string currentVault = string.IsNullOrWhiteSpace(txtVaultPath.Text) || string.IsNullOrWhiteSpace(txtVaultName.Text)
+                    ? txtVaultPath.Text
+                    : System.IO.Path.Combine(txtVaultPath.Text, txtVaultName.Text);
+                dialog.SelectedPath = System.IO.Directory.Exists(currentVault) ? currentVault : txtVaultPath.Text;
 
                 if (dialog.ShowDialog() == DialogResult.OK)
                 {
-                    txtVaultPath.Text = dialog.SelectedPath;
+                    // Picking the vault itself is the natural choice, but the setting is its parent
+                    // plus the vault's name; split it so notes don't land in Vault\Vault.
+                    string selected = dialog.SelectedPath.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar);
+                    string parent = System.IO.Path.GetDirectoryName(selected);
+                    if (IsObsidianVault(selected) && !string.IsNullOrEmpty(parent))
+                    {
+                        txtVaultPath.Text = parent;
+                        txtVaultName.Text = System.IO.Path.GetFileName(selected);
+                    }
+                    else
+                    {
+                        txtVaultPath.Text = dialog.SelectedPath;
+                    }
                 }
             }
+        }
+
+        private void UpdateVaultStatus()
+        {
+            bool found;
+            lblVaultStatus.Text = DescribeVault(txtVaultPath.Text, txtVaultName.Text, out found);
+            lblVaultStatus.ForeColor = found ? Color.DarkGreen : Color.DarkOrange;
+        }
+
+        private static bool IsObsidianVault(string folder)
+        {
+            return !string.IsNullOrWhiteSpace(folder) && System.IO.Directory.Exists(System.IO.Path.Combine(folder, ".obsidian"));
+        }
+
+        /// <summary>
+        /// Describes whether Vault Base Path + Vault Name point at an Obsidian vault (a folder holding
+        /// <c>.obsidian</c>), for the status line under the vault settings.
+        /// </summary>
+        internal static string DescribeVault(string basePath, string vaultName, out bool found)
+        {
+            found = false;
+            basePath = (basePath ?? string.Empty).Trim();
+            vaultName = (vaultName ?? string.Empty).Trim();
+            if (basePath.Length == 0 || vaultName.Length == 0)
+            {
+                return "Click Browse and pick your Obsidian vault folder.";
+            }
+
+            string vaultPath;
+            try
+            {
+                vaultPath = System.IO.Path.Combine(basePath, vaultName);
+            }
+            catch (ArgumentException)
+            {
+                return "⚠ The vault path contains characters Windows doesn't allow.";
+            }
+
+            if (IsObsidianVault(vaultPath))
+            {
+                found = true;
+                return "✓ Obsidian vault found: " + vaultPath;
+            }
+
+            if (IsObsidianVault(basePath))
+            {
+                return "⚠ \"" + basePath + "\" is itself the vault. Set Vault Base Path to its parent folder and Vault Name to \""
+                    + System.IO.Path.GetFileName(basePath.TrimEnd('\\', '/')) + "\" (Browse does this for you).";
+            }
+
+            return System.IO.Directory.Exists(vaultPath)
+                ? "⚠ \"" + vaultPath + "\" exists but isn't an Obsidian vault (no .obsidian folder). Notes will still be saved there."
+                : "⚠ Folder not found: " + vaultPath + ". Notes can't be saved until it exists.";
         }
 
         private void btnSave_Click(object sender, EventArgs e)
@@ -1364,7 +1439,7 @@ namespace SlingMD.Outlook.Forms
                         + Environment.NewLine + Environment.NewLine
                         + ex.Message
                         + Environment.NewLine + Environment.NewLine
-                        + "Please correct the highlighted value and click Save again.",
+                        + "Please correct it and click Save again.",
                     ex);
                 return;
             }

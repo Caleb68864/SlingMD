@@ -123,17 +123,12 @@ namespace SlingMD.Outlook
                 bool marshalerReady = InitializeUiMarshaler();
 
                 _settings = LoadSettings(out isFirstLaunchAfterInstall);
-                ValidateStartupHealth();
+                bool vaultFound = ValidateStartupHealth();
                 _emailProcessor = new EmailProcessor(_settings);
                 _appointmentProcessor = new AppointmentProcessor(_settings);
                 _contactProcessor = new ContactProcessor(_settings);
                 _fileService = new FileService(_settings);
                 _notificationService = new NotificationService(_settings);
-
-                if (isFirstLaunchAfterInstall && !_settings.HasShownSupportPrompt)
-                {
-                    ShowFirstRunSupportPrompt();
-                }
 
                 try
                 {
@@ -177,6 +172,17 @@ namespace SlingMD.Outlook
                 }
 
                 _ribbon?.UpdateSlingButtonLabel(GetSelectedItemLabel());
+
+                // Offered once everything is running, because Settings restarts the services.
+                if (!vaultFound)
+                {
+                    OfferVaultSetup();
+                }
+
+                if (isFirstLaunchAfterInstall && !_settings.HasShownSupportPrompt)
+                {
+                    ShowFirstRunSupportPrompt();
+                }
             }
             catch (System.Exception ex)
             {
@@ -291,7 +297,11 @@ namespace SlingMD.Outlook
             }
         }
 
-        private void ValidateStartupHealth()
+        /// <summary>
+        /// Logs whether the configured vault exists. Returns false when it doesn't, so startup can
+        /// offer to open Settings once the add-in is running.
+        /// </summary>
+        private bool ValidateStartupHealth()
         {
             string vaultPath = _settings.GetFullVaultPath();
             string inboxPath = _settings.GetInboxPath();
@@ -299,13 +309,7 @@ namespace SlingMD.Outlook
             if (!System.IO.Directory.Exists(vaultPath))
             {
                 Logger.Instance.Warning($"Startup health: vault path does not exist: {vaultPath}");
-                MessageBox.Show(
-                    $"SlingMD: Your Obsidian vault at \"{vaultPath}\" is not accessible.\n\n"
-                    + "Exports will fail until you configure Settings.",
-                    "SlingMD",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
+                return false;
             }
 
             if (!System.IO.Directory.Exists(inboxPath))
@@ -314,6 +318,22 @@ namespace SlingMD.Outlook
             }
 
             Logger.Instance.Info($"Startup health: vault path OK: {vaultPath}");
+            return true;
+        }
+
+        private void OfferVaultSetup()
+        {
+            string vaultPath = _settings.GetFullVaultPath();
+            DialogResult choice = MessageBox.Show(
+                $"SlingMD can't find your Obsidian vault at \"{vaultPath}\", so emails can't be saved yet.\n\n"
+                + "Open SlingMD settings to choose your vault now?",
+                "SlingMD - Set up your vault",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+            if (choice == DialogResult.Yes)
+            {
+                ShowSettings();
+            }
         }
 
         private ObsidianSettings LoadSettings(out bool isFirstLaunchAfterInstall)
