@@ -99,6 +99,10 @@ All notable changes to SlingMD are documented in this file.
   correctly when the Inbox isn't the vault root.
 
 ### Fixed
+- **Attachment links work with standard Markdown links.** With *Use Obsidian wikilinks* off, a file
+  like `Q3 Report.pdf` produced a broken link; targets are now escaped.
+- **The attachments list is tidier.** It's a bulleted list, and inline images already shown in the
+  body (signature logos, pasted pictures) are no longer repeated there.
 - **The Appointment Template File setting now works.** Appointment notes were always built from a
   fixed layout, so a custom template was ignored. It's now used whenever the file exists in your
   Templates folder; without one, notes look the same as before. Label lines left empty (e.g.

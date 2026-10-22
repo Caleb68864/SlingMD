@@ -506,24 +506,10 @@ namespace SlingMD.Outlook.Services
                                         _fileService.WriteUtf8File(filePath, linkedContent);
                                     }
 
-                                    if (attachmentInfo.SavedAttachments.Count > 0)
+                                    string attachmentSection = _attachmentService.BuildAttachmentSection(attachmentInfo, filePath, linkedContent);
+                                    if (attachmentSection.Length > 0)
                                     {
-                                        // Build attachment section
-                                        var attachmentSection = new StringBuilder();
-                                        attachmentSection.AppendLine("\n\n## Attachments\n");
-
-                                        foreach (var attachment in attachmentInfo.SavedAttachments)
-                                        {
-                                            string wikilink = _attachmentService.GenerateWikilink(
-                                                attachment.FullPath,
-                                                filePath,
-                                                false
-                                            );
-                                            attachmentSection.AppendLine(wikilink);
-                                        }
-
-                                        // Append to the existing note file
-                                        _fileService.AppendToFile(filePath, attachmentSection.ToString());
+                                        _fileService.AppendToFile(filePath, attachmentSection);
                                     }
                                 }
                                 catch (System.Exception ex)
@@ -585,24 +571,10 @@ namespace SlingMD.Outlook.Services
                                     _fileService.WriteUtf8File(filePath, linkedContent);
                                 }
 
-                                if (attachmentInfo.SavedAttachments.Count > 0)
+                                string attachmentSection = _attachmentService.BuildAttachmentSection(attachmentInfo, filePath, linkedContent);
+                                if (attachmentSection.Length > 0)
                                 {
-                                    // Build attachment section
-                                    var attachmentSection = new StringBuilder();
-                                    attachmentSection.AppendLine("\n\n## Attachments\n");
-
-                                    foreach (var attachment in attachmentInfo.SavedAttachments)
-                                    {
-                                        string wikilink = _attachmentService.GenerateWikilink(
-                                            attachment.FullPath,
-                                            filePath,
-                                            false
-                                        );
-                                        attachmentSection.AppendLine(wikilink);
-                                    }
-
-                                    // Append to the existing note file
-                                    _fileService.AppendToFile(filePath, attachmentSection.ToString());
+                                    _fileService.AppendToFile(filePath, attachmentSection);
                                 }
                             }
                             catch (System.Exception ex)
