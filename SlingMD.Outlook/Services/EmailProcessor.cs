@@ -1086,9 +1086,10 @@ namespace SlingMD.Outlook.Services
                 metadata.Add("dailyNoteLink", "[[" + dailyNoteLink + "]]");
             }
 
-            if (_settings.DefaultNoteTags != null && _settings.DefaultNoteTags.Count > 0)
+            List<string> noteTags = TagNormalizer.Normalize(_settings.DefaultNoteTags);
+            if (noteTags.Count > 0)
             {
-                metadata.Add("tags", new List<string>(_settings.DefaultNoteTags));
+                metadata.Add("tags", noteTags);
             }
 
             if (ccEmails != null && ccEmails.Count > 0)

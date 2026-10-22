@@ -123,7 +123,7 @@ Before using SlingMD, you'll need to configure your Obsidian vault settings:
    - **Search Entire Vault For Contacts**: When enabled, SlingMD will look outside the contacts folder before creating a new contact note
    - **Note Title Format / Max Length / Include Date**: Fine-tune how note titles are constructed
    - **Move Date To Front In Thread**: When grouping emails, place the date at the beginning of the filename
-   - **Default Note Tags / Task Tags**: Tags automatically assigned to new notes or tasks
+   - **Default Note Tags / Task Tags**: Tags automatically assigned to new notes or tasks (new installs: `email` on notes, `FollowUp` on the task line). Tags are cleaned up for Obsidian — a leading `#` is removed and spaces become `-`
    - **Templates Folder / Template Files**: Point SlingMD at Dataview-friendly templates for email notes, contact notes, inline task lines, and thread summaries (task templates customize the inline task line only)
    - **Email / Contact Filename Format**: Optional filename formats using tokens like `{Subject}`, `{Sender}`, `{Timestamp}`, `{ContactName}`, and `{ContactShortName}`
    - **Show Development Settings**: Reveals additional debug options in the settings dialog

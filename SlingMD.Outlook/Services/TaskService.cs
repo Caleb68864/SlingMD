@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using Microsoft.Office.Interop.Outlook;
 using SlingMD.Outlook.Infrastructure;
 using SlingMD.Outlook.Models;
+using SlingMD.Outlook.Services.Formatting;
 
 namespace SlingMD.Outlook.Services
 {
@@ -73,8 +74,8 @@ namespace SlingMD.Outlook.Services
             string currentDate = _clock.Now.ToString("yyyy-MM-dd");
             string dueDate = dates.DueDate.ToString("yyyy-MM-dd");
             string reminderDate = dates.ReminderDate.ToString("yyyy-MM-dd");
-            List<string> effectiveTags = GetEffectiveTaskTags(taskTags);
-            string tagsPart = string.Join(" ", effectiveTags.Select(tag => tag.StartsWith("#") ? tag : "#" + tag));
+            List<string> effectiveTags = TagNormalizer.Normalize(GetEffectiveTaskTags(taskTags));
+            string tagsPart = string.Join(" ", effectiveTags.Select(tag => "#" + tag));
 
             TaskTemplateContext context = new TaskTemplateContext
             {

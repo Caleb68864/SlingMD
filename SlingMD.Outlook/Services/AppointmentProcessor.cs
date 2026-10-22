@@ -898,10 +898,10 @@ namespace SlingMD.Outlook.Services
                     { "date", date }
                 };
 
-                List<string> noteTags = _settings.AppointmentDefaultNoteTags;
-                if (noteTags != null && noteTags.Count > 0)
+                List<string> noteTags = TagNormalizer.Normalize(_settings.AppointmentDefaultNoteTags);
+                if (noteTags.Count > 0)
                 {
-                    meetingMetadata.Add("tags", new List<string>(noteTags));
+                    meetingMetadata.Add("tags", noteTags);
                 }
 
                 MeetingNoteTemplateContext context = new MeetingNoteTemplateContext
@@ -1001,10 +1001,10 @@ namespace SlingMD.Outlook.Services
                 metadata.Add("dailyNoteLink", "[[" + dailyNoteLink + "]]");
             }
 
-            List<string> noteTags = _settings.AppointmentDefaultNoteTags;
-            if (noteTags != null && noteTags.Count > 0)
+            List<string> noteTags = TagNormalizer.Normalize(_settings.AppointmentDefaultNoteTags);
+            if (noteTags.Count > 0)
             {
-                metadata.Add("tags", new List<string>(noteTags));
+                metadata.Add("tags", noteTags);
             }
 
             return metadata;

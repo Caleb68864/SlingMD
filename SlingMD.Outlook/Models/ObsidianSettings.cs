@@ -376,9 +376,11 @@ namespace SlingMD.Outlook.Models
             };
         }
 
+        // New installs tag notes "email"; the follow-up tag belongs on the task line. Installs before
+        // 1.2.5 keep their saved tags.
         private static List<string> CreateDefaultNoteTags()
         {
-            return new List<string> { "FollowUp" };
+            return new List<string> { "email" };
         }
 
         private static List<string> CreateDefaultTaskTags()

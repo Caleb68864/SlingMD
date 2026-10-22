@@ -312,8 +312,8 @@ namespace SlingMD.Outlook.Forms
                     Tab = "Email",
                     Title = "Default Note Tags",
                     Summary = "Comma-separated tags added to every exported email's frontmatter.",
-                    Description = "Applied as YAML list under tags:. Leave blank to emit no tags.",
-                    Default = "FollowUp"
+                    Description = "Applied as YAML list under tags:. Leave blank to emit no tags. Tags are cleaned up for Obsidian: a leading # is removed and spaces become -.",
+                    Default = "email (installs before 1.2.5: FollowUp)"
                 },
                 new HelpEntry
                 {

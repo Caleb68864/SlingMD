@@ -64,6 +64,11 @@ All notable changes to SlingMD are documented in this file.
   Obsidian is off.
 
 ### Changed
+- **New installs tag email notes `email` instead of `FollowUp`.** The follow-up tag stays on the
+  task line, so `#FollowUp` again means "has a follow-up task". Existing installs keep their saved
+  tags.
+- **Tags are cleaned up for Obsidian.** A leading `#` is removed, spaces become `-`, and characters
+  Obsidian doesn't allow in tags are dropped, so `Follow Up` or `#x` no longer produce broken tags.
 - **New installs write ISO 8601 dates** (`2026-04-22T14:05:30`) so Obsidian Properties and
   Dataview read them as dates. Existing installs keep their saved date formats; change *Email Date
   Format* / *Appointment Date Format* to switch.
