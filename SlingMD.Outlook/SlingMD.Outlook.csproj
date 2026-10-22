@@ -334,6 +334,7 @@
     <Compile Include="Services\Formatting\MatchTier.cs" />
     <Compile Include="Services\ContactInteractionMode.cs" />
     <Compile Include="Services\Formatting\ContactMatcher.cs" />
+    <Compile Include="Services\Formatting\ContactEmailIndex.cs" />
     <Compile Include="Services\Formatting\FrontmatterReader.cs" />
     <Compile Include="Services\Formatting\LegacyFilenameStripper.cs" />
     <Compile Include="Services\Formatting\PathLengthBudget.cs" />

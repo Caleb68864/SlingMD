@@ -52,8 +52,6 @@ namespace SlingMD.Outlook.Services
         private readonly ContactService _contactService;
         private readonly AttachmentService _attachmentService;
         private readonly DateFormatter _dateFormatter;
-        private readonly ContactNameParser _contactNameParser;
-        private readonly ContactLinkFormatter _contactLinkFormatter;
         private readonly SubjectFilenameCleaner _subjectFilenameCleaner;
         private readonly NoteTitleBuilder _noteTitleBuilder;
         private readonly UniqueFilenameResolver _uniqueFilenameResolver = new UniqueFilenameResolver();
@@ -111,17 +109,28 @@ namespace SlingMD.Outlook.Services
             _contactService = contactService ?? new ContactService(_fileService, _templateService, _clock);
             _attachmentService = attachmentService ?? new AttachmentService(settings, _fileService, _clock);
             _dateFormatter = new DateFormatter();
-            _contactNameParser = new ContactNameParser();
-            _contactLinkFormatter = new ContactLinkFormatter();
             _subjectFilenameCleaner = new SubjectFilenameCleaner(settings, _fileService);
             _noteTitleBuilder = new NoteTitleBuilder();
         }
 
         private string FormatSenderLink(string senderName, string senderEmail)
         {
-            ContactName parsed = _contactNameParser.Parse(senderName, senderEmail);
-            string formatted = _contactLinkFormatter.Resolve(parsed, _settings.ContactLinkFormats, _contactService.NoteFileExists);
-            return string.IsNullOrEmpty(formatted) ? $"[[{senderName}]]" : formatted;
+            return _contactService.FormatContactLink(senderName, senderEmail);
+        }
+
+        private static void RememberContactEmail(Dictionary<string, string> contactEmails, string name, string email)
+        {
+            if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(email) && email.IndexOf('@') > 0
+                && !contactEmails.ContainsKey(name))
+            {
+                contactEmails[name] = email.Trim();
+            }
+        }
+
+        private static string EmailFor(Dictionary<string, string> contactEmails, string name)
+        {
+            string email;
+            return name != null && contactEmails.TryGetValue(name, out email) ? email : null;
         }
 
         /// <summary>
@@ -159,6 +168,9 @@ namespace SlingMD.Outlook.Services
         {
             // Declare variables at method level so they're accessible throughout the method
             List<string> contactNames = new List<string>();
+            // Each contact's address, so a new contact note records it and an existing note listing it
+            // is recognised under a different display name.
+            Dictionary<string, string> contactEmails = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             string fileName = string.Empty;
             string fileNameNoExt = string.Empty;
             string filePath = string.Empty;
@@ -197,6 +209,7 @@ namespace SlingMD.Outlook.Services
             if (!string.IsNullOrEmpty(mail.SenderName))
             {
                 contactNames.Add(mail.SenderName);
+                RememberContactEmail(contactEmails, mail.SenderName, _contactService.GetSenderEmail(mail));
             }
 
             // Properly release COM objects to prevent memory leaks
@@ -209,6 +222,7 @@ namespace SlingMD.Outlook.Services
                     try
                     {
                         contactNames.Add(recipient.Name);
+                        RememberContactEmail(contactEmails, recipient.Name, _contactService.GetSMTPEmailAddress(recipient));
                     }
                     finally
                     {
@@ -655,7 +669,8 @@ namespace SlingMD.Outlook.Services
                         {
                             managedContactsToRefresh.Add(contactName);
                         }
-                        else if (!_contactService.ContactExists(contactName))
+                        else if (!_contactService.ContactExists(contactName)
+                            && _contactService.FindContactNoteByEmail(EmailFor(contactEmails, contactName)) == null)
                         {
                             newContacts.Add(contactName);
                         }
@@ -663,7 +678,7 @@ namespace SlingMD.Outlook.Services
 
                     foreach (var contactName in managedContactsToRefresh)
                     {
-                        _contactService.CreateContactNote(contactName);
+                        _contactService.CreateContactNote(contactName, EmailFor(contactEmails, contactName));
                     }
 
                     // For truly new contacts, try fuzzy matching first (when enabled)
@@ -674,7 +689,7 @@ namespace SlingMD.Outlook.Services
                     foreach (var contactName in newContacts)
                     {
                         bool handled = _contactService.TryHandleFuzzyMatch(
-                            contactName, null, contactMode, subjectForLog);
+                            contactName, EmailFor(contactEmails, contactName), contactMode, subjectForLog);
                         if (!handled)
                         {
                             unfuzzyNewContacts.Add(contactName);
@@ -686,7 +701,7 @@ namespace SlingMD.Outlook.Services
                     {
                         foreach (var contactName in unfuzzyNewContacts)
                         {
-                            _contactService.CreateContactNote(contactName);
+                            _contactService.CreateContactNote(contactName, EmailFor(contactEmails, contactName));
                         }
                     }
                     else if (unfuzzyNewContacts.Count > 0)
@@ -698,7 +713,7 @@ namespace SlingMD.Outlook.Services
                             {
                                 foreach (var contactName in dialog.SelectedContacts)
                                 {
-                                    _contactService.CreateContactNote(contactName);
+                                    _contactService.CreateContactNote(contactName, EmailFor(contactEmails, contactName));
                                 }
                             }
                         }
