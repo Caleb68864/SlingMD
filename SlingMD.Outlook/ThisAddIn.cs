@@ -781,10 +781,15 @@ namespace SlingMD.Outlook
                 return;
             }
 
-            object item = items.GetFirst();
-            while (item != null)
+            int count = items.Count;
+            for (int i = 1; i <= count; i++)
             {
-                object current = item;
+                object current = items[i];
+                if (current == null)
+                {
+                    continue;
+                }
+
                 try
                 {
                     MailItem mail = current as MailItem;
@@ -803,8 +808,6 @@ namespace SlingMD.Outlook
                     {
                         if (children != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(children);
                     }
-
-                    item = items.GetNext();
                 }
                 finally
                 {
