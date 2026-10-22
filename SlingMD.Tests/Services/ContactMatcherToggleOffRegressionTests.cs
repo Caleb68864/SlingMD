@@ -248,21 +248,7 @@ namespace SlingMD.Tests.Services
 
         private static string InvokeFormatContactLink(ContactService service, string displayName, string email)
         {
-            MethodInfo method = typeof(ContactService).GetMethod(
-                "FormatContactLink",
-                BindingFlags.NonPublic | BindingFlags.Instance,
-                null,
-                new[] { typeof(string), typeof(string) },
-                null);
-
-            if (method == null)
-            {
-                throw new InvalidOperationException(
-                    "ContactService.FormatContactLink(string, string) private method not found. " +
-                    "If the method signature changed, update this test.");
-            }
-
-            return (string)method.Invoke(service, new object[] { displayName, email });
+            return service.FormatContactLink(displayName, email);
         }
 
         private static string InvokeBuildContactFileName(ContactService service, string contactName)
