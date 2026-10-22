@@ -17,11 +17,18 @@ All notable changes to SlingMD are documented in this file.
 #### Better email bodies
 - **HTML emails are converted to Markdown** — headings, lists, links, bold/italic and quotes come
   through instead of Outlook's plain-text rendering. Tracking pixels are dropped.
+- **Tables come through.** Data tables become Markdown tables; layout tables (signatures,
+  newsletters) keep their cells apart instead of running words together.
+- **Safe Links are unwrapped** to the original address, and a link whose text is its own address
+  is written as a plain URL.
 - **Inline images are saved and linked.** Images embedded in the body (screenshots, pasted
   pictures, signature logos) are saved with the attachments and the `cid:` references in the note
   point at the saved files.
 
 #### New options
+- **Fold quoted replies** (Email tab, off by default) — the quoted history under a reply goes into a
+  collapsed *Earlier messages* callout, so thread notes stop repeating every earlier message.
+  Forwards are never folded.
 - **Always create a thread folder** (Threading tab, off by default) — files every email into a
   thread folder on its first sling, so a note never moves when a reply arrives.
 - **Reuse duplicate attachments** (Attachments tab, off by default) — a file identical to one
@@ -32,12 +39,24 @@ All notable changes to SlingMD are documented in this file.
   note's full path is on the clipboard.
 
 #### Feedback
+- **Batch progress with Cancel.** Sling Multiple and Complete Thread show one progress window
+  ("Slinging 3 of 25") with a Cancel button, and the summary separates emails already in the vault
+  from failures, listing each failure with its error.
+- **First-run help.** Settings shows whether the vault path points at an Obsidian vault, Browse
+  accepts the vault folder itself, and a missing vault at startup offers to open Settings.
 - **Duplicate slings say so.** Slinging an email that's already in the vault shows a toast instead
   of appearing to do nothing.
 - **Successful slings are confirmed** with a toast showing where the note was saved, when Launch
   Obsidian is off.
 
 ### Changed
+- **New installs write ISO 8601 dates** (`2026-04-22T14:05:30`) so Obsidian Properties and
+  Dataview read them as dates. Existing installs keep their saved date formats; change *Email Date
+  Format* / *Appointment Date Format* to switch.
+- **Contacts are matched by email address.** New contact notes store an `email` property, and a
+  sender whose display name differs from an existing note's is linked to that note instead of
+  getting a duplicate. Notes without `email` (including older ones) still match by name; notes
+  slung from Outlook contacts already have it.
 - **Long paths are shortened automatically.** Outlook isn't long-path aware, so the Windows
   `LongPathsEnabled` registry switch doesn't help the add-in; deep vaults and long subjects failed
   with *"The specified path, file name, or both are too long"*, mostly during Complete Thread.
