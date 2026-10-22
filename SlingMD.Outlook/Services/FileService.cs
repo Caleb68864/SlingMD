@@ -188,6 +188,27 @@ namespace SlingMD.Outlook.Services
         }
 
         /// <summary>
+        /// Opens File Explorer with <paramref name="filePath"/> selected, for people who keep the notes
+        /// as plain Markdown files without Obsidian. Failures are logged, never thrown.
+        /// </summary>
+        public virtual void ShowInExplorer(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+            {
+                return;
+            }
+
+            try
+            {
+                System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + filePath + "\"");
+            }
+            catch (System.Exception ex) when (ex is System.ComponentModel.Win32Exception || ex is InvalidOperationException)
+            {
+                Logger.Instance.Warning($"FileService.ShowInExplorer: could not open Explorer for '{filePath}': {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Launches (or brings to front) Obsidian using its custom URI protocol so that the specified
         /// markdown file is opened.  Path components are URI-escaped and the <c>.md</c> extension is
         /// omitted per Obsidian requirements.

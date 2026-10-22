@@ -18,6 +18,7 @@ namespace SlingMD.Outlook.Forms
         private TextBox txtVaultPath;
         private Button btnBrowse;
         private CheckBox chkLaunchObsidian;
+        private CheckBox chkShowNoteInExplorer;
         private CheckBox chkCopyNotePathToClipboard;
         private CheckBox chkAlwaysCreateThreadFolder;
         private CheckBox chkShowCountdown;
@@ -272,8 +273,10 @@ namespace SlingMD.Outlook.Forms
 
             this.chkCopyNotePathToClipboard = new CheckBox { Text = "Copy note path to clipboard after saving", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
             generalTabLayout.Controls.Add(this.chkCopyNotePathToClipboard, 0, gRow);
-            generalTabLayout.Controls.Add(new Label(), 1, gRow++);
+            this.chkShowNoteInExplorer = new CheckBox { Text = "Show the saved note in File Explorer", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
+            generalTabLayout.Controls.Add(this.chkShowNoteInExplorer, 1, gRow++);
             BindHelpInline("General.CopyNotePathToClipboard", chkCopyNotePathToClipboard);
+            BindHelpInline("General.ShowNoteInExplorer", chkShowNoteInExplorer);
 
             Label lblDelay = new Label { Text = "Delay (seconds):", Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
             generalTabLayout.Controls.Add(lblDelay, 0, gRow);
@@ -1096,6 +1099,7 @@ namespace SlingMD.Outlook.Forms
             txtVaultName.Text = _settings.VaultName;
             txtVaultPath.Text = _settings.VaultBasePath;
             chkLaunchObsidian.Checked = _settings.LaunchObsidian;
+            chkShowNoteInExplorer.Checked = _settings.ShowNoteInExplorer;
             chkCopyNotePathToClipboard.Checked = _settings.CopyNotePathToClipboard;
             chkShowCountdown.Checked = _settings.ShowCountdown;
             SetClamped(numDelay, _settings.ObsidianDelaySeconds);
@@ -1292,7 +1296,7 @@ namespace SlingMD.Outlook.Forms
             }
 
             return System.IO.Directory.Exists(vaultPath)
-                ? "⚠ \"" + vaultPath + "\" exists but isn't an Obsidian vault (no .obsidian folder). Notes will still be saved there."
+                ? "\"" + vaultPath + "\" has no .obsidian folder, so Obsidian hasn't opened it as a vault. Notes are saved there as plain Markdown, which is fine if you don't use Obsidian yet (turn off Launch Obsidian)."
                 : "⚠ Folder not found: " + vaultPath + ". Notes can't be saved until it exists.";
         }
 
@@ -1302,6 +1306,7 @@ namespace SlingMD.Outlook.Forms
             _settings.VaultName = txtVaultName.Text;
             _settings.VaultBasePath = txtVaultPath.Text;
             _settings.LaunchObsidian = chkLaunchObsidian.Checked;
+            _settings.ShowNoteInExplorer = chkShowNoteInExplorer.Checked;
             _settings.CopyNotePathToClipboard = chkCopyNotePathToClipboard.Checked;
             _settings.ShowCountdown = chkShowCountdown.Checked;
             _settings.ObsidianDelaySeconds = (int)numDelay.Value;

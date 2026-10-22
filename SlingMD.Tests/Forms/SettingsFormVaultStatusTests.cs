@@ -71,7 +71,7 @@ namespace SlingMD.Tests.Forms
             string status = SettingsForm.DescribeVault(_testDir, "Notes", out found);
 
             Assert.False(found);
-            Assert.Contains("isn't an Obsidian vault", status);
+            Assert.Contains("has no .obsidian folder", status);
         }
 
         [Fact]

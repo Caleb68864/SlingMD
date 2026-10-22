@@ -325,8 +325,8 @@ namespace SlingMD.Outlook
         {
             string vaultPath = _settings.GetFullVaultPath();
             DialogResult choice = MessageBox.Show(
-                $"SlingMD can't find your Obsidian vault at \"{vaultPath}\", so emails can't be saved yet.\n\n"
-                + "Open SlingMD settings to choose your vault now?",
+                $"SlingMD can't find the folder it saves notes to (\"{vaultPath}\"), so emails can't be saved yet.\n\n"
+                + "Open SlingMD settings to choose your Obsidian vault, or any folder if you don't use Obsidian?",
                 "SlingMD - Set up your vault",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning);

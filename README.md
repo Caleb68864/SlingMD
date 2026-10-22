@@ -135,6 +135,16 @@ Before using SlingMD, you'll need to configure your Obsidian vault settings:
 
 Note: Make sure your Vault Base Path points to an existing Obsidian vault directory. If you haven't created a vault yet, please set one up in Obsidian first.
 
+### Using SlingMD without Obsidian
+
+SlingMD writes ordinary Markdown files, so you can use it before you've set up Obsidian (or without it at all):
+
+1. Set **Vault Base Path** and **Vault Name** to any folder, e.g. `C:\Users\You\Documents` and `Email Notes`. Click **Browse** to pick it.
+2. Turn off **Launch Obsidian after saving**, so SlingMD never tries to open Obsidian.
+3. Optionally turn on **Show the saved note in File Explorer** to jump straight to each file after a sling.
+
+Notes still use Obsidian-style `[[links]]` and Dataview blocks; they read fine as plain text. They'll work as-is if you later open the folder as an Obsidian vault.
+
 ### Customization
 
 SlingMD exposes several format strings so you can tailor the output to your vault or mention-plugin setup.

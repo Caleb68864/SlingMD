@@ -35,6 +35,11 @@ All notable changes to SlingMD are documented in this file.
   already saved (e.g. a signature logo) is stored once in `Attachments/Shared` and linked from there.
 - **Put note in its attachment folder** (Attachments tab, off by default, *Subfolder per note* mode
   only) — the note and its files live together in one folder.
+- **Show the saved note in File Explorer** (General tab, off by default) — after you sling an email
+  or appointment, Explorer opens with the note selected. Together with turning off *Launch
+  Obsidian*, this makes SlingMD usable for plain Markdown files without Obsidian; the README has a
+  short *Using SlingMD without Obsidian* section, and the vault status and startup prompt no longer
+  assume an Obsidian vault.
 - **Copy note path to clipboard** (General tab, **on** by default) — after a manual sling the saved
   note's full path is on the clipboard.
 

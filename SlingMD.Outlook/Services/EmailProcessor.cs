@@ -773,6 +773,11 @@ namespace SlingMD.Outlook.Services
                 ToastForm.ShowToast($"SlingMD: saved {GetVaultRelativePath(filePath) ?? Path.GetFileName(filePath)}");
             }
 
+            if (!bulkMode && _settings.ShowNoteInExplorer)
+            {
+                _fileService.ShowInExplorer(filePath);
+            }
+
             return new EmailSlingResult { Outcome = EmailSlingOutcome.Saved, NotePath = filePath };
         }
 

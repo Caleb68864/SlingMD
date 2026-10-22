@@ -795,6 +795,11 @@ namespace SlingMD.Outlook.Services
                 }
             }
 
+            if (!bulkMode && _settings.ShowNoteInExplorer)
+            {
+                _fileService.ShowInExplorer(filePath);
+            }
+
             return AppointmentProcessingResult.Success;
         }
 

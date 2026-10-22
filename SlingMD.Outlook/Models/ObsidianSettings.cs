@@ -27,6 +27,12 @@ namespace SlingMD.Outlook.Models
         public bool LaunchObsidian { get; set; } = true;
 
         /// <summary>
+        /// Whether File Explorer opens with the saved note selected after a manual sling. Useful without
+        /// Obsidian, where the note is just a Markdown file. Off by default.
+        /// </summary>
+        public bool ShowNoteInExplorer { get; set; } = false;
+
+        /// <summary>
         /// Whether the full path of the saved note is copied to the clipboard after a manual sling.
         /// </summary>
         public bool CopyNotePathToClipboard { get; set; } = true;

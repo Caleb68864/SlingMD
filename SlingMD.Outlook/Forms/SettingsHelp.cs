@@ -168,7 +168,7 @@ namespace SlingMD.Outlook.Forms
                     Tab = "General",
                     Title = "Vault Name",
                     Summary = "Folder name of your Obsidian vault, placed under Vault Base Path.",
-                    Description = "SlingMD combines Vault Base Path + Vault Name to find the vault root. The vault must already exist.",
+                    Description = "SlingMD combines Vault Base Path + Vault Name to find the vault root, which must already exist. Without Obsidian, any folder works: notes are saved there as plain Markdown files. With Obsidian, the name must match the vault's name in Obsidian so notes open there.",
                     Default = "Logic"
                 },
                 new HelpEntry
@@ -185,7 +185,16 @@ namespace SlingMD.Outlook.Forms
                     Tab = "General",
                     Title = "Launch Obsidian after saving",
                     Summary = "Opens the saved note in Obsidian automatically when the export finishes.",
-                    Description = "Disable if you prefer to review notes without Obsidian stealing focus. The note is still saved either way."
+                    Description = "Turn off if you prefer to review notes without Obsidian stealing focus, or if you don't use Obsidian and just want the Markdown files. The note is still saved either way."
+                },
+                new HelpEntry
+                {
+                    Id = "General.ShowNoteInExplorer",
+                    Tab = "General",
+                    Title = "Show the saved note in File Explorer",
+                    Summary = "Opens File Explorer with the note selected after you sling an email or appointment.",
+                    Description = "Handy without Obsidian, when the note is just a Markdown file in a folder. Works alongside Launch Obsidian. Batch slings and auto-sling don't open Explorer.",
+                    Default = "Off"
                 },
                 new HelpEntry
                 {
