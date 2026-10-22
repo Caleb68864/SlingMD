@@ -104,7 +104,10 @@ namespace SlingMD.Outlook.Services
         /// <param name="saved">Number of contacts successfully exported.</param>
         /// <param name="skipped">Number of items skipped (not a ContactItem or already exists).</param>
         /// <param name="errors">Number of contacts that failed to export.</param>
-        public void ProcessAddressBook(MAPIFolder contactsFolder, out int saved, out int skipped, out int errors)
+        /// <param name="shouldContinue">Optional; called before each item with its 1-based index and the
+        /// total. Returning false stops the export (the items already done are kept).</param>
+        public void ProcessAddressBook(MAPIFolder contactsFolder, out int saved, out int skipped, out int errors,
+            Func<int, int, bool> shouldContinue = null)
         {
             saved = 0;
             skipped = 0;
@@ -134,6 +137,11 @@ namespace SlingMD.Outlook.Services
             {
                 object rawItem = null;
                 ContactItem contactItem = null;
+
+                if (shouldContinue != null && !shouldContinue(i, totalCount))
+                {
+                    break;
+                }
 
                 try
                 {

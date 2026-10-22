@@ -265,9 +265,10 @@ SlingMD can export your Outlook contacts directly to Obsidian as rich markdown n
 
 ### All Contacts
 1. Click "Sling All Contacts" in the Contacts group on the Sling ribbon
-2. SlingMD exports every contact from your default address book
-3. Existing contact notes are skipped (no duplicates)
-4. A summary dialog shows how many contacts were saved, skipped, or had errors
+2. Confirm the export (SlingMD shows how many items it will go through)
+3. SlingMD exports every contact from your default address book, with a progress window you can cancel
+4. Existing contact notes are skipped (no duplicates)
+5. A summary dialog shows how many contacts were saved, skipped, or had errors
 
 ### Appointment Contact Linking
 When you sling an appointment, SlingMD automatically checks the attendees against your vault. Existing contact notes are refreshed, and you're offered the option to create notes for new contacts (same behavior as email slinging).
