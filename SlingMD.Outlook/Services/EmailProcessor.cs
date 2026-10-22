@@ -763,6 +763,24 @@ namespace SlingMD.Outlook.Services
 
         private string CleanSubject(string subject) => _subjectFilenameCleaner.Clean(subject);
 
+        private static readonly System.Text.RegularExpressions.Regex ForwardSubjectRegex =
+            new System.Text.RegularExpressions.Regex(@"^\s*(?:fw|fwd)\s*:", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// Converts the email body to Markdown, folding the quoted history of a reply into a collapsed
+        /// callout when <see cref="ObsidianSettings.FoldQuotedReplies"/> is on. A forward's quoted part is
+        /// the message itself, so forwards are always converted in full.
+        /// </summary>
+        private string ConvertBody(MailItem mail)
+        {
+            if (_settings.FoldQuotedReplies && !ForwardSubjectRegex.IsMatch(mail.Subject ?? string.Empty))
+            {
+                return QuotedReplyFolder.ConvertFolded(mail.HTMLBody, mail.Body);
+            }
+
+            return HtmlToMarkdownConverter.Convert(mail.HTMLBody, mail.Body);
+        }
+
         /// <summary>
         /// Returns <paramref name="path"/> relative to the vault root with forward slashes, or
         /// <c>null</c> when it does not lie inside the vault.
@@ -936,7 +954,7 @@ namespace SlingMD.Outlook.Services
                 SenderEmail = _contactService.GetSenderEmail(mail),
                 Date = mail.ReceivedTime.ToString("yyyy-MM-dd"),
                 Timestamp = _dateFormatter.FormatOrDefault(mail.ReceivedTime, _settings.EmailDateFormat, _dateFormatter.Format(mail.ReceivedTime, "yyyy-MM-dd HH:mm:ss")),
-                Body = HtmlToMarkdownConverter.Convert(mail.HTMLBody, mail.Body),
+                Body = ConvertBody(mail),
                 TaskBlock = taskBlock,
                 FileName = fileNameNoExt + ".md",
                 FileNameWithoutExtension = fileNameNoExt,

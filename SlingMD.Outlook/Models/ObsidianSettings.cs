@@ -181,6 +181,13 @@ namespace SlingMD.Outlook.Models
         public bool MoveDateToFrontInThread { get; set; } = true;
 
         /// <summary>
+        /// Whether the quoted history under a reply ("From: … Sent: …", "On … wrote:") is folded into a
+        /// collapsed callout at the end of the note instead of shown in full. Forwards are left as they
+        /// are. Off by default.
+        /// </summary>
+        public bool FoldQuotedReplies { get; set; } = false;
+
+        /// <summary>
         /// Folder name for centralized attachment storage (relative to vault root).
         /// </summary>
         public string AttachmentsFolder { get; set; } = "Attachments";

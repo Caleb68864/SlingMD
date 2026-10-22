@@ -33,6 +33,7 @@ namespace SlingMD.Outlook.Forms
         private TextBox txtNoteTitleFormat;
         private NumericUpDown numNoteTitleMaxLength;
         private CheckBox chkNoteTitleIncludeDate;
+        private CheckBox chkFoldQuotedReplies;
         private Label lblNoteTitleFormat;
         private Label lblNoteTitleMaxLength;
         private Label lblNoteTitleIncludeDate;
@@ -365,6 +366,11 @@ namespace SlingMD.Outlook.Forms
             emailTabLayout.Controls.Add(this.lblDefaultNoteTags, 0, eRow);
             emailTabLayout.Controls.Add(this.txtDefaultNoteTags, 1, eRow++);
             BindHelp("Email.DefaultNoteTags", lblDefaultNoteTags, txtDefaultNoteTags);
+
+            emailTabLayout.Controls.Add(new Label(), 0, eRow);
+            this.chkFoldQuotedReplies = new CheckBox { Text = "Fold quoted replies into a collapsed section", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
+            emailTabLayout.Controls.Add(this.chkFoldQuotedReplies, 1, eRow++);
+            BindHelpInline("Email.FoldQuotedReplies", chkFoldQuotedReplies);
 
             // Subject Cleanup Patterns section
             Label lblSubjectCleanupPatterns = new Label { Text = "Subject Cleanup Patterns:", Anchor = AnchorStyles.Left | AnchorStyles.Top, TextAlign = ContentAlignment.TopLeft, Dock = DockStyle.Fill };
@@ -1104,6 +1110,7 @@ namespace SlingMD.Outlook.Forms
             txtNoteTitleFormat.Text = _settings.NoteTitleFormat ?? "{Subject} - {Date}";
             SetClamped(numNoteTitleMaxLength, _settings.NoteTitleMaxLength > 0 ? _settings.NoteTitleMaxLength : 50);
             chkNoteTitleIncludeDate.Checked = _settings.NoteTitleIncludeDate;
+            chkFoldQuotedReplies.Checked = _settings.FoldQuotedReplies;
             txtDefaultNoteTags.Text = string.Join(", ", _settings.DefaultNoteTags ?? new List<string>());
             lstPatterns.Items.Clear();
             foreach (string pattern in _settings.SubjectCleanupPatterns)
@@ -1308,6 +1315,7 @@ namespace SlingMD.Outlook.Forms
             _settings.NoteTitleFormat = txtNoteTitleFormat.Text.Trim();
             _settings.NoteTitleMaxLength = (int)numNoteTitleMaxLength.Value;
             _settings.NoteTitleIncludeDate = chkNoteTitleIncludeDate.Checked;
+            _settings.FoldQuotedReplies = chkFoldQuotedReplies.Checked;
             _settings.DefaultNoteTags = txtDefaultNoteTags.Text.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)).ToList();
             _settings.SubjectCleanupPatterns.Clear();

@@ -308,6 +308,15 @@ namespace SlingMD.Outlook.Forms
                 },
                 new HelpEntry
                 {
+                    Id = "Email.FoldQuotedReplies",
+                    Tab = "Email",
+                    Title = "Fold quoted replies",
+                    Summary = "Shows only what a reply added; the quoted history underneath goes into a collapsed \"Earlier messages\" section at the end of the note.",
+                    Description = "Recognises Outlook's From/Sent header, Gmail and Apple Mail quotes, -----Original Message----- and \"On … wrote:\". Nothing is removed: click the section in Obsidian to expand it. Forwards are always kept in full, and an email whose history can't be found is unchanged.",
+                    Default = "Off"
+                },
+                new HelpEntry
+                {
                     Id = "Email.SubjectCleanupPatterns",
                     Tab = "Email",
                     Title = "Subject Cleanup Patterns",
