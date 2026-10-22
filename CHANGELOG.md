@@ -10,6 +10,9 @@ All notable changes to SlingMD are documented in this file.
 ### Added
 
 #### Copy emails for an AI session
+- **Copied emails use the same Markdown conversion as notes**, show real addresses instead of
+  Exchange paths like `/O=EXCHANGELABS/…`, turn embedded-image references into `[image: …]`, and
+  write an empty To/CC as `[]`.
 - **New `Copy Email` menu** on the Sling ribbon. It copies the selected emails, or their complete
   threads, to the clipboard as plain text, with or without a metadata header per email. When the
   text is too large for the clipboard, SlingMD offers to save it as a UTF-8 text file instead.
@@ -24,6 +27,11 @@ All notable changes to SlingMD are documented in this file.
 - **Inline images are saved and linked.** Images embedded in the body (screenshots, pasted
   pictures, signature logos) are saved with the attachments and the `cid:` references in the note
   point at the saved files.
+
+#### Appointments
+- **Meeting join links are captured.** The Teams, Zoom, Google Meet or Webex link in an invitation
+  (Safe Links unwrapped) becomes a `meetingUrl` property and a *Join the meeting* line in the note,
+  and is available to templates as `{{meetingUrl}}`.
 
 #### New options
 - **Fold quoted replies** (Email tab, off by default) — the quoted history under a reply goes into a
@@ -49,10 +57,18 @@ All notable changes to SlingMD are documented in this file.
 - **The Sling button names what it will do** — *Sling Email*, *Sling Appointment*, *Sling Contact*
   or *Sling Selected*. The label code existed but was never connected to the button.
 
+#### Settings
+- **New *More…* menu in Settings**: open the settings folder, export your saved settings to JSON,
+  import them (handy when moving to a new PC), or reset to defaults while keeping the vault path.
+  Imports and resets fill the window only; Save keeps them, Cancel discards them.
+
 #### Feedback
 - **Toasts no longer steal focus.** They stack instead of overlapping, grow to fit long messages,
   pause while the mouse is over them and close when clicked. Copy Email confirms with a toast
   instead of a dialog you had to dismiss before pasting.
+- **Sling All Contacts asks first and can be cancelled.** It confirms how many items it will go
+  through, shows progress with a Cancel button instead of freezing Outlook silently, and can no
+  longer be started twice at once.
 - **Batch progress with Cancel.** Sling Multiple and Complete Thread show one progress window
   ("Slinging 3 of 25") with a Cancel button, and the summary separates emails already in the vault
   from failures, listing each failure with its error.

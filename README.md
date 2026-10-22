@@ -12,7 +12,7 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook e
 
 - Export Outlook emails directly to Obsidian markdown format
 - **HTML email bodies converted to Markdown** — headings, lists, links and quotes come through, and inline images (screenshots, pasted pictures) are saved and linked
-- **Copy Email** — copy selected emails or their complete threads to the clipboard as text, with or without metadata, for pasting into an AI session
+- **Copy Email** — copy selected emails or their complete threads to the clipboard as Markdown, with or without metadata, for pasting into an AI session
 - **Long paths handled automatically** — file and folder names are shortened at a word break so nothing passes the Windows path limit, even in deep vaults
 - **Export Outlook calendar appointments to Obsidian markdown** with full attendee, location, and recurrence metadata
 - Preserve email metadata and formatting
@@ -24,6 +24,7 @@ SlingMD is a powerful Outlook add-in that bridges the gap between your Outlook e
 - Automatic email thread organization
 - **Recurring meeting threading** — group recurring meeting instances into thread folders with summary notes
 - Thread summary pages with timeline views
+- **Meeting join links** — the Teams, Zoom, Google Meet or Webex link in an invitation becomes a clickable *Join* line and a `meetingUrl` property
 - **Companion meeting notes** — optional blank note for real-time meeting capture, linked to the appointment note
 - **Bulk "Save Today's Appointments"** — one-click export of all today's calendar items
 - Automatic contact note creation with communication-history Dataview tables
@@ -132,6 +133,8 @@ Before using SlingMD, you'll need to configure your Obsidian vault settings:
    Newer settings — attachments (storage location, inline images, duplicate reuse, grouping a note with its files), auto-sling rules, appointments, *Always create a thread folder*, *Ask where to sling* and *Copy note path to clipboard* — are described in the app: hover the ⓘ next to any setting, or click **Help** in the Settings dialog to search them all.
 
 3. Click "Save" to apply your settings
+
+**More…** in the Settings footer opens the settings folder, exports your saved settings to a JSON file, imports one (for example on a new PC), or resets everything to the defaults while keeping your vault path. Imports and resets only fill the window; nothing changes until you click Save.
 
 Note: Make sure your Vault Base Path points to an existing Obsidian vault directory. If you haven't created a vault yet, please set one up in Obsidian first.
 
@@ -264,9 +267,10 @@ SlingMD can export your Outlook contacts directly to Obsidian as rich markdown n
 
 ### All Contacts
 1. Click "Sling All Contacts" in the Contacts group on the Sling ribbon
-2. SlingMD exports every contact from your default address book
-3. Existing contact notes are skipped (no duplicates)
-4. A summary dialog shows how many contacts were saved, skipped, or had errors
+2. Confirm the export (SlingMD shows how many items it will go through)
+3. SlingMD exports every contact from your default address book, with a progress window you can cancel
+4. Existing contact notes are skipped (no duplicates)
+5. A summary dialog shows how many contacts were saved, skipped, or had errors
 
 ### Appointment Contact Linking
 When you sling an appointment, SlingMD automatically checks the attendees against your vault. Existing contact notes are refreshed, and you're offered the option to create notes for new contacts (same behavior as email slinging).
@@ -308,7 +312,7 @@ Every note template supports `{{frontmatter}}` (the YAML properties block). Each
 `{{body}}`, `{{taskBlock}}`, `{{subject}}`, `{{noteTitle}}`, `{{senderName}}`, `{{senderShortName}}`, `{{senderEmail}}`, `{{from}}`, `{{fromEmail}}`, `{{to}}`, `{{toEmail}}`, `{{cc}}`, `{{ccEmail}}`, `{{date}}`, `{{timestamp}}`, `{{dailyNoteLink}}`, `{{threadNote}}`, `{{threadId}}`, `{{internetMessageId}}`, `{{entryId}}`, `{{tags}}`, `{{fileName}}`, `{{fileNameNoExt}}`
 
 **Appointment templates** (used when the file exists in your Templates folder; otherwise SlingMD uses its built-in layout). Label lines such as `**Optional:**` are dropped when their value is empty:
-`{{body}}`, `{{taskBlock}}`, `{{subject}}`, `{{noteTitle}}`, `{{organizer}}`, `{{organizerEmail}}`, `{{attendees}}`, `{{optionalAttendees}}`, `{{resources}}`, `{{location}}`, `{{startDateTime}}`, `{{endDateTime}}`, `{{date}}`, `{{recurrence}}`, `{{meetingNotes}}`, `{{dailyNoteLink}}`, `{{globalAppointmentId}}`, `{{tags}}`, `{{fileName}}`, `{{fileNameNoExt}}`
+`{{body}}`, `{{taskBlock}}`, `{{subject}}`, `{{noteTitle}}`, `{{organizer}}`, `{{organizerEmail}}`, `{{attendees}}`, `{{optionalAttendees}}`, `{{resources}}`, `{{location}}`, `{{startDateTime}}`, `{{endDateTime}}`, `{{date}}`, `{{recurrence}}`, `{{meetingNotes}}`, `{{meetingUrl}}`, `{{dailyNoteLink}}`, `{{globalAppointmentId}}`, `{{tags}}`, `{{fileName}}`, `{{fileNameNoExt}}`
 
 **Meeting note templates:**
 `{{appointmentTitle}}`, `{{appointmentLink}}`, `{{organizer}}`, `{{attendees}}`, `{{date}}`, `{{location}}`

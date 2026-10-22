@@ -50,6 +50,24 @@ namespace SlingMD.Outlook.Services
             return result.ToString();
         }
 
+        private static readonly System.Text.RegularExpressions.Regex InlineImageRegex =
+            new System.Text.RegularExpressions.Regex(@"!\[([^\]]*)\]\(cid:[^)]*\)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// Replaces Markdown references to embedded (cid:) images, which mean nothing outside Outlook,
+        /// with "[image: alt text]", or removes them when there is no alt text.
+        /// </summary>
+        public static string ReplaceInlineImageReferences(string markdown)
+        {
+            if (string.IsNullOrEmpty(markdown))
+            {
+                return markdown ?? string.Empty;
+            }
+
+            return InlineImageRegex.Replace(markdown, match =>
+                string.IsNullOrWhiteSpace(match.Groups[1].Value) ? string.Empty : "[image: " + match.Groups[1].Value.Trim() + "]");
+        }
+
         private static DateTime GetSortDate(ClipboardEmail email)
         {
             return email.SentOn == DateTime.MinValue ? email.ReceivedTime : email.SentOn;
@@ -87,6 +105,12 @@ namespace SlingMD.Outlook.Services
             List<string> list = (values ?? Enumerable.Empty<string>())
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .ToList();
+            if (list.Count == 0)
+            {
+                result.AppendLine(key + ": []");
+                return;
+            }
+
             result.AppendLine(key + ":");
             foreach (string value in list)
             {

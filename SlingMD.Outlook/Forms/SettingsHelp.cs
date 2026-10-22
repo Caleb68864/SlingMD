@@ -456,6 +456,7 @@ namespace SlingMD.Outlook.Forms
                         { "{{date}}", "Appointment date" },
                         { "{{recurrence}}", "Recurrence state" },
                         { "{{meetingNotes}}", "Link to the companion meeting note, when created" },
+                        { "{{meetingUrl}}", "Teams, Zoom, Meet or Webex join link found in the invitation" },
                         { "{{fileName}} / {{fileNameNoExt}}", "The note's file name" },
                     },
                     Default = "AppointmentTemplate.md"

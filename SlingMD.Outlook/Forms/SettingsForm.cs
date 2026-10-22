@@ -136,7 +136,7 @@ namespace SlingMD.Outlook.Forms
         {
             InitializeComponent();
             _settings = settings;
-            LoadSettings();
+            LoadSettings(_settings);
         }
 
         /// <summary>
@@ -1045,9 +1045,19 @@ namespace SlingMD.Outlook.Forms
             Button btnHelp = new Button { Text = "Help", Margin = new Padding(3, 3, 11, 3) };
             btnHelp.Click += (s, e) => { new HelpForm().Show(this); };
             toolTip.SetToolTip(btnHelp, "Open the searchable settings reference (Ctrl+F to focus the search box).");
+            Button btnMore = new Button { Text = "More…", Margin = new Padding(3, 3, 3, 3) };
+            ContextMenuStrip moreMenu = new ContextMenuStrip();
+            moreMenu.Items.Add("Open settings folder", null, (sender, e) => OpenSettingsFolder());
+            moreMenu.Items.Add("Export saved settings…", null, (sender, e) => ExportSettings());
+            moreMenu.Items.Add("Import settings…", null, (sender, e) => ImportSettings());
+            moreMenu.Items.Add(new ToolStripSeparator());
+            moreMenu.Items.Add("Reset to defaults…", null, (sender, e) => ResetToDefaults());
+            btnMore.Click += (sender, e) => moreMenu.Show(btnMore, new Point(0, btnMore.Height));
+            toolTip.SetToolTip(btnMore, "Open the settings folder, export or import settings, or reset to defaults.");
             btnLayout.Controls.Add(this.btnSave);
             btnLayout.Controls.Add(this.btnCancel);
             btnLayout.Controls.Add(btnHelp);
+            btnLayout.Controls.Add(btnMore);
             footerLayout.Controls.Add(btnLayout, 1, 0);
 
             // Assemble root
@@ -1093,129 +1103,218 @@ namespace SlingMD.Outlook.Forms
             control.Value = clamped;
         }
 
-        private void LoadSettings()
+        /// <summary>Fills the form from <paramref name="source"/> (the live settings, an import or the defaults).</summary>
+        private void LoadSettings(ObsidianSettings source)
         {
             // General tab
-            txtVaultName.Text = _settings.VaultName;
-            txtVaultPath.Text = _settings.VaultBasePath;
-            chkLaunchObsidian.Checked = _settings.LaunchObsidian;
-            chkShowNoteInExplorer.Checked = _settings.ShowNoteInExplorer;
-            chkCopyNotePathToClipboard.Checked = _settings.CopyNotePathToClipboard;
-            chkShowCountdown.Checked = _settings.ShowCountdown;
-            SetClamped(numDelay, _settings.ObsidianDelaySeconds);
-            txtTemplatesFolder.Text = _settings.TemplatesFolder ?? "Templates";
-            chkIncludeDailyNoteLink.Checked = _settings.IncludeDailyNoteLink;
-            txtDailyNoteLinkFormat.Text = _settings.DailyNoteLinkFormat ?? "[[yyyy-MM-dd]]";
-            txtDailyNoteLinkFormat.Enabled = _settings.IncludeDailyNoteLink;
+            txtVaultName.Text = source.VaultName;
+            txtVaultPath.Text = source.VaultBasePath;
+            chkLaunchObsidian.Checked = source.LaunchObsidian;
+            chkShowNoteInExplorer.Checked = source.ShowNoteInExplorer;
+            chkCopyNotePathToClipboard.Checked = source.CopyNotePathToClipboard;
+            chkShowCountdown.Checked = source.ShowCountdown;
+            SetClamped(numDelay, source.ObsidianDelaySeconds);
+            txtTemplatesFolder.Text = source.TemplatesFolder ?? "Templates";
+            chkIncludeDailyNoteLink.Checked = source.IncludeDailyNoteLink;
+            txtDailyNoteLinkFormat.Text = source.DailyNoteLinkFormat ?? "[[yyyy-MM-dd]]";
+            txtDailyNoteLinkFormat.Enabled = source.IncludeDailyNoteLink;
 
             // Email tab
-            txtInboxFolder.Text = _settings.InboxFolder;
-            chkPromptForFolderOnSling.Checked = _settings.PromptForFolderOnSling;
-            txtNoteTitleFormat.Text = _settings.NoteTitleFormat ?? "{Subject} - {Date}";
-            SetClamped(numNoteTitleMaxLength, _settings.NoteTitleMaxLength > 0 ? _settings.NoteTitleMaxLength : 50);
-            chkNoteTitleIncludeDate.Checked = _settings.NoteTitleIncludeDate;
-            chkFoldQuotedReplies.Checked = _settings.FoldQuotedReplies;
-            txtDefaultNoteTags.Text = string.Join(", ", _settings.DefaultNoteTags ?? new List<string>());
+            txtInboxFolder.Text = source.InboxFolder;
+            chkPromptForFolderOnSling.Checked = source.PromptForFolderOnSling;
+            txtNoteTitleFormat.Text = source.NoteTitleFormat ?? "{Subject} - {Date}";
+            SetClamped(numNoteTitleMaxLength, source.NoteTitleMaxLength > 0 ? source.NoteTitleMaxLength : 50);
+            chkNoteTitleIncludeDate.Checked = source.NoteTitleIncludeDate;
+            chkFoldQuotedReplies.Checked = source.FoldQuotedReplies;
+            txtDefaultNoteTags.Text = string.Join(", ", source.DefaultNoteTags ?? new List<string>());
             lstPatterns.Items.Clear();
-            foreach (string pattern in _settings.SubjectCleanupPatterns)
+            foreach (string pattern in source.SubjectCleanupPatterns)
             {
                 lstPatterns.Items.Add(pattern);
             }
-            txtEmailFilenameFormat.Text = _settings.EmailFilenameFormat ?? string.Empty;
-            txtEmailTemplateFile.Text = _settings.EmailTemplateFile ?? "EmailTemplate.md";
+            txtEmailFilenameFormat.Text = source.EmailFilenameFormat ?? string.Empty;
+            txtEmailTemplateFile.Text = source.EmailTemplateFile ?? "EmailTemplate.md";
 
             // Appointments tab
-            txtAppointmentsFolder.Text = _settings.AppointmentsFolder;
-            txtAppointmentNoteTitleFormat.Text = _settings.AppointmentNoteTitleFormat;
-            SetClamped(numAppointmentTitleMaxLength, _settings.AppointmentNoteTitleMaxLength > 0 ? _settings.AppointmentNoteTitleMaxLength : 50);
-            txtAppointmentDefaultTags.Text = string.Join(", ", _settings.AppointmentDefaultNoteTags ?? new List<string>());
-            chkAppointmentSaveAttachments.Checked = _settings.AppointmentSaveAttachments;
-            chkCreateMeetingNotes.Checked = _settings.CreateMeetingNotes;
-            txtMeetingNoteTemplate.Text = _settings.MeetingNoteTemplateFile ?? "MeetingNoteTemplate.md";
-            chkGroupRecurringMeetings.Checked = _settings.GroupRecurringMeetings;
-            chkSaveCancelledAppointments.Checked = _settings.SaveCancelledAppointments;
-            string apptTaskCreation = _settings.AppointmentTaskCreation ?? "None";
+            txtAppointmentsFolder.Text = source.AppointmentsFolder;
+            txtAppointmentNoteTitleFormat.Text = source.AppointmentNoteTitleFormat;
+            SetClamped(numAppointmentTitleMaxLength, source.AppointmentNoteTitleMaxLength > 0 ? source.AppointmentNoteTitleMaxLength : 50);
+            txtAppointmentDefaultTags.Text = string.Join(", ", source.AppointmentDefaultNoteTags ?? new List<string>());
+            chkAppointmentSaveAttachments.Checked = source.AppointmentSaveAttachments;
+            chkCreateMeetingNotes.Checked = source.CreateMeetingNotes;
+            txtMeetingNoteTemplate.Text = source.MeetingNoteTemplateFile ?? "MeetingNoteTemplate.md";
+            chkGroupRecurringMeetings.Checked = source.GroupRecurringMeetings;
+            chkSaveCancelledAppointments.Checked = source.SaveCancelledAppointments;
+            string apptTaskCreation = source.AppointmentTaskCreation ?? "None";
             int apptTaskIdx = cmbAppointmentTaskCreation.Items.IndexOf(apptTaskCreation);
             cmbAppointmentTaskCreation.SelectedIndex = apptTaskIdx >= 0 ? apptTaskIdx : 0;
-            txtAppointmentTemplateFile.Text = _settings.AppointmentTemplateFile ?? "AppointmentTemplate.md";
+            txtAppointmentTemplateFile.Text = source.AppointmentTemplateFile ?? "AppointmentTemplate.md";
 
             // Contacts tab
-            txtContactsFolder.Text = _settings.ContactsFolder;
-            chkEnableContactSaving.Checked = _settings.EnableContactSaving;
-            txtContactsFolder.Enabled = _settings.EnableContactSaving;
-            chkSearchEntireVaultForContacts.Checked = _settings.SearchEntireVaultForContacts;
-            chkEnableFuzzyMatching.Checked = _settings.EnableContactFuzzyMatching;
-            chkAutoSaveAlias.Checked = _settings.AutoSaveAliasOnMatchConfirmed;
-            txtBulkAmbiguousLogPath.Text = _settings.BulkAmbiguousMatchLogPath ?? "Logs/bulk-ambiguous-matches.md";
-            txtContactFilenameFormat.Text = _settings.ContactFilenameFormat ?? "{ContactName}";
-            txtContactTemplateFile.Text = _settings.ContactTemplateFile ?? "ContactTemplate.md";
-            chkContactNoteIncludeDetails.Checked = _settings.ContactNoteIncludeDetails;
-            List<string> linkFormats = _settings.ContactLinkFormats ?? new List<string>();
+            txtContactsFolder.Text = source.ContactsFolder;
+            chkEnableContactSaving.Checked = source.EnableContactSaving;
+            txtContactsFolder.Enabled = source.EnableContactSaving;
+            chkSearchEntireVaultForContacts.Checked = source.SearchEntireVaultForContacts;
+            chkEnableFuzzyMatching.Checked = source.EnableContactFuzzyMatching;
+            chkAutoSaveAlias.Checked = source.AutoSaveAliasOnMatchConfirmed;
+            txtBulkAmbiguousLogPath.Text = source.BulkAmbiguousMatchLogPath ?? "Logs/bulk-ambiguous-matches.md";
+            txtContactFilenameFormat.Text = source.ContactFilenameFormat ?? "{ContactName}";
+            txtContactTemplateFile.Text = source.ContactTemplateFile ?? "ContactTemplate.md";
+            chkContactNoteIncludeDetails.Checked = source.ContactNoteIncludeDetails;
+            List<string> linkFormats = source.ContactLinkFormats ?? new List<string>();
             if (linkFormats.Count == 0)
             {
                 linkFormats = new List<string> { "[[{FullName}]]", "[[{Email}]]" };
             }
             txtContactLinkFormat.Text = string.Join(Environment.NewLine, linkFormats);
-            txtContactDateFormat.Text = _settings.ContactDateFormat ?? "yyyy-MM-dd";
-            txtEmailDateFormat.Text = _settings.EmailDateFormat ?? ObsidianSettings.DefaultEmailDateFormat;
-            txtAppointmentDateFormat.Text = _settings.AppointmentDateFormat ?? ObsidianSettings.DefaultAppointmentDateFormat;
+            txtContactDateFormat.Text = source.ContactDateFormat ?? "yyyy-MM-dd";
+            txtEmailDateFormat.Text = source.EmailDateFormat ?? ObsidianSettings.DefaultEmailDateFormat;
+            txtAppointmentDateFormat.Text = source.AppointmentDateFormat ?? ObsidianSettings.DefaultAppointmentDateFormat;
 
             // Tasks tab
-            chkCreateObsidianTask.Checked = _settings.CreateObsidianTask;
-            chkCreateOutlookTask.Checked = _settings.CreateOutlookTask;
-            chkAskForDates.Checked = _settings.AskForDates;
-            SetClamped(numDefaultDueDays, _settings.DefaultDueDays);
-            SetClamped(numDefaultReminderDays, _settings.DefaultReminderDays);
-            SetClamped(numDefaultReminderHour, _settings.DefaultReminderHour);
-            chkUseRelativeReminder.Checked = _settings.UseRelativeReminder;
-            txtDefaultTaskTags.Text = string.Join(", ", _settings.DefaultTaskTags ?? new List<string>());
-            txtTaskTemplateFile.Text = _settings.TaskTemplateFile ?? "TaskTemplate.md";
+            chkCreateObsidianTask.Checked = source.CreateObsidianTask;
+            chkCreateOutlookTask.Checked = source.CreateOutlookTask;
+            chkAskForDates.Checked = source.AskForDates;
+            SetClamped(numDefaultDueDays, source.DefaultDueDays);
+            SetClamped(numDefaultReminderDays, source.DefaultReminderDays);
+            SetClamped(numDefaultReminderHour, source.DefaultReminderHour);
+            chkUseRelativeReminder.Checked = source.UseRelativeReminder;
+            txtDefaultTaskTags.Text = string.Join(", ", source.DefaultTaskTags ?? new List<string>());
+            txtTaskTemplateFile.Text = source.TaskTemplateFile ?? "TaskTemplate.md";
 
             // Threading tab
-            chkGroupEmailThreads.Checked = _settings.GroupEmailThreads;
-            chkAlwaysCreateThreadFolder.Checked = _settings.AlwaysCreateThreadFolder;
-            chkAlwaysCreateThreadFolder.Enabled = _settings.GroupEmailThreads;
-            chkMoveDateToFrontInThread.Checked = _settings.MoveDateToFrontInThread;
-            chkMoveDateToFrontInThread.Enabled = _settings.NoteTitleIncludeDate;
-            txtThreadTemplateFile.Text = _settings.ThreadTemplateFile ?? "ThreadNoteTemplate.md";
+            chkGroupEmailThreads.Checked = source.GroupEmailThreads;
+            chkAlwaysCreateThreadFolder.Checked = source.AlwaysCreateThreadFolder;
+            chkAlwaysCreateThreadFolder.Enabled = source.GroupEmailThreads;
+            chkMoveDateToFrontInThread.Checked = source.MoveDateToFrontInThread;
+            chkMoveDateToFrontInThread.Enabled = source.NoteTitleIncludeDate;
+            txtThreadTemplateFile.Text = source.ThreadTemplateFile ?? "ThreadNoteTemplate.md";
 
             // Attachments tab
-            txtAttachmentsFolder.Text = _settings.AttachmentsFolder ?? "Attachments";
-            int storageModeIdx = (int)_settings.AttachmentStorageMode;
+            txtAttachmentsFolder.Text = source.AttachmentsFolder ?? "Attachments";
+            int storageModeIdx = (int)source.AttachmentStorageMode;
             cmbAttachmentStorageMode.SelectedIndex = (storageModeIdx >= 0 && storageModeIdx < cmbAttachmentStorageMode.Items.Count) ? storageModeIdx : 0;
-            txtAttachmentsFolder.Enabled = _settings.AttachmentStorageMode == AttachmentStorageMode.Centralized;
-            chkSaveRealAttachments.Checked = _settings.SaveRealAttachments;
-            chkSaveInlineImages.Checked = _settings.SaveInlineImages;
-            chkSaveAllAttachments.Checked = _settings.SaveAllAttachments;
-            chkUseObsidianWikilinks.Checked = _settings.UseObsidianWikilinks;
-            chkReuseDuplicateAttachments.Checked = _settings.ReuseDuplicateAttachments;
-            chkGroupNoteWithAttachments.Checked = _settings.GroupNoteWithAttachments;
-            chkGroupNoteWithAttachments.Enabled = _settings.AttachmentStorageMode == AttachmentStorageMode.SubfolderPerNote;
+            txtAttachmentsFolder.Enabled = source.AttachmentStorageMode == AttachmentStorageMode.Centralized;
+            chkSaveRealAttachments.Checked = source.SaveRealAttachments;
+            chkSaveInlineImages.Checked = source.SaveInlineImages;
+            chkSaveAllAttachments.Checked = source.SaveAllAttachments;
+            chkUseObsidianWikilinks.Checked = source.UseObsidianWikilinks;
+            chkReuseDuplicateAttachments.Checked = source.ReuseDuplicateAttachments;
+            chkGroupNoteWithAttachments.Checked = source.GroupNoteWithAttachments;
+            chkGroupNoteWithAttachments.Enabled = source.AttachmentStorageMode == AttachmentStorageMode.SubfolderPerNote;
 
             // Developer tab
-            chkShowDevelopmentSettings.Checked = _settings.ShowDevelopmentSettings;
-            chkShowThreadDebug.Checked = _settings.ShowThreadDebug;
+            chkShowDevelopmentSettings.Checked = source.ShowDevelopmentSettings;
+            chkShowThreadDebug.Checked = source.ShowThreadDebug;
             grpDevelopment.Visible = true;
-            chkShowThreadDebug.Visible = _settings.ShowDevelopmentSettings;
+            chkShowThreadDebug.Visible = source.ShowDevelopmentSettings;
 
             // Auto-Sling tab
-            chkEnableAutoSling.Checked = _settings.EnableAutoSling;
-            int notifIdx = cmbNotificationMode.Items.IndexOf(_settings.AutoSlingNotificationMode ?? "Toast");
+            chkEnableAutoSling.Checked = source.EnableAutoSling;
+            int notifIdx = cmbNotificationMode.Items.IndexOf(source.AutoSlingNotificationMode ?? "Toast");
             cmbNotificationMode.SelectedIndex = notifIdx >= 0 ? notifIdx : 0;
-            chkEnableFlagToSling.Checked = _settings.EnableFlagToSling;
-            txtSentToObsidianCategory.Text = _settings.SentToObsidianCategory ?? "Sent to Obsidian";
+            chkEnableFlagToSling.Checked = source.EnableFlagToSling;
+            txtSentToObsidianCategory.Text = source.SentToObsidianCategory ?? "Sent to Obsidian";
 
             dgvAutoSlingRules.Rows.Clear();
-            foreach (AutoSlingRule rule in _settings.AutoSlingRules ?? new List<AutoSlingRule>())
+            foreach (AutoSlingRule rule in source.AutoSlingRules ?? new List<AutoSlingRule>())
             {
                 dgvAutoSlingRules.Rows.Add(rule.Type, rule.Pattern, rule.Enabled);
             }
 
             dgvWatchedFolders.Rows.Clear();
-            foreach (WatchedFolder folder in _settings.WatchedFolders ?? new List<WatchedFolder>())
+            foreach (WatchedFolder folder in source.WatchedFolders ?? new List<WatchedFolder>())
             {
                 dgvWatchedFolders.Rows.Add(folder.FolderPath, folder.CustomTemplate, folder.Enabled);
             }
+        }
+
+        private void OpenSettingsFolder()
+        {
+            string folder = System.IO.Path.GetDirectoryName(_settings.GetSettingsFilePath());
+            try
+            {
+                System.IO.Directory.CreateDirectory(folder);
+                System.Diagnostics.Process.Start("explorer.exe", "\"" + folder + "\"");
+            }
+            catch (System.Exception ex) when (ex is System.IO.IOException || ex is UnauthorizedAccessException || ex is System.ComponentModel.Win32Exception)
+            {
+                MessageBox.Show($"Could not open {folder}: {ex.Message}", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void ExportSettings()
+        {
+            using (SaveFileDialog dialog = new SaveFileDialog())
+            {
+                dialog.Title = "Export SlingMD settings";
+                dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*";
+                dialog.FileName = "SlingMD-settings.json";
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                try
+                {
+                    System.IO.File.WriteAllText(dialog.FileName, _settings.ToJson(), new System.Text.UTF8Encoding(false));
+                    MessageBox.Show(
+                        "Exported your saved settings to:" + Environment.NewLine + dialog.FileName
+                            + Environment.NewLine + Environment.NewLine + "Unsaved changes in this window are not included.",
+                        "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (System.Exception ex) when (ex is System.IO.IOException || ex is UnauthorizedAccessException)
+                {
+                    MessageBox.Show($"Could not export settings: {ex.Message}", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+        }
+
+        private void ImportSettings()
+        {
+            using (OpenFileDialog dialog = new OpenFileDialog())
+            {
+                dialog.Title = "Import SlingMD settings";
+                dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*";
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                try
+                {
+                    LoadSettings(ObsidianSettings.FromJson(System.IO.File.ReadAllText(dialog.FileName)));
+                    MessageBox.Show("Settings imported into this window. Review them and click Save to keep them.",
+                        "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Newtonsoft.Json.JsonException ex)
+                {
+                    MessageBox.Show($"That file isn't a SlingMD settings file: {ex.Message}", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                catch (System.Exception ex) when (ex is System.IO.IOException || ex is UnauthorizedAccessException)
+                {
+                    MessageBox.Show($"Could not read {dialog.FileName}: {ex.Message}", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+        }
+
+        private void ResetToDefaults()
+        {
+            DialogResult confirm = MessageBox.Show(
+                "Reset every setting in this window to its default? Your vault name and path are kept."
+                    + Environment.NewLine + Environment.NewLine + "Nothing changes until you click Save.",
+                "SlingMD", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
+            if (confirm != DialogResult.OK)
+            {
+                return;
+            }
+
+            ObsidianSettings defaults = new ObsidianSettings
+            {
+                VaultName = txtVaultName.Text,
+                VaultBasePath = txtVaultPath.Text
+            };
+            LoadSettings(defaults);
         }
 
         private void btnBrowse_Click(object sender, EventArgs e)

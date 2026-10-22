@@ -684,6 +684,34 @@ namespace SlingMD.Outlook.Models
             NormalizeLoadedSettings();
         }
 
+        /// <summary>Full path of the JSON file settings are saved to.</summary>
+        public string GetSettingsFilePath()
+        {
+            return GetSettingsPath();
+        }
+
+        /// <summary>Serializes these settings as the indented JSON <see cref="Save"/> writes.</summary>
+        public string ToJson()
+        {
+            return JsonConvert.SerializeObject(this, Formatting.Indented);
+        }
+
+        /// <summary>
+        /// Reads settings exported with <see cref="ToJson"/> (or a copy of the settings file) on top of the
+        /// defaults, applying the same clean-up as <see cref="Load"/>. Unknown or invalid fields are skipped.
+        /// </summary>
+        /// <exception cref="JsonException">The text isn't a JSON object.</exception>
+        public static ObsidianSettings FromJson(string json)
+        {
+            // PopulateObject below tolerates bad fields, so reject text that isn't a JSON object up front.
+            Newtonsoft.Json.Linq.JObject.Parse(json ?? string.Empty);
+
+            ObsidianSettings settings = new ObsidianSettings();
+            JsonConvert.PopulateObject(json, settings, CreateJsonSerializerSettings());
+            settings.NormalizeLoadedSettings();
+            return settings;
+        }
+
         private static JsonSerializerSettings CreateJsonSerializerSettings()
         {
             return new JsonSerializerSettings

@@ -833,10 +833,12 @@ namespace SlingMD.Outlook
                 ConversationId = mail.ConversationID ?? string.Empty,
                 Subject = mail.Subject ?? string.Empty,
                 SenderName = mail.SenderName ?? string.Empty,
-                SenderEmail = mail.SenderEmailAddress ?? string.Empty,
+                SenderEmail = SmtpAddressResolver.ForSender(mail) ?? string.Empty,
                 SentOn = mail.SentOn,
                 ReceivedTime = mail.ReceivedTime,
-                Body = mail.Body ?? string.Empty
+                // Same Markdown conversion as notes, so headings, lists and links survive the paste.
+                Body = ClipboardEmailService.ReplaceInlineImageReferences(
+                    SlingMD.Outlook.Services.Formatting.HtmlToMarkdownConverter.Convert(mail.HTMLBody, mail.Body))
             };
 
             Recipients recipients = null;
@@ -847,9 +849,10 @@ namespace SlingMD.Outlook
                 {
                     try
                     {
-                        string display = string.IsNullOrWhiteSpace(recipient.Address)
+                        string address = SmtpAddressResolver.ForRecipient(recipient);
+                        string display = string.IsNullOrWhiteSpace(address)
                             ? recipient.Name
-                            : $"{recipient.Name} <{recipient.Address}>";
+                            : $"{recipient.Name} <{address}>";
                         if (recipient.Type == (int)OlMailRecipientType.olCC)
                         {
                             snapshot.Cc.Add(display);
@@ -1024,36 +1027,69 @@ namespace SlingMD.Outlook
 
         public void SlingAllContacts()
         {
+            if (!TryBeginOperation())
+            {
+                return;
+            }
+
             int saved = 0;
             int skipped = 0;
             int errors = 0;
+            bool cancelled = false;
 
             MAPIFolder contactsFolder = null;
             NameSpace session = null;
+            Items items = null;
             try
             {
-                try
+                session = Application.Session;
+                contactsFolder = session.GetDefaultFolder(OlDefaultFolders.olFolderContacts);
+                items = contactsFolder.Items;
+                int total = items.Count;
+                if (total == 0)
                 {
-                    session = Application.Session;
-                    contactsFolder = session.GetDefaultFolder(OlDefaultFolders.olFolderContacts);
-                    _contactProcessor.ProcessAddressBook(contactsFolder, out saved, out skipped, out errors);
+                    MessageBox.Show("Your Outlook contacts folder is empty.", "Sling All Contacts", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
                 }
-                finally
+
+                DialogResult confirm = MessageBox.Show(
+                    $"Export {total} item{(total == 1 ? string.Empty : "s")} from your Outlook contacts to {_settings.GetContactsPath()}?\n\n"
+                        + "Contacts that already have a note are skipped.",
+                    "Sling All Contacts",
+                    MessageBoxButtons.OKCancel,
+                    MessageBoxIcon.Question);
+                if (confirm != DialogResult.OK)
                 {
-                    if (session != null)
+                    return;
+                }
+
+                using (BatchProgressForm progress = new BatchProgressForm("SlingMD - Sling All Contacts", total))
+                {
+                    progress.Show();
+                    _contactProcessor.ProcessAddressBook(contactsFolder, out saved, out skipped, out errors, (index, count) =>
                     {
-                        System.Runtime.InteropServices.Marshal.ReleaseComObject(session);
-                    }
-                    if (contactsFolder != null)
-                    {
-                        System.Runtime.InteropServices.Marshal.ReleaseComObject(contactsFolder);
-                    }
+                        // The export runs on the UI thread; let the window repaint and Cancel be clicked.
+                        // Re-entry is blocked by TryBeginOperation.
+                        System.Windows.Forms.Application.DoEvents();
+                        if (progress.CancelRequested)
+                        {
+                            cancelled = true;
+                            return false;
+                        }
+
+                        progress.ShowItem(index, string.Empty);
+                        return true;
+                    });
                 }
 
                 System.Collections.Generic.List<string> bulkErrors = _contactProcessor.GetBulkErrors();
                 string summary = string.Format(
                     "Saved {0} contacts.\nSkipped: {1} (already exist or not a contact)\nErrors: {2}",
                     saved, skipped, errors);
+                if (cancelled)
+                {
+                    summary += "\n\nCancelled before the end of the address book.";
+                }
 
                 if (bulkErrors.Count > 0)
                 {
@@ -1064,7 +1100,7 @@ namespace SlingMD.Outlook
                     summary,
                     "Sling All Contacts",
                     MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
+                    bulkErrors.Count > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
 
                 if (_settings.LaunchObsidian && saved > 0)
                 {
@@ -1078,6 +1114,13 @@ namespace SlingMD.Outlook
                     "Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
+            }
+            finally
+            {
+                if (items != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(items);
+                if (contactsFolder != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(contactsFolder);
+                if (session != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(session);
+                EndOperation();
             }
         }
 
