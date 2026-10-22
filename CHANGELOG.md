@@ -43,6 +43,12 @@ All notable changes to SlingMD are documented in this file.
 - **Copy note path to clipboard** (General tab, **on** by default) — after a manual sling the saved
   note's full path is on the clipboard.
 
+#### Ribbon and right-click
+- **Right-click to sling.** Emails, appointments and contacts have a *Sling with SlingMD* entry in
+  their right-click menu; with several emails selected it runs Sling Multiple.
+- **The Sling button names what it will do** — *Sling Email*, *Sling Appointment*, *Sling Contact*
+  or *Sling Selected*. The label code existed but was never connected to the button.
+
 #### Feedback
 - **Toasts no longer steal focus.** They stack instead of overlapping, grow to fit long messages,
   pause while the mouse is over them and close when clicked. Copy Email confirms with a toast

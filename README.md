@@ -89,7 +89,7 @@ Editing the codebase (reading, searching, and modifying files) can happen in any
 
 1. Open Microsoft Outlook
 2. Select any email you want to save to Obsidian
-3. In the Outlook ribbon menu, locate and click the "Sling" button from the Sling Ribbon
+3. In the Outlook ribbon menu, locate and click the "Sling" button from the Sling Ribbon (it reads *Sling Email*, *Sling Appointment* or *Sling Contact* depending on what's selected), or right-click the item and choose **Sling with SlingMD**
 4. The email will be converted to Markdown format and saved to your configured Obsidian vault
 5. If enabled, follow-up tasks will be created in Obsidian and/or Outlook
 

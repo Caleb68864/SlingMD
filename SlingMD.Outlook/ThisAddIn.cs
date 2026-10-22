@@ -224,6 +224,8 @@ namespace SlingMD.Outlook
                     return "Sling";
                 }
 
+                if (selection.Count > 1) return "Sling Selected";
+
                 selected = selection[1];
                 if (selected is MailItem) return "Sling Email";
                 if (selected is AppointmentItem) return "Sling Appointment";
