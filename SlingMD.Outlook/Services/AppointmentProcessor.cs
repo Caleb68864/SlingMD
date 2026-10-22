@@ -898,10 +898,10 @@ namespace SlingMD.Outlook.Services
                     { "date", date }
                 };
 
-                List<string> noteTags = _settings.AppointmentDefaultNoteTags;
-                if (noteTags != null && noteTags.Count > 0)
+                List<string> noteTags = TagNormalizer.Normalize(_settings.AppointmentDefaultNoteTags);
+                if (noteTags.Count > 0)
                 {
-                    meetingMetadata.Add("tags", new List<string>(noteTags));
+                    meetingMetadata.Add("tags", noteTags);
                 }
 
                 MeetingNoteTemplateContext context = new MeetingNoteTemplateContext
@@ -957,7 +957,7 @@ namespace SlingMD.Outlook.Services
                 { "location", location ?? string.Empty },
                 { "startDateTime", _dateFormatter.FormatOrDefault(startTime, _settings.AppointmentDateFormat, _dateFormatter.Format(startTime, ObsidianSettings.DefaultAppointmentDateFormat)) },
                 { "endDateTime", _dateFormatter.FormatOrDefault(endTime, _settings.AppointmentDateFormat, _dateFormatter.Format(endTime, ObsidianSettings.DefaultAppointmentDateFormat)) },
-                { "recurrence", recurrenceState.ToString() },
+                { "recurrence", DescribeRecurrence(recurrenceState) },
                 { "globalAppointmentId", globalAppointmentId ?? string.Empty }
             };
 
@@ -995,17 +995,71 @@ namespace SlingMD.Outlook.Services
             {
                 string dailyLinkFormat = _settings.DailyNoteLinkFormat ?? "[[yyyy-MM-dd]]";
                 string innerFormat = dailyLinkFormat.Replace("[[", string.Empty).Replace("]]", string.Empty);
-                string dailyNoteLink = startTime.ToString(innerFormat);
+                // A malformed user format falls back to the default instead of aborting the export
+                // (matches the email path).
+                string dailyNoteLink = _dateFormatter.FormatOrDefault(startTime, innerFormat, _dateFormatter.Format(startTime, "yyyy-MM-dd"));
                 metadata.Add("dailyNoteLink", "[[" + dailyNoteLink + "]]");
             }
 
-            List<string> noteTags = _settings.AppointmentDefaultNoteTags;
-            if (noteTags != null && noteTags.Count > 0)
+            List<string> noteTags = TagNormalizer.Normalize(_settings.AppointmentDefaultNoteTags);
+            if (noteTags.Count > 0)
             {
-                metadata.Add("tags", new List<string>(noteTags));
+                metadata.Add("tags", noteTags);
             }
 
             return metadata;
+        }
+
+        /// <summary>
+        /// Readable recurrence value for the note ("None", "Series", "Occurrence", "Exception") instead of
+        /// Outlook's enum name (e.g. "olApptNotRecurring").
+        /// </summary>
+        internal static string DescribeRecurrence(OlRecurrenceState recurrenceState)
+        {
+            switch (recurrenceState)
+            {
+                case OlRecurrenceState.olApptMaster:
+                    return "Series";
+                case OlRecurrenceState.olApptOccurrence:
+                    return "Occurrence";
+                case OlRecurrenceState.olApptException:
+                    return "Exception";
+                default:
+                    return "None";
+            }
+        }
+
+        /// <summary>
+        /// Whether the user has put an appointment template in the templates folder (or set an absolute
+        /// path to one). Without one, notes keep the built-in layout.
+        /// </summary>
+        private bool HasCustomAppointmentTemplate()
+        {
+            string templateFile = _settings.AppointmentTemplateFile;
+            if (string.IsNullOrWhiteSpace(templateFile))
+            {
+                return false;
+            }
+
+            try
+            {
+                string path = Path.IsPathRooted(templateFile)
+                    ? templateFile
+                    : Path.Combine(_settings.GetTemplatesPath(), templateFile);
+                return File.Exists(path);
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+        }
+
+        private static string JoinMetadataList(Dictionary<string, object> metadata, string key)
+        {
+            object value;
+            return metadata.TryGetValue(key, out value) && value is IEnumerable<string> list
+                ? string.Join(", ", list)
+                : string.Empty;
         }
 
         private string BuildAppointmentNoteContent(
@@ -1023,6 +1077,32 @@ namespace SlingMD.Outlook.Services
             string fileNameNoExt,
             string taskBlock = "")
         {
+            // The Appointment Template File setting used to be ignored here. Honor it when the user has
+            // provided a template, so the built-in layout is unchanged for everyone else.
+            if (HasCustomAppointmentTemplate())
+            {
+                return _templateService.RenderAppointmentContent(new AppointmentTemplateContext
+                {
+                    Metadata = metadata,
+                    NoteTitle = noteTitle,
+                    Subject = subjectClean,
+                    Organizer = string.IsNullOrWhiteSpace(organizerName) ? string.Empty : FormatPersonLink(organizerName),
+                    OrganizerEmail = organizerEmail ?? string.Empty,
+                    Attendees = JoinMetadataList(metadata, "attendees"),
+                    OptionalAttendees = JoinMetadataList(metadata, "optionalAttendees"),
+                    Resources = JoinMetadataList(metadata, "resources"),
+                    Location = location ?? string.Empty,
+                    StartDateTime = metadata["startDateTime"] as string,
+                    EndDateTime = metadata["endDateTime"] as string,
+                    Recurrence = metadata["recurrence"] as string,
+                    Date = dateStr,
+                    Body = (body ?? string.Empty).Trim(),
+                    TaskBlock = taskBlock ?? string.Empty,
+                    FileName = fileNameNoExt + ".md",
+                    FileNameWithoutExtension = fileNameNoExt
+                });
+            }
+
             string frontMatter = _templateService.BuildFrontMatter(metadata);
 
             StringBuilder content = new StringBuilder();

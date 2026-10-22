@@ -121,6 +121,7 @@
     <Compile Include="Services\Formatting\LegacyFilenameStripperTests.cs" />
     <Compile Include="Services\Formatting\PathLengthBudgetTests.cs" />
     <Compile Include="Services\Formatting\QuotedReplyFolderTests.cs" />
+    <Compile Include="Services\Formatting\TagNormalizerTests.cs" />
     <Compile Include="Services\Formatting\TemplatePathResolverTests.cs" />
     <Compile Include="Services\Formatting\UniqueFilenameResolverTests.cs" />
     <Compile Include="Services\ReminderDueDateCalculatorTests.cs" />

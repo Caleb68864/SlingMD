@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Office.Interop.Outlook;
 using SlingMD.Outlook.Infrastructure;
@@ -380,7 +381,7 @@ namespace SlingMD.Outlook.Services
 
                 string contentId = saved.ContentId.Trim().Trim('<', '>');
                 string target = BuildAttachmentLinkTarget(saved.FullPath, noteFilePath);
-                string escapedTarget = Uri.EscapeUriString(target).Replace("#", "%23");
+                string escapedTarget = EscapeLinkTarget(target);
                 string pattern = @"!\[([^\]]*)\]\(cid:" + Regex.Escape(contentId) + @"\)";
                 content = Regex.Replace(content, pattern, match =>
                     _settings.UseObsidianWikilinks
@@ -542,8 +543,9 @@ namespace SlingMD.Outlook.Services
             }
             else
             {
-                // Standard markdown format
-                return isImage ? $"![{filename}]({filename})" : $"[{filename}]({filename})";
+                // Standard markdown format; spaces and # in the target would break the link.
+                string target = EscapeLinkTarget(filename);
+                return isImage ? $"![{filename}]({target})" : $"[{filename}]({target})";
             }
         }
 
@@ -569,10 +571,58 @@ namespace SlingMD.Outlook.Services
             else
             {
                 string displayName = Path.GetFileName(attachmentFullPath) ?? linkTarget;
+                string escapedTarget = EscapeLinkTarget(linkTarget);
                 return isImage
-                    ? $"![{displayName}]({linkTarget})"
-                    : $"[{displayName}]({linkTarget})";
+                    ? $"![{displayName}]({escapedTarget})"
+                    : $"[{displayName}]({escapedTarget})";
             }
+        }
+
+        /// <summary>URL-escapes a Markdown link target the way inline image links are written.</summary>
+        internal static string EscapeLinkTarget(string target)
+        {
+            return Uri.EscapeUriString(target ?? string.Empty).Replace("#", "%23");
+        }
+
+        /// <summary>
+        /// Builds the "## Attachments" list appended to an email note: one bullet per saved file,
+        /// leaving out inline images the body already shows (signature logos, pasted pictures).
+        /// Returns an empty string when nothing is left to list.
+        /// </summary>
+        /// <param name="info">What was saved for the email.</param>
+        /// <param name="noteFilePath">The note the links are relative to.</param>
+        /// <param name="noteContent">The note's content after <see cref="ResolveInlineImageLinks"/>.</param>
+        internal string BuildAttachmentSection(AttachmentInfo info, string noteFilePath, string noteContent)
+        {
+            if (info == null)
+            {
+                return string.Empty;
+            }
+
+            StringBuilder section = new StringBuilder();
+            foreach (SavedAttachment saved in info.SavedAttachments)
+            {
+                if (saved.IsInline && IsShownInBody(saved, noteFilePath, noteContent))
+                {
+                    continue;
+                }
+
+                section.Append("- ").Append(GenerateWikilink(saved.FullPath, noteFilePath, false)).Append('\n');
+            }
+
+            return section.Length == 0 ? string.Empty : "\n\n## Attachments\n\n" + section;
+        }
+
+        private bool IsShownInBody(SavedAttachment saved, string noteFilePath, string noteContent)
+        {
+            if (string.IsNullOrEmpty(noteContent))
+            {
+                return false;
+            }
+
+            string target = BuildAttachmentLinkTarget(saved.FullPath, noteFilePath);
+            return noteContent.Contains("![[" + target + "]]")
+                || noteContent.Contains("](" + EscapeLinkTarget(target) + ")");
         }
 
         /// <summary>

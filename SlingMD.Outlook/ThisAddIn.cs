@@ -224,6 +224,8 @@ namespace SlingMD.Outlook
                     return "Sling";
                 }
 
+                if (selection.Count > 1) return "Sling Selected";
+
                 selected = selection[1];
                 if (selected is MailItem) return "Sling Email";
                 if (selected is AppointmentItem) return "Sling Appointment";
@@ -690,7 +692,7 @@ namespace SlingMD.Outlook
 
                 string scope = includeThreads ? "thread email" : "selected email";
                 string noun = snapshots.Count == 1 ? scope : scope + "s";
-                MessageBox.Show($"Copied {snapshots.Count} {noun} to the clipboard.", "SlingMD", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ToastForm.ShowToast($"SlingMD: copied {snapshots.Count} {noun} to the clipboard.");
             }
             catch (System.Exception ex)
             {
@@ -737,11 +739,7 @@ namespace SlingMD.Outlook
                 }
 
                 File.WriteAllText(dialog.FileName, content ?? string.Empty, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-                MessageBox.Show(
-                    $"Saved {emailCount} email{(emailCount == 1 ? string.Empty : "s")} to:{Environment.NewLine}{dialog.FileName}",
-                    "SlingMD",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
+                ToastForm.ShowToast($"SlingMD: saved {emailCount} email{(emailCount == 1 ? string.Empty : "s")} to {dialog.FileName}");
                 return true;
             }
         }

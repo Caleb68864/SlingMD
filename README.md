@@ -89,7 +89,7 @@ Editing the codebase (reading, searching, and modifying files) can happen in any
 
 1. Open Microsoft Outlook
 2. Select any email you want to save to Obsidian
-3. In the Outlook ribbon menu, locate and click the "Sling" button from the Sling Ribbon
+3. In the Outlook ribbon menu, locate and click the "Sling" button from the Sling Ribbon (it reads *Sling Email*, *Sling Appointment* or *Sling Contact* depending on what's selected), or right-click the item and choose **Sling with SlingMD**
 4. The email will be converted to Markdown format and saved to your configured Obsidian vault
 5. If enabled, follow-up tasks will be created in Obsidian and/or Outlook
 
@@ -123,7 +123,7 @@ Before using SlingMD, you'll need to configure your Obsidian vault settings:
    - **Search Entire Vault For Contacts**: When enabled, SlingMD will look outside the contacts folder before creating a new contact note
    - **Note Title Format / Max Length / Include Date**: Fine-tune how note titles are constructed
    - **Move Date To Front In Thread**: When grouping emails, place the date at the beginning of the filename
-   - **Default Note Tags / Task Tags**: Tags automatically assigned to new notes or tasks
+   - **Default Note Tags / Task Tags**: Tags automatically assigned to new notes or tasks (new installs: `email` on notes, `FollowUp` on the task line). Tags are cleaned up for Obsidian — a leading `#` is removed and spaces become `-`
    - **Templates Folder / Template Files**: Point SlingMD at Dataview-friendly templates for email notes, contact notes, inline task lines, and thread summaries (task templates customize the inline task line only)
    - **Email / Contact Filename Format**: Optional filename formats using tokens like `{Subject}`, `{Sender}`, `{Timestamp}`, `{ContactName}`, and `{ContactShortName}`
    - **Show Development Settings**: Reveals additional debug options in the settings dialog
@@ -307,7 +307,7 @@ Every note template supports `{{frontmatter}}` (the YAML properties block). Each
 **Email templates** (`EmailTemplate.md`, default `{{frontmatter}}{{taskBlock}}{{body}}`):
 `{{body}}`, `{{taskBlock}}`, `{{subject}}`, `{{noteTitle}}`, `{{senderName}}`, `{{senderShortName}}`, `{{senderEmail}}`, `{{from}}`, `{{fromEmail}}`, `{{to}}`, `{{toEmail}}`, `{{cc}}`, `{{ccEmail}}`, `{{date}}`, `{{timestamp}}`, `{{dailyNoteLink}}`, `{{threadNote}}`, `{{threadId}}`, `{{internetMessageId}}`, `{{entryId}}`, `{{tags}}`, `{{fileName}}`, `{{fileNameNoExt}}`
 
-**Appointment templates:**
+**Appointment templates** (used when the file exists in your Templates folder; otherwise SlingMD uses its built-in layout). Label lines such as `**Optional:**` are dropped when their value is empty:
 `{{body}}`, `{{taskBlock}}`, `{{subject}}`, `{{noteTitle}}`, `{{organizer}}`, `{{organizerEmail}}`, `{{attendees}}`, `{{optionalAttendees}}`, `{{resources}}`, `{{location}}`, `{{startDateTime}}`, `{{endDateTime}}`, `{{date}}`, `{{recurrence}}`, `{{meetingNotes}}`, `{{dailyNoteLink}}`, `{{globalAppointmentId}}`, `{{tags}}`, `{{fileName}}`, `{{fileNameNoExt}}`
 
 **Meeting note templates:**

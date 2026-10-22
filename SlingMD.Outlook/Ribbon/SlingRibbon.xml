@@ -5,10 +5,11 @@
       <tab id="SlingTab" label="Sling">
         <group id="SlingGroup" label="Sling">
           <button id="SlingButton"
-                  label="Sling"
+                  getLabel="GetSlingButtonLabel"
                   size="large"
                   onAction="OnSlingButtonClick"
-                  getImage="GetSlingButtonImage" />
+                  getImage="GetSlingButtonImage"
+                  supertip="Save the selected email, appointment or contact as a Markdown note. With several emails selected, slings them all." />
           <button id="SlingMultipleButton"
                   label="Sling Multiple"
                   size="large"
@@ -65,4 +66,18 @@
       </tab>
     </tabs>
   </ribbon>
+  <contextMenus>
+    <contextMenu idMso="ContextMenuMailItem">
+      <button id="ContextSlingMailButton" label="Sling with SlingMD" getImage="GetSlingButtonImage" onAction="OnSlingButtonClick" />
+    </contextMenu>
+    <contextMenu idMso="ContextMenuMultipleItems">
+      <button id="ContextSlingMultipleButton" label="Sling with SlingMD" getImage="GetSlingButtonImage" onAction="OnSlingMultipleClick" />
+    </contextMenu>
+    <contextMenu idMso="ContextMenuCalendarItem">
+      <button id="ContextSlingAppointmentButton" label="Sling with SlingMD" getImage="GetSlingButtonImage" onAction="OnSlingButtonClick" />
+    </contextMenu>
+    <contextMenu idMso="ContextMenuContactItem">
+      <button id="ContextSlingContactButton" label="Sling with SlingMD" getImage="GetSlingButtonImage" onAction="OnSlingButtonClick" />
+    </contextMenu>
+  </contextMenus>
 </customUI>

@@ -516,5 +516,40 @@ namespace SlingMD.Tests.Services
                 Directory.Delete(root, true);
             }
         }
+
+        [Fact]
+        public void GenerateWikilink_MarkdownLinks_EscapeSpacesInTarget()
+        {
+            AttachmentService service = BuildService(AttachmentStorageMode.SameAsNote, useWikilinks: false);
+
+            string link = service.GenerateWikilink(@"C:\Vault\MyVault\Inbox\Q3 Report #2.pdf", @"C:\Vault\MyVault\Inbox\email.md", isImage: false);
+
+            Assert.Equal("[Q3 Report #2.pdf](Q3%20Report%20%232.pdf)", link);
+        }
+
+        [Fact]
+        public void BuildAttachmentSection_ListsFilesAsBulletsAndSkipsInlineImagesShownInBody()
+        {
+            AttachmentService service = BuildService(AttachmentStorageMode.SameAsNote);
+            string noteFile = @"C:\Vault\MyVault\Inbox\email.md";
+            AttachmentInfo info = new AttachmentInfo();
+            info.SavedAttachments.Add(new SavedAttachment { FullPath = @"C:\Vault\MyVault\Inbox\report.pdf" });
+            info.SavedAttachments.Add(new SavedAttachment { FullPath = @"C:\Vault\MyVault\Inbox\logo.png", IsInline = true });
+            info.SavedAttachments.Add(new SavedAttachment { FullPath = @"C:\Vault\MyVault\Inbox\unused.png", IsInline = true });
+
+            string section = service.BuildAttachmentSection(info, noteFile, "Hello\n\n![[logo.png]]\n");
+
+            Assert.Equal("\n\n## Attachments\n\n- [[report.pdf]]\n- [[unused.png]]\n", section);
+        }
+
+        [Fact]
+        public void BuildAttachmentSection_OnlyInlineImagesShown_ReturnsEmpty()
+        {
+            AttachmentService service = BuildService(AttachmentStorageMode.SameAsNote);
+            AttachmentInfo info = new AttachmentInfo();
+            info.SavedAttachments.Add(new SavedAttachment { FullPath = @"C:\Vault\MyVault\Inbox\logo.png", IsInline = true });
+
+            Assert.Equal(string.Empty, service.BuildAttachmentSection(info, @"C:\Vault\MyVault\Inbox\email.md", "![[logo.png]]"));
+        }
     }
 }

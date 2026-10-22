@@ -43,7 +43,16 @@ All notable changes to SlingMD are documented in this file.
 - **Copy note path to clipboard** (General tab, **on** by default) — after a manual sling the saved
   note's full path is on the clipboard.
 
+#### Ribbon and right-click
+- **Right-click to sling.** Emails, appointments and contacts have a *Sling with SlingMD* entry in
+  their right-click menu; with several emails selected it runs Sling Multiple.
+- **The Sling button names what it will do** — *Sling Email*, *Sling Appointment*, *Sling Contact*
+  or *Sling Selected*. The label code existed but was never connected to the button.
+
 #### Feedback
+- **Toasts no longer steal focus.** They stack instead of overlapping, grow to fit long messages,
+  pause while the mouse is over them and close when clicked. Copy Email confirms with a toast
+  instead of a dialog you had to dismiss before pasting.
 - **Batch progress with Cancel.** Sling Multiple and Complete Thread show one progress window
   ("Slinging 3 of 25") with a Cancel button, and the summary separates emails already in the vault
   from failures, listing each failure with its error.
@@ -55,6 +64,11 @@ All notable changes to SlingMD are documented in this file.
   Obsidian is off.
 
 ### Changed
+- **New installs tag email notes `email` instead of `FollowUp`.** The follow-up tag stays on the
+  task line, so `#FollowUp` again means "has a follow-up task". Existing installs keep their saved
+  tags.
+- **Tags are cleaned up for Obsidian.** A leading `#` is removed, spaces become `-`, and characters
+  Obsidian doesn't allow in tags are dropped, so `Follow Up` or `#x` no longer produce broken tags.
 - **New installs write ISO 8601 dates** (`2026-04-22T14:05:30`) so Obsidian Properties and
   Dataview read them as dates. Existing installs keep their saved date formats; change *Email Date
   Format* / *Appointment Date Format* to switch.
@@ -90,6 +104,18 @@ All notable changes to SlingMD are documented in this file.
   correctly when the Inbox isn't the vault root.
 
 ### Fixed
+- **Attachment links work with standard Markdown links.** With *Use Obsidian wikilinks* off, a file
+  like `Q3 Report.pdf` produced a broken link; targets are now escaped.
+- **The attachments list is tidier.** It's a bulleted list, and inline images already shown in the
+  body (signature logos, pasted pictures) are no longer repeated there.
+- **The Appointment Template File setting now works.** Appointment notes were always built from a
+  fixed layout, so a custom template was ignored. It's now used whenever the file exists in your
+  Templates folder; without one, notes look the same as before. Label lines left empty (e.g.
+  `**Optional:**` with no optional attendees) are dropped.
+- **Appointment recurrence reads `None`, `Series`, `Occurrence` or `Exception`** instead of Outlook's
+  internal names like `olApptNotRecurring`.
+- **A malformed daily-note link format no longer aborts an appointment export**; it falls back to
+  `yyyy-MM-dd`, as emails already did.
 - **Subjects with " - " no longer lose the separator.** A former default subject-cleanup pattern
   (`[-_\s]{2,}`) removed it and fused the words on either side ("Renewal Meeting - BOT DOC" became
   "Renewal MeetingBOT DOC"). It's removed from existing settings automatically on load.

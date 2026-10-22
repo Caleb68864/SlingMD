@@ -122,7 +122,20 @@ namespace SlingMD.Outlook.Ribbon
 </customUI>";
             }
 
-            return GetResourceText("SlingMD.Outlook.Ribbon.SlingRibbon.xml");
+            string ribbonXml = GetResourceText("SlingMD.Outlook.Ribbon.SlingRibbon.xml");
+
+            // Outlook only accepts right-click menus in the main window's ribbon; other window types
+            // get the same tab without them.
+            if (ribbonID != "Microsoft.Outlook.Explorer" && ribbonXml != null)
+            {
+                ribbonXml = System.Text.RegularExpressions.Regex.Replace(
+                    ribbonXml,
+                    @"\s*<contextMenus>.*?</contextMenus>",
+                    string.Empty,
+                    System.Text.RegularExpressions.RegexOptions.Singleline);
+            }
+
+            return ribbonXml;
         }
 
         public void Ribbon_Load(Office.IRibbonUI ribbonUI)

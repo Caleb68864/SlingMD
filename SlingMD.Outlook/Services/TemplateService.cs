@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using SlingMD.Outlook.Models;
 
 namespace SlingMD.Outlook.Services
@@ -434,8 +435,11 @@ namespace SlingMD.Outlook.Services
             AddReplacement(replacements, "fileName", context.FileName);
             AddReplacement(replacements, "fileNameNoExt", context.FileNameWithoutExtension);
 
-            return ProcessTemplate(templateContent, replacements);
+            // Drop label lines left empty, e.g. "**Optional:**" for a meeting without optional attendees.
+            return EmptyLabelLineRegex.Replace(ProcessTemplate(templateContent, replacements), string.Empty);
         }
+
+        private static readonly Regex EmptyLabelLineRegex = new Regex(@"^\*\*[^*\r\n]+:\*\*[ \t]*(?:\r?\n|$)", RegexOptions.Multiline);
 
         public string RenderMeetingNoteContent(MeetingNoteTemplateContext context)
         {

@@ -147,5 +147,15 @@ namespace SlingMD.Tests.Services
                 catch (System.Exception) { }
             }
         }
+
+        [Theory]
+        [InlineData(Microsoft.Office.Interop.Outlook.OlRecurrenceState.olApptNotRecurring, "None")]
+        [InlineData(Microsoft.Office.Interop.Outlook.OlRecurrenceState.olApptMaster, "Series")]
+        [InlineData(Microsoft.Office.Interop.Outlook.OlRecurrenceState.olApptOccurrence, "Occurrence")]
+        [InlineData(Microsoft.Office.Interop.Outlook.OlRecurrenceState.olApptException, "Exception")]
+        public void DescribeRecurrence_ReturnsReadableValue(Microsoft.Office.Interop.Outlook.OlRecurrenceState state, string expected)
+        {
+            Assert.Equal(expected, AppointmentProcessor.DescribeRecurrence(state));
+        }
     }
 }
