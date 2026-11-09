@@ -616,7 +616,11 @@ namespace SlingMD.Outlook.Services
                         if (_settings.AutoSlingNotificationMode == "Toast")
                         {
                             try { ToastForm.ShowToast($"SlingMD: email export failed — {ex.Message}", isError: true); }
-                            catch { /* Silently degrade if toast display fails */ }
+                            catch (System.Exception toastEx)
+                            {
+                                // Best effort: the export failure itself is already logged.
+                                Logger.Instance.Warning($"EmailProcessor: failure toast could not be shown: {toastEx.Message}");
+                            }
                         }
                     }
                     else

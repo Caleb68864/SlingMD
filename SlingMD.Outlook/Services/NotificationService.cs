@@ -28,9 +28,11 @@ namespace SlingMD.Outlook.Services
                 {
                     ToastForm.ShowToast(message, isError: false);
                 }
-                catch
+                catch (System.Exception ex)
                 {
-                    // Silently degrade if toast display fails
+                    // Deliberately broad: a toast is best effort and must never break the caller.
+                    // The message itself is already in the log above.
+                    Logger.Instance.Warning($"NotificationService.Notify: toast failed: {ex.GetType().Name}: {ex.Message}");
                 }
             }
         }
@@ -51,9 +53,10 @@ namespace SlingMD.Outlook.Services
                 {
                     ToastForm.ShowToast(fullMessage, isError: true);
                 }
-                catch
+                catch (System.Exception ex)
                 {
-                    // Silently degrade if toast display fails
+                    // Deliberately broad: a toast is best effort and must never break the caller.
+                    Logger.Instance.Warning($"NotificationService.NotifyError: toast failed: {ex.GetType().Name}: {ex.Message}");
                 }
             }
         }

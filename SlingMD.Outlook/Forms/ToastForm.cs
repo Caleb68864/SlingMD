@@ -205,9 +205,11 @@ namespace SlingMD.Outlook.Forms
                     Helpers.Logger.Instance.Warning($"ToastForm: no UI-thread available, dropping toast: {message}");
                 }
             }
-            catch
+            catch (System.Exception ex)
             {
-                // Silently degrade if toast display fails
+                // Deliberately broad: a toast is best effort and must never break the caller, but
+                // record why it was dropped.
+                Helpers.Logger.Instance.Warning($"ToastForm.ShowToast: toast dropped: {ex.GetType().Name}: {ex.Message}");
             }
         }
 

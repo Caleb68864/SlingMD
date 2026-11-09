@@ -40,9 +40,11 @@ namespace SlingMD.Outlook.Ribbon
                     }
                 }
             }
-            catch (Exception)
+            catch (System.Exception ex)
             {
-                // If loading fails, we'll fall back to the default Office icon
+                // Deliberately broad: a missing icon must never stop the ribbon loading.
+                // Fall back to the default Office icon, but log why.
+                Helpers.Logger.Instance.Warning($"SlingRibbon: could not load the SlingMD logo: {ex.GetType().Name}: {ex.Message}");
                 _slingLogo = null;
             }
         }
@@ -99,8 +101,10 @@ namespace SlingMD.Outlook.Ribbon
                 }
                 _completeThreadIcon = composed;
             }
-            catch (Exception)
+            catch (System.Exception ex)
             {
+                // Deliberately broad, as above: fall back to the plain logo.
+                Helpers.Logger.Instance.Warning($"SlingRibbon: could not compose the Complete Thread icon: {ex.GetType().Name}: {ex.Message}");
                 _completeThreadIcon = _slingLogo;
             }
         }
