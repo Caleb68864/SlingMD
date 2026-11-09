@@ -68,7 +68,18 @@ namespace SlingMD.Outlook.Services
                 // Strategy 2: PR_CONVERSATION_INDEX — Exchange-native thread bytes. Different hash shape
                 // than ThreadIdHasher; preserved as a separate strategy because its ID is not derived
                 // from the subject line.
-                byte[] conversationIndex = (byte[])mail.PropertyAccessor.GetProperty(MapiPropertyTags.PrConversationIndex);
+                // A failure here (property missing, store offline, item type without it) must fall
+                // through to the subject hash, not to the random id below, which would put every such
+                // email in a thread folder of its own.
+                byte[] conversationIndex = null;
+                try
+                {
+                    conversationIndex = mail.PropertyAccessor.GetProperty(MapiPropertyTags.PrConversationIndex) as byte[];
+                }
+                catch (System.Runtime.InteropServices.COMException ex)
+                {
+                    Helpers.Logger.Instance.Warning($"ThreadService.GetConversationId: PR_CONVERSATION_INDEX unavailable, using the subject: {ex.Message}");
+                }
 
                 if (conversationIndex != null && conversationIndex.Length >= 22)
                 {
@@ -79,8 +90,11 @@ namespace SlingMD.Outlook.Services
                 // Strategy 3: Fall back to hashing the subject line.
                 return _threadIdHasher.Hash(mail.Subject ?? string.Empty);
             }
-            catch
+            catch (System.Exception ex)
             {
+                // Last resort, kept deliberately broad: a sling must not fail over a thread id. Logged
+                // because the random id means this email will not be grouped with its thread.
+                Helpers.Logger.Instance.Warning($"ThreadService.GetConversationId: falling back to a random thread id: {ex.GetType().Name}: {ex.Message}");
                 return Guid.NewGuid().ToString("N").Substring(0, 20);
             }
         }
