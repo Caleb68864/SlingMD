@@ -20,20 +20,22 @@ will drift. Move an item to `CHANGELOG.md` when it ships.
 
 ## Error handling and logging
 
-- **`FileService.AppendToFile` is neither atomic nor guarded**
-  (`SlingMD.Outlook/Services/FileService.cs:97`), unlike `WriteUtf8File`. An interrupted append can
-  leave a half-written note, and IO errors go straight to the caller. Check each caller's handling
-  before changing it.
-- **Bare `catch` around recipient address lookups.** `ContactService.cs` (~266 and ~379) and
-  `SmtpAddressResolver.ForRecipient` (`SlingMD.Outlook/Services/SmtpAddressResolver.cs:47`) catch
-  everything, and the fallback (`recipient.Address`) is itself a COM call that can throw from
-  inside the catch. Narrow to `COMException` and guard the fallback.
-- **Silent failures without logging.** `NotificationService.cs` (31, 54), `Forms/ToastForm.cs:208`,
-  `EmailProcessor.cs:619` and the icon loaders in `Ribbon/SlingRibbon.cs` (43, 102) swallow errors
-  without a log line. They should keep degrading quietly but call `Logger.Instance.Warning`.
-- **`ContactAliasWriter` cleanup** (`SlingMD.Outlook/Services/Formatting/ContactAliasWriter.cs:77`)
-  uses bare `catch` blocks; narrow them to `IOException`/`UnauthorizedAccessException` per the
-  style guide.
+The four items first listed here (AppendToFile, the recipient-lookup fallbacks, silent toast and
+icon failures, ContactAliasWriter's catches) were fixed on `harden/2026-11-09`; see `CHANGELOG.md`.
+Left over from that work:
+
+- **Some best-effort catches are still broad on purpose.** The toast catches
+  (`NotificationService.cs`, `Forms/ToastForm.cs`, `EmailProcessor.cs` near the export-failure toast)
+  and the ribbon icon loaders (`Ribbon/SlingRibbon.cs`) catch `System.Exception`, now with a log
+  line and a comment. Narrow them only once the real failure types are known from logs.
+- **Other bare catches not yet reviewed:** `Services/ThreadService.cs` is done, but
+  `Services/Formatting/ContactLinkFormatter.cs:100`, `Services/EmailProcessor.cs:667` (subject read
+  for logging) and `Helpers/Logger.cs` (94, 119; the logger must not throw, so these may stay) were
+  not looked at.
+- **No tests for the recipient-address fallbacks.** `SmtpAddressResolver.ForRecipient` and both
+  `ContactService.BuildEmailList` overloads take Outlook COM objects. A Moq test of `Recipient`
+  (PropertyAccessor throws, Address throws) is worth trying, but whether Moq can mock the
+  embedded interop types has not been checked.
 
 ## Build and tests
 
@@ -44,6 +46,7 @@ will drift. Move an item to `CHANGELOG.md` when it ships.
   project would let the bulk of the logic be tested on any machine and in CI without Office.
 - **Tests added on 2026-11-09 have not been run.** `TemplateServiceTests` (control-character
   escaping, invariant numbers, `{{<list>Yaml}}` escaping) and `FileServiceTests`
-  (`BuildObsidianOpenUri`, `EnsureDirectoryExists` on an invalid path) were written on Linux. The
+  (`BuildObsidianOpenUri`, `EnsureDirectoryExists` on an invalid path, `AppendToFile`) were written
+  on Linux. The
   escaping and URI logic was checked in a throwaway .NET 10 harness, but the tests themselves need a
   run under VSTest.

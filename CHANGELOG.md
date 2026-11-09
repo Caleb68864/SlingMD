@@ -48,8 +48,16 @@ All notable changes to SlingMD are documented in this file.
 - **An email whose conversation index couldn't be read got a thread folder of its own.** SlingMD now
   falls back to the subject, as it does when the index is missing, and logs why.
 - **More failures are written to the log**: a folder that couldn't be created, Obsidian failing to
-  open (the message now asks whether Obsidian is installed), and a thread id falling back to a
-  random one.
+  open (the message now asks whether Obsidian is installed), a thread id falling back to a random
+  one, a toast that couldn't be shown, and a ribbon icon that couldn't be loaded.
+- **The attachments list is added to a note safely.** It used to be appended in place, so an
+  interrupted write could leave a half-written section; the note is now rewritten through a temp
+  file like every other save, and a failure is logged with the note's path.
+- **A recipient whose address Outlook couldn't read no longer aborts the email's contact list.** The
+  fallback address was read inside the error handler, where a second Outlook error escaped. Meeting
+  attendee lists also stop leaking an Outlook object per attendee, and a To/CC recipient with an
+  empty SMTP address now falls back to the address Outlook shows instead of being left out.
+- **A failed contact alias update leaves no temp file behind** and is logged with the note's path.
 
 ## [1.2.5.0] - 2026-10-22
 

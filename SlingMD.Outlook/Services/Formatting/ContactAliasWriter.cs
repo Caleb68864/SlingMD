@@ -67,20 +67,45 @@ namespace SlingMD.Outlook.Services.Formatting
 
             // Atomic write via temp file + File.Replace
             string tempPath = filePath + ".tmp." + Guid.NewGuid().ToString("N");
+            bool replaced = false;
             try
             {
                 // BOM-less UTF-8, matching FileService: Encoding.UTF8 would prepend a BOM,
                 // which Obsidian renders as a stray glyph on the first line of the note.
                 File.WriteAllText(tempPath, newContent, new UTF8Encoding(false));
                 File.Replace(tempPath, filePath, null);
+                replaced = true;
             }
-            catch
+            catch (System.Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {
-                try { File.Delete(tempPath); } catch { }
+                Logger.Instance.Error($"ContactAliasWriter: could not write aliases to '{filePath}'", ex);
                 throw;
+            }
+            finally
+            {
+                // Runs for any failure, not only the ones logged above, so no temp file is left behind.
+                if (!replaced)
+                {
+                    TryDeleteTempFile(tempPath);
+                }
             }
 
             return true;
+        }
+
+        private static void TryDeleteTempFile(string tempPath)
+        {
+            try
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
+            catch (System.Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Logger.Instance.Warning($"ContactAliasWriter: could not remove temp file '{tempPath}': {ex.Message}");
+            }
         }
 
         private static string AppendAlias(string content, string yamlValue)
