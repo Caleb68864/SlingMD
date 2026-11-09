@@ -12,10 +12,6 @@ will drift. Move an item to `CHANGELOG.md` when it ships.
   the same value (thread folders, attachment subfolders): Windows silently drops trailing dots and
   spaces from a directory name, so the folder on disk and the path SlingMD links to can differ.
   Needs a separate folder-name sanitising step and a test.
-- **Appointment launch target is a bare file name.**
-  `SlingMD.Outlook/Services/AppointmentProcessor.cs:797` passes only the note name to
-  `FileService.LaunchObsidian`; with two notes of the same name in the vault Obsidian may open the
-  wrong one. Pass the vault-relative path, as `EmailProcessor` does (`GetVaultRelativePath`).
 - **Random thread id as a last resort.** `ThreadService.GetConversationId`
   (`SlingMD.Outlook/Services/ThreadService.cs:98`) still returns a random id when the topic and
   subject both fail, so a retried sling of the same email lands in a new folder. Hashing the

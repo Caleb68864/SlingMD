@@ -43,6 +43,8 @@ All notable changes to SlingMD are documented in this file.
   set to a comma decimal separator).
 - **Launch Obsidian after saving a contact or a range of appointments opened nothing**, because the
   folder was passed to Obsidian as a full disk path. It is now passed relative to the vault.
+- **Saving a single appointment opens that note in Obsidian** by its path in the vault, not just its
+  name, so a note elsewhere in the vault with the same name is no longer opened instead.
 - **An email whose conversation index couldn't be read got a thread folder of its own.** SlingMD now
   falls back to the subject, as it does when the index is missing, and logs why.
 - **More failures are written to the log**: a folder that couldn't be created, Obsidian failing to

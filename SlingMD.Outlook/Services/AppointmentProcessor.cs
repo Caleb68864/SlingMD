@@ -794,7 +794,12 @@ namespace SlingMD.Outlook.Services
                         await System.Threading.Tasks.Task.Delay(_settings.ObsidianDelaySeconds * 1000);
                     }
 
-                    _fileService.LaunchObsidian(_settings.VaultName, fileNameNoExt);
+                    // The full path (LaunchObsidian makes it vault-relative) opens the right note even
+                    // when another note in the vault has the same name; the bare name is the fallback.
+                    string vaultRoot = _settings.GetFullVaultPath();
+                    bool insideVault = !string.IsNullOrEmpty(filePath) && !string.IsNullOrEmpty(vaultRoot)
+                        && filePath.StartsWith(vaultRoot.TrimEnd('\\', '/') + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+                    _fileService.LaunchObsidian(_settings.VaultName, insideVault ? filePath : fileNameNoExt);
                 }
                 catch (System.Exception ex)
                 {
