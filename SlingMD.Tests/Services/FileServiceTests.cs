@@ -171,6 +171,30 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
+        public void AppendToFile_AppendsToExistingNoteWithoutBomOrTempFile()
+        {
+            string notePath = Path.Combine(_testDir, "Append", "Note.md");
+            _fileService.WriteUtf8File(notePath, "---\ntitle: \"Café\"\n---\nBody");
+
+            _fileService.AppendToFile(notePath, "\n\n## Attachments\n");
+
+            byte[] bytes = File.ReadAllBytes(notePath);
+            Assert.False(bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF);
+            Assert.Equal("---\ntitle: \"Café\"\n---\nBody\n\n## Attachments\n", File.ReadAllText(notePath, Encoding.UTF8));
+            Assert.False(File.Exists(notePath + ".slingtmp"));
+        }
+
+        [Fact]
+        public void AppendToFile_CreatesNoteWhenMissing()
+        {
+            string notePath = Path.Combine(_testDir, "AppendNew", "Note.md");
+
+            _fileService.AppendToFile(notePath, "content");
+
+            Assert.Equal("content", File.ReadAllText(notePath));
+        }
+
+        [Fact]
         public void EnsureDirectoryExists_ReturnsFalseForInvalidPath()
         {
             // A path with an illegal character can't be created; the failure is logged, not thrown.

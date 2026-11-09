@@ -103,10 +103,20 @@ namespace SlingMD.Outlook.Services
                 return;
             }
 
-            // Append to file with UTF-8 encoding without BOM
-            using (var writer = new StreamWriter(filePath, true, new UTF8Encoding(false)))
+            // Rewrite the whole note through WriteUtf8File rather than appending in place: an
+            // interrupted in-place append (disk full, vault drive drops) leaves a half-written
+            // section, whereas temp-then-replace keeps the old note until the new one is complete.
+            // Notes are small, so reading them back costs nothing noticeable.
+            try
             {
-                writer.Write(content);
+                string existing = File.ReadAllText(filePath);
+                WriteUtf8File(filePath, existing + content);
+            }
+            catch (System.Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                // Callers decide whether the sling continues; log the path so the failure is traceable.
+                Logger.Instance.Error($"FileService.AppendToFile: could not append to '{filePath}'", ex);
+                throw;
             }
         }
 
