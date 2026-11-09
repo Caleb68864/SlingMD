@@ -34,6 +34,20 @@ All notable changes to SlingMD are documented in this file.
 - **The GitHub build passes again.** It runs on the Visual Studio 2022 image (the newest image lacks
   the Office add-in tools), signs with a throwaway certificate, and the tests reference the Outlook
   interop assemblies directly so they build without Office installed. (From the wadukejr fork.)
+- **`{{<list>Yaml}}` in a custom template broke the note's properties** when a value held a quote
+  or backslash (e.g. a display name like `Jane "JJ" Doe`). The values are now escaped, as the
+  built-in frontmatter already was.
+- **Control characters in a subject or name no longer make the properties unreadable.** They are
+  written as `\xNN` escapes; tabs are kept.
+- **Number properties are written the same way on every machine** (`1.5`, never `1,5` on a computer
+  set to a comma decimal separator).
+- **Launch Obsidian after saving a contact or a range of appointments opened nothing**, because the
+  folder was passed to Obsidian as a full disk path. It is now passed relative to the vault.
+- **An email whose conversation index couldn't be read got a thread folder of its own.** SlingMD now
+  falls back to the subject, as it does when the index is missing, and logs why.
+- **More failures are written to the log**: a folder that couldn't be created, Obsidian failing to
+  open (the message now asks whether Obsidian is installed), and a thread id falling back to a
+  random one.
 
 ## [1.2.5.0] - 2026-10-22
 
