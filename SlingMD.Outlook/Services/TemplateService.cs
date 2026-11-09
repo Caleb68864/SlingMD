@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -303,7 +304,9 @@ namespace SlingMD.Outlook.Services
                 }
                 else
                 {
-                    frontMatter.AppendLine($"{item.Key}: {item.Value}");
+                    // Numbers and other values: format with the invariant culture so a decimal is
+                    // never written as "1,5" on a machine that uses a comma decimal separator.
+                    frontMatter.AppendLine($"{item.Key}: {Convert.ToString(item.Value, CultureInfo.InvariantCulture)}");
                 }
             }
 
@@ -830,7 +833,7 @@ for (const email of emails) {
             replacements[key] = value ?? string.Empty;
         }
 
-        private Dictionary<string, string> BuildMetadataReplacements(Dictionary<string, object> metadata)
+        internal Dictionary<string, string> BuildMetadataReplacements(Dictionary<string, object> metadata)
         {
             Dictionary<string, string> replacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -857,7 +860,7 @@ for (const email of emails) {
                     replacements[item.Key + "Csv"] = string.Join(", ", values);
                     replacements[item.Key + "Yaml"] = values.Count == 0
                         ? "[]"
-                        : string.Join(Environment.NewLine, values.Select(value => $"- \"{value}\""));
+                        : string.Join(Environment.NewLine, values.Select(value => $"- \"{EscapeYamlDoubleQuotedScalar(value)}\""));
                 }
                 else if (item.Value is DateTime dateTimeValue)
                 {
@@ -903,6 +906,8 @@ for (const email of emails) {
         /// Escapes a string value so it is safe to embed inside a double-quoted YAML scalar.
         /// Replaces backslashes, double-quotes, and newline/carriage-return characters with
         /// their YAML escape sequences so the surrounding double-quote delimiters remain valid.
+        /// Other control characters (which YAML does not allow unescaped, and which do turn up in
+        /// email subjects and display names) are written as <c>\xNN</c>; tabs are left as they are.
         /// </summary>
         internal static string EscapeYamlDoubleQuotedScalar(string value)
         {
@@ -912,12 +917,40 @@ for (const email of emails) {
             }
 
             // Order matters: backslash must be escaped first to avoid double-escaping.
-            return value
+            string escaped = value
                 .Replace("\\", "\\\\")
                 .Replace("\"", "\\\"")
                 .Replace("\r\n", "\\n")
                 .Replace("\n", "\\n")
                 .Replace("\r", "\\n");
+
+            StringBuilder result = null;
+            for (int i = 0; i < escaped.Length; i++)
+            {
+                char c = escaped[i];
+                bool isControl = (c < 0x20 && c != '\t') || c == 0x7F;
+                if (isControl && result == null)
+                {
+                    result = new StringBuilder(escaped.Length + 8);
+                    result.Append(escaped, 0, i);
+                }
+
+                if (result == null)
+                {
+                    continue;
+                }
+
+                if (isControl)
+                {
+                    result.Append("\\x").Append(((int)c).ToString("X2", CultureInfo.InvariantCulture));
+                }
+                else
+                {
+                    result.Append(c);
+                }
+            }
+
+            return result == null ? escaped : result.ToString();
         }
 
         private static void WriteYamlList(StringBuilder frontMatter, string key, IEnumerable<string> values)

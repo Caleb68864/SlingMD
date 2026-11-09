@@ -229,6 +229,52 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
+        public void EscapeYamlDoubleQuotedScalar_EscapesControlCharactersButKeepsTabs()
+        {
+            Assert.Equal("a\\x00b", TemplateService.EscapeYamlDoubleQuotedScalar("a\u0000b"));
+            Assert.Equal("bell\\x07", TemplateService.EscapeYamlDoubleQuotedScalar("bell\u0007"));
+            Assert.Equal("\\x1B[0m", TemplateService.EscapeYamlDoubleQuotedScalar("\u001B[0m"));
+            Assert.Equal("del\\x7F", TemplateService.EscapeYamlDoubleQuotedScalar("del\u007F"));
+            Assert.Equal("a\tb", TemplateService.EscapeYamlDoubleQuotedScalar("a\tb"));
+            Assert.Equal("x\\ny\\x0C", TemplateService.EscapeYamlDoubleQuotedScalar("x\ny\u000C"));
+        }
+
+        [Fact]
+        public void BuildFrontMatter_NumericValue_UsesInvariantCulture()
+        {
+            System.Globalization.CultureInfo original = System.Threading.Thread.CurrentThread.CurrentCulture;
+            try
+            {
+                System.Threading.Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
+                Dictionary<string, object> metadata = new Dictionary<string, object>
+                {
+                    { "score", 1.5 }
+                };
+
+                string frontmatter = _templateService.BuildFrontMatter(metadata);
+
+                Assert.Contains("score: 1.5", frontmatter);
+            }
+            finally
+            {
+                System.Threading.Thread.CurrentThread.CurrentCulture = original;
+            }
+        }
+
+        [Fact]
+        public void BuildMetadataReplacements_YamlListToken_EscapesValues()
+        {
+            Dictionary<string, object> metadata = new Dictionary<string, object>
+            {
+                { "to", new List<string> { "Has \"Quotes\"", @"Back\Slash" } }
+            };
+
+            Dictionary<string, string> replacements = _templateService.BuildMetadataReplacements(metadata);
+
+            Assert.Equal("- \"Has \\\"Quotes\\\"\"" + Environment.NewLine + "- \"Back\\\\Slash\"", replacements["toYaml"]);
+        }
+
+        [Fact]
         public void RenderContactContent_WithAllFields_ContainsContactDetails()
         {
             ContactTemplateContext context = new ContactTemplateContext
