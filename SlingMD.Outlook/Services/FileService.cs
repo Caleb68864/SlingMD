@@ -217,26 +217,52 @@ namespace SlingMD.Outlook.Services
         /// <param name="filePath">Absolute path to the markdown file inside the vault.</param>
         public void LaunchObsidian(string vaultName, string filePath)
         {
+            if (string.IsNullOrEmpty(vaultName) || string.IsNullOrEmpty(filePath))
+            {
+                Logger.Instance.Warning($"FileService.LaunchObsidian: skipped, vault name or path is empty (vault '{vaultName}', path '{filePath}').");
+                return;
+            }
+
+            string obsidianUrl = BuildObsidianOpenUri(vaultName, filePath, _settings?.GetFullVaultPath());
             try
             {
-                // Replace backslashes with forward slashes for Obsidian URLs
-                string normalizedPath = filePath.Replace('\\', '/');
-                
-                // Remove file extension if present
-                if (normalizedPath.EndsWith(".md"))
-                {
-                    normalizedPath = normalizedPath.Substring(0, normalizedPath.Length - 3);
-                }
-                
-                // Create and launch the Obsidian URL
-                string obsidianUrl = $"obsidian://open?vault={Uri.EscapeDataString(vaultName)}&file={Uri.EscapeDataString(normalizedPath)}";
                 System.Diagnostics.Process.Start(obsidianUrl);
             }
-            catch (Exception ex)
+            catch (System.Exception ex) when (ex is System.ComponentModel.Win32Exception || ex is InvalidOperationException || ex is FileNotFoundException)
             {
-                System.Windows.Forms.MessageBox.Show($"Failed to launch Obsidian: {ex.Message}", "SlingMD", 
+                Logger.Instance.Error($"FileService.LaunchObsidian: could not open '{obsidianUrl}'", ex);
+                System.Windows.Forms.MessageBox.Show($"Failed to launch Obsidian: {ex.Message}\n\nIs Obsidian installed and registered for obsidian:// links?", "SlingMD",
                     System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Warning);
             }
+        }
+
+        /// <summary>
+        /// Builds the <c>obsidian://open</c> URI for <paramref name="filePath"/>. Obsidian's <c>file</c>
+        /// parameter is vault-relative, so an absolute path inside <paramref name="vaultRoot"/> (several
+        /// callers pass e.g. the absolute contacts folder) is made relative to the vault first; any other
+        /// path is passed through. Backslashes become forward slashes and a trailing <c>.md</c> is dropped.
+        /// </summary>
+        internal static string BuildObsidianOpenUri(string vaultName, string filePath, string vaultRoot)
+        {
+            string path = filePath ?? string.Empty;
+            if (!string.IsNullOrEmpty(vaultRoot) && path.Length > 2 && Path.IsPathRooted(path))
+            {
+                string root = vaultRoot.TrimEnd('\\', '/');
+                if (path.Length > root.Length + 1
+                    && path.StartsWith(root, StringComparison.OrdinalIgnoreCase)
+                    && (path[root.Length] == '\\' || path[root.Length] == '/'))
+                {
+                    path = path.Substring(root.Length + 1);
+                }
+            }
+
+            string normalizedPath = path.Replace('\\', '/').TrimEnd('/');
+            if (normalizedPath.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+            {
+                normalizedPath = normalizedPath.Substring(0, normalizedPath.Length - 3);
+            }
+
+            return $"obsidian://open?vault={Uri.EscapeDataString(vaultName ?? string.Empty)}&file={Uri.EscapeDataString(normalizedPath)}";
         }
 
         /// <summary>
@@ -255,8 +281,11 @@ namespace SlingMD.Outlook.Services
                 }
                 return true;
             }
-            catch
+            catch (System.Exception ex) when (ex is IOException || ex is UnauthorizedAccessException
+                || ex is ArgumentException || ex is NotSupportedException)
             {
+                // PathTooLongException and DirectoryNotFoundException are IOExceptions.
+                Logger.Instance.Error($"FileService.EnsureDirectoryExists: could not create '{path}'", ex);
                 return false;
             }
         }

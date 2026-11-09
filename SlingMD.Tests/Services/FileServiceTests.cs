@@ -171,6 +171,43 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
+        public void EnsureDirectoryExists_ReturnsFalseForInvalidPath()
+        {
+            // A path with an illegal character can't be created; the failure is logged, not thrown.
+            // (Concatenated, because Path.Combine itself rejects the character on .NET Framework.)
+            string testPath = _testDir + Path.DirectorySeparatorChar + "bad\0name";
+
+            bool result = _fileService.EnsureDirectoryExists(testPath);
+
+            Assert.False(result);
+        }
+
+        [Fact]
+        public void BuildObsidianOpenUri_AbsolutePathInsideVault_IsMadeVaultRelative()
+        {
+            string uri = FileService.BuildObsidianOpenUri("My Vault", @"C:\Notes\My Vault\Contacts", @"C:\Notes\My Vault");
+
+            Assert.Equal("obsidian://open?vault=My%20Vault&file=Contacts", uri);
+        }
+
+        [Fact]
+        public void BuildObsidianOpenUri_RelativeNotePath_DropsMdExtensionAndUsesForwardSlashes()
+        {
+            string uri = FileService.BuildObsidianOpenUri("Vault", @"Inbox\Thread\Note.MD", @"C:\Notes\Vault");
+
+            Assert.Equal("obsidian://open?vault=Vault&file=Inbox%2FThread%2FNote", uri);
+        }
+
+        [Fact]
+        public void BuildObsidianOpenUri_AbsolutePathOutsideVault_IsPassedThrough()
+        {
+            // "C:\Notes\Vault2" shares a prefix with the vault root but is a different folder.
+            string uri = FileService.BuildObsidianOpenUri("Vault", @"C:\Notes\Vault2\Note.md", @"C:\Notes\Vault");
+
+            Assert.Equal("obsidian://open?vault=Vault&file=" + Uri.EscapeDataString("C:/Notes/Vault2/Note"), uri);
+        }
+
+        [Fact]
         public void GetInboxPath_ReturnsSettingsInboxPath()
         {
             // Act
