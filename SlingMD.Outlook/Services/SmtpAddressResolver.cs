@@ -36,17 +36,29 @@ namespace SlingMD.Outlook.Services
             }
         }
 
+        /// <summary>
+        /// Returns the recipient's SMTP address, falling back to <see cref="Recipient.Address"/> when
+        /// PR_SMTP_ADDRESS is missing, empty or unreadable. Never throws for a COM failure: the fallback
+        /// read is guarded too (it used to run inside the catch, where a second COMException escaped).
+        /// Returns an empty string when neither can be read.
+        /// </summary>
         public static string ForRecipient(Recipient recipient)
         {
+            if (recipient == null)
+            {
+                return string.Empty;
+            }
+
             PropertyAccessor pa = null;
+            string smtp = null;
             try
             {
                 pa = recipient.PropertyAccessor;
-                return pa.GetProperty(MapiPropertyTags.PrSmtpAddress) as string ?? recipient.Address;
+                smtp = pa.GetProperty(MapiPropertyTags.PrSmtpAddress) as string;
             }
-            catch
+            catch (System.Runtime.InteropServices.COMException ex)
             {
-                return recipient.Address;
+                Logger.Instance.Warning($"SmtpAddressResolver.ForRecipient: PR_SMTP_ADDRESS unavailable, falling back to Address: {ex.Message}");
             }
             finally
             {
@@ -54,6 +66,16 @@ namespace SlingMD.Outlook.Services
                 // per-recipient leak.
                 if (pa != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(pa);
             }
+
+            if (!string.IsNullOrEmpty(smtp))
+            {
+                return smtp;
+            }
+
+            return SafeComAction.Execute(
+                () => recipient.Address ?? string.Empty,
+                "SmtpAddressResolver.ForRecipient: Address fallback",
+                string.Empty);
         }
     }
 }

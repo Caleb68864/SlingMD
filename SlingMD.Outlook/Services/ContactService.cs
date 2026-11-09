@@ -253,28 +253,12 @@ namespace SlingMD.Outlook.Services
                 {
                     if (recipient.Type == (int)type)
                     {
-                        PropertyAccessor pa = null;
-                        try
+                        // ForRecipient releases the PropertyAccessor, falls back to Address when the
+                        // SMTP property is empty or unreadable, and never throws for a COM failure.
+                        string email = SmtpAddressResolver.ForRecipient(recipient);
+                        if (!string.IsNullOrEmpty(email))
                         {
-                            pa = recipient.PropertyAccessor;
-                            string email = (string)pa.GetProperty(MapiPropertyTags.PrSmtpAddress);
-                            if (!string.IsNullOrEmpty(email))
-                            {
-                                emails.Add(email);
-                            }
-                        }
-                        catch
-                        {
-                            if (!string.IsNullOrEmpty(recipient.Address))
-                            {
-                                emails.Add(recipient.Address);
-                            }
-                        }
-                        finally
-                        {
-                            // recipient.PropertyAccessor is a distinct COM object from recipient;
-                            // release it here or one leaks per To/CC recipient on every email.
-                            if (pa != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(pa);
+                            emails.Add(email);
                         }
                     }
                 }
@@ -364,24 +348,11 @@ namespace SlingMD.Outlook.Services
                 {
                     if (typeSet.Contains(recipient.Type))
                     {
-                        try
+                        // Also releases the PropertyAccessor, which this path used to leak.
+                        string email = SmtpAddressResolver.ForRecipient(recipient);
+                        if (!string.IsNullOrEmpty(email))
                         {
-                            string email = recipient.PropertyAccessor.GetProperty(MapiPropertyTags.PrSmtpAddress) as string;
-                            if (!string.IsNullOrEmpty(email))
-                            {
-                                emails.Add(email);
-                            }
-                            else if (!string.IsNullOrEmpty(recipient.Address))
-                            {
-                                emails.Add(recipient.Address);
-                            }
-                        }
-                        catch
-                        {
-                            if (!string.IsNullOrEmpty(recipient.Address))
-                            {
-                                emails.Add(recipient.Address);
-                            }
+                            emails.Add(email);
                         }
                     }
                 }
