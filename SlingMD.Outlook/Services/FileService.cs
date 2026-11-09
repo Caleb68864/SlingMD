@@ -223,7 +223,18 @@ namespace SlingMD.Outlook.Services
                 return;
             }
 
-            string obsidianUrl = BuildObsidianOpenUri(vaultName, filePath, _settings?.GetFullVaultPath());
+            string vaultRoot = null;
+            try
+            {
+                vaultRoot = _settings?.GetFullVaultPath();
+            }
+            catch (ArgumentException ex)
+            {
+                // A null or malformed vault base path; the path is then passed through unchanged.
+                Logger.Instance.Warning($"FileService.LaunchObsidian: vault path unavailable: {ex.Message}");
+            }
+
+            string obsidianUrl = BuildObsidianOpenUri(vaultName, filePath, vaultRoot);
             try
             {
                 System.Diagnostics.Process.Start(obsidianUrl);
