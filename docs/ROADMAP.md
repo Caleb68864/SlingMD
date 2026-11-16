@@ -24,9 +24,22 @@ Done on `fix/folder-names-thread-ids` (2026-11-16); see `CHANGELOG.md`:
 
 Found and left:
 
-- **Old notes still link to dotted folder names.** Notes written before the fix may link to
-  `...Jr./file.pdf` while the folder on disk is `...Jr`. Not repaired; a one-off vault fix-up would
-  need to find and rewrite those links.
+- ~~**Old notes still link to dotted folder names.**~~ Done on `fix/dotted-folder-links`
+  (2026-11-16): a one-shot **Repair Folder Links** ribbon button (Settings group) rather than
+  rewriting on the next write, because such links can sit in any note (email notes, the thread
+  summary, the user's own notes) and the dotted folders came from four different write paths.
+  `DottedFolderLinkRewriter` (`SlingMD.Core/Services/Formatting/`) rewrites only link targets
+  (wikilinks, embeds, Markdown links/images, `<...>` and URL-encoded targets; not aliases,
+  headings, titles, URLs, code spans or fenced blocks), and only when the target is broken and the
+  repaired one exists. `DottedFolderLinkRepairService` (`SlingMD.Core/Services/`) walks the vault
+  (skipping dot-folders), checks existence by exact folder names relative to the note and the vault
+  root (Windows would open `Jr.\file.pdf` as `Jr\file.pdf`), and writes through a temp file,
+  keeping any BOM. `ThisAddIn.RepairDottedFolderLinks` is the thin confirm/summary wrapper. Tests:
+  `DottedFolderLinkRewriterTests` (30), `DottedFolderLinkRepairServiceTests` (6), both linked into
+  SlingMD.Core.Tests. The ribbon button and dialog are not covered by tests; check them in Outlook.
+  Left: a thread summary's Dataview `FROM "...Jr."` query is not a link and is not rewritten, and
+  wikilinks Obsidian would only resolve by path suffix are not checked (note folder and vault root
+  only).
 - **An email with no topic, no conversation index and an empty subject gets an empty thread id**
   (`ThreadIdHasher.Hash("")` returns `""`), so all such emails share one. The new identity hash
   could be used there too, but that changes grouping for subjectless emails; not done without a
@@ -100,7 +113,7 @@ Left over from that work:
   CI job on `ubuntu-latest` passed on PR #16. On `refactor/core-helpers-and-conv-index` `RuleEngine`,
   `SlingDecisionEngine`, `ReminderDueDateCalculator`, `BatchSlingReport` and `BoundedHashSet` moved
   too, with the five DTOs they use (`MailItemSnapshot`, `SlingDecision`, `TaskDueSettings`,
-  `TaskDueDates`, `EmailSlingResult`); their five test files are linked in (485 tests on Linux).
+  `TaskDueDates`, `EmailSlingResult`); their five test files are linked in (485 tests on Linux; 521 after `fix/dotted-folder-links`).
   Still Windows-only:
   - The rest of SlingMD.Tests: services and forms that take Outlook or WinForms types.
   - The add-in build with SlingMD.Core referenced has not been built with VS MSBuild, nor

@@ -33,6 +33,7 @@
     <Compile Include="..\SlingMD.Tests\Services\Formatting\ContactNameNormalizerTests.cs" Link="Linked\ContactNameNormalizerTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\ContactNameParserTests.cs" Link="Linked\ContactNameParserTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\DateFormatterTests.cs" Link="Linked\DateFormatterTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\DottedFolderLinkRewriterTests.cs" Link="Linked\DottedFolderLinkRewriterTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\EmailAddressParserTests.cs" Link="Linked\EmailAddressParserTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\FileNameSanitizerTests.cs" Link="Linked\FileNameSanitizerTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\FilenameSubjectNormalizerTests.cs" Link="Linked\FilenameSubjectNormalizerTests.cs" />
@@ -59,6 +60,7 @@
     <Compile Include="..\SlingMD.Tests\Services\SlingDecisionEngineTests.cs" Link="Linked\Services\SlingDecisionEngineTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\ReminderDueDateCalculatorTests.cs" Link="Linked\Services\ReminderDueDateCalculatorTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\BatchSlingReportTests.cs" Link="Linked\Services\BatchSlingReportTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\DottedFolderLinkRepairServiceTests.cs" Link="Linked\Services\DottedFolderLinkRepairServiceTests.cs" />
     <Compile Include="..\SlingMD.Tests\Helpers\BoundedHashSetTests.cs" Link="Linked\Helpers\BoundedHashSetTests.cs" />
   </ItemGroup>
 </Project>

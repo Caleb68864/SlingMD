@@ -29,6 +29,11 @@ All notable changes to SlingMD are documented in this file.
   checkboxes.
 
 ### Fixed
+- **Repair Folder Links** (ribbon, Settings group) fixes links in older notes that point to a folder
+  whose name ended in a dot, e.g. `[[Re_ Budget-Robert Smith Jr./file.pdf]]`, while Windows created
+  the folder as `...Jr`. It looks through every note in the vault and rewrites only the folder part
+  of such links, and only when the link is broken now and works afterwards; the rest of the note is
+  left as it is.
 - **Save Today and Save Date Range only ever exported the main mailbox's calendar**, even with
   several accounts. With no calendars picked, every account's own default calendar is now used.
 - **The GitHub build passes again.** It runs on the Visual Studio 2022 image (the newest image lacks

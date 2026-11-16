@@ -281,6 +281,18 @@ namespace SlingMD.Outlook.Ribbon
             }
         }
 
+        public void OnRepairFolderLinksClick(Office.IRibbonControl control)
+        {
+            try
+            {
+                _addIn.RepairDottedFolderLinks();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error repairing folder links: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         public void OnSettingsButtonClick(Office.IRibbonControl control)
         {
             try

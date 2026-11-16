@@ -1029,6 +1029,69 @@ namespace SlingMD.Outlook
             }
         }
 
+        /// <summary>
+        /// One-shot fix-up for notes written before folder names lost their trailing dot: rewrites links
+        /// such as <c>[[...Jr./file.pdf]]</c> to the folder Windows created (<c>...Jr</c>). The work is
+        /// done by <see cref="DottedFolderLinkRepairService"/> in SlingMD.Core.
+        /// </summary>
+        public void RepairDottedFolderLinks()
+        {
+            if (!TryBeginOperation())
+            {
+                return;
+            }
+
+            try
+            {
+                string vaultPath = _settings.GetFullVaultPath();
+                if (!Directory.Exists(vaultPath))
+                {
+                    MessageBox.Show($"The vault folder {vaultPath} was not found. Check the vault in Configure.",
+                        "Repair Folder Links", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                DialogResult confirm = MessageBox.Show(
+                    $"Look through every note in {vaultPath} for links to folders whose name ends in a dot "
+                        + "(written by older versions of SlingMD) and point them at the folder on disk?\n\n"
+                        + "Only links that are broken now and work after the change are rewritten.",
+                    "Repair Folder Links", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
+                if (confirm != DialogResult.OK)
+                {
+                    return;
+                }
+
+                DottedFolderLinkRepairReport report;
+                Cursor previous = Cursor.Current;
+                Cursor.Current = Cursors.WaitCursor;
+                try
+                {
+                    report = new DottedFolderLinkRepairService(vaultPath).RepairVault();
+                }
+                finally
+                {
+                    Cursor.Current = previous;
+                }
+
+                string summary = report.LinksRewritten == 0
+                    ? $"Checked {report.NotesScanned} notes; no links needed repair."
+                    : $"Repaired {report.LinksRewritten} link{(report.LinksRewritten == 1 ? string.Empty : "s")} in "
+                        + $"{report.NotesChanged} of {report.NotesScanned} notes.";
+                if (report.FailedNotes.Count > 0)
+                {
+                    summary += $"\n\n{report.FailedNotes.Count} note{(report.FailedNotes.Count == 1 ? string.Empty : "s")} "
+                        + "could not be updated (open elsewhere or read-only); see the SlingMD log.";
+                }
+
+                MessageBox.Show(summary, "Repair Folder Links", MessageBoxButtons.OK,
+                    report.FailedNotes.Count > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+            }
+            finally
+            {
+                EndOperation();
+            }
+        }
+
         public void SlingAllContacts()
         {
             if (!TryBeginOperation())

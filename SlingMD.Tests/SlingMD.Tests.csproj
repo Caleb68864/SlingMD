@@ -102,6 +102,7 @@
     <Compile Include="Services\ThreadServiceTests.cs" />
     <Compile Include="Services\ThreadServiceConversationIdTests.cs" />
     <Compile Include="Services\BatchSlingReportTests.cs" />
+    <Compile Include="Services\DottedFolderLinkRepairServiceTests.cs" />
     <Compile Include="Services\FolderMonitorServiceTests.cs" />
     <Compile Include="Services\ThreadCompletionServiceTests.cs" />
     <Compile Include="Services\Formatting\NoteTitleBuilderTests.cs" />
@@ -113,6 +114,7 @@
     <Compile Include="Services\Formatting\SubjectCleanerServiceTests.cs" />
     <Compile Include="Services\Formatting\BodyCleanerServiceTests.cs" />
     <Compile Include="Services\Formatting\ThreadIdHasherTests.cs" />
+    <Compile Include="Services\Formatting\DottedFolderLinkRewriterTests.cs" />
     <Compile Include="Services\Formatting\FileNameSanitizerTests.cs" />
     <Compile Include="Services\Formatting\FilenameSubjectNormalizerTests.cs" />
     <Compile Include="Services\Formatting\ContactIndexTests.cs" />
