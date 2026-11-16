@@ -294,6 +294,7 @@ namespace SlingMD.Tests.Services
             public void ShowError(string message) => Errors.Add(message);
             public void ShowLaunchCountdown(int seconds) => Countdowns.Add(seconds);
             public TaskDateChoice PromptTaskOptions(int defaultDueDays, int defaultReminderDays, int defaultReminderHour, bool useRelativeReminder) => null;
+            public IList<string> ConfirmNewContacts(List<string> newContacts) => new List<string>();
         }
 
         [Fact]

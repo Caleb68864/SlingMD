@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using SlingMD.Outlook.Models;
 
 namespace SlingMD.Outlook.Services
@@ -20,5 +21,11 @@ namespace SlingMD.Outlook.Services
         /// or <c>null</c> when the user cancels (the caller then creates no task).
         /// </summary>
         TaskDateChoice PromptTaskOptions(int defaultDueDays, int defaultReminderDays, int defaultReminderHour, bool useRelativeReminder);
+
+        /// <summary>
+        /// Asks which of the new contacts should get a contact note. Returns the names the user ticked,
+        /// or an empty list when the user cancels.
+        /// </summary>
+        IList<string> ConfirmNewContacts(List<string> newContacts);
     }
 }

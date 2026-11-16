@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Windows.Forms;
 using SlingMD.Outlook.Forms;
 using SlingMD.Outlook.Models;
@@ -7,7 +8,7 @@ namespace SlingMD.Outlook.Services
     /// <summary>
     /// <see cref="IEmailPrompts"/> over the add-in's WinForms dialogs: a <see cref="MessageBox"/> for
     /// errors, the <see cref="CountdownForm"/> before Obsidian launches and the
-    /// <see cref="TaskOptionsForm"/> task-dates prompt.
+    /// <see cref="TaskOptionsForm"/> task-dates prompt, and the <see cref="ContactConfirmationDialog"/>.
     /// </summary>
     public sealed class DialogEmailPrompts : IEmailPrompts
     {
@@ -34,6 +35,14 @@ namespace SlingMD.Outlook.Services
                 }
 
                 return new TaskDateChoice(form.DueDays, form.ReminderDays, form.ReminderHour, form.UseRelativeReminder);
+            }
+        }
+
+        public IList<string> ConfirmNewContacts(List<string> newContacts)
+        {
+            using (var dialog = new ContactConfirmationDialog(newContacts))
+            {
+                return dialog.ShowDialog() == DialogResult.OK ? dialog.SelectedContacts : new List<string>();
             }
         }
     }

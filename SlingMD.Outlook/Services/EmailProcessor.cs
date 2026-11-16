@@ -646,15 +646,9 @@ namespace SlingMD.Outlook.Services
                     else if (unfuzzyNewContacts.Count > 0)
                     {
                         // Show contact confirmation dialog in interactive mode
-                        using (var dialog = new ContactConfirmationDialog(unfuzzyNewContacts))
+                        foreach (var contactName in _prompts.ConfirmNewContacts(unfuzzyNewContacts))
                         {
-                            if (dialog.ShowDialog() == DialogResult.OK)
-                            {
-                                foreach (var contactName in dialog.SelectedContacts)
-                                {
-                                    _contactService.CreateContactNote(contactName, EmailFor(contactEmails, contactName));
-                                }
-                            }
+                            _contactService.CreateContactNote(contactName, EmailFor(contactEmails, contactName));
                         }
                     }
                 }

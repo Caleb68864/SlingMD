@@ -88,7 +88,8 @@ Left for EmailProcessor:
     `EmailProcessor` takes both as optional arguments of its test constructor (defaults: the add-in
     wrappers), and its three toasts go through `IToastNotifier` with the same text and gating.
     Pinned by `StatusServiceTests` (5, Linux). `EmailProcessor` still uses WinForms directly for
-    `ContactConfirmationDialog` (and `Clipboard.SetText`).
+    nothing but `Clipboard.SetText` (copy note path) and the `MessageBoxUserNotifier` it hands
+    its default `FileService`.
   - Error boxes and countdown (done): `IEmailPrompts` in Core (`ShowError(message)`,
     `ShowLaunchCountdown(seconds)`); `DialogEmailPrompts` in Outlook wraps the `MessageBox`
     ("SlingMD Error", OK, error icon) and `CountdownForm`. `EmailProcessor`'s three error boxes and
@@ -98,13 +99,16 @@ Left for EmailProcessor:
     Task dates (done): `IEmailPrompts.PromptTaskOptions(defaults)` returns a `TaskDateChoice` (Core
     model: due days, reminder days, reminder hour, relative flag) or null on cancel;
     `DialogEmailPrompts` wraps `TaskOptionsForm` and EmailProcessor initialises or disables tasks
-    from it as before. Next: `ConfirmNewContacts` (returning the ticked names) for
-    `ContactConfirmationDialog`. `AppointmentProcessor` still shows both forms directly.
+    from it as before. Contacts (done): `IEmailPrompts.ConfirmNewContacts(names)` returns the
+    ticked names (empty on cancel), over `ContactConfirmationDialog`.
+    Remaining: `AppointmentProcessor` still shows `TaskOptionsForm` (its date overload) and
+    `ContactConfirmationDialog` directly; the clipboard copy has no interface yet. No test drives
+    the prompts through `ProcessEmailWithResult` (needs a `MailItem` double).
     Needs Windows: the VS build (`DialogEmailPrompts.cs` added to `SlingMD.Outlook.csproj`) and a
     sling that fails, and one with the countdown on, to see the same dialogs.
     Needs Windows: the VS build (two new files in `SlingMD.Outlook.csproj`, `StatusService.cs`
     removed from it) and a sling and an appointment save to see the progress window and toasts.
-  - Side-effect interfaces not yet introduced: the contact confirmation dialog, attachment saving
+  - Side-effect interfaces not yet introduced: the clipboard copy, attachment saving
     (`AttachmentService.ProcessAttachments(MailItem, ...)`), and the Outlook task (`TaskService`).
   - To/Cc linked names and address lists still come from `ContactService.BuildLinkedNames`/
     `BuildEmailList` on the COM `Recipients`; `EmailData.Recipients` has no To/Cc flag yet. Adding
