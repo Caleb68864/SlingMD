@@ -22,7 +22,8 @@
     <!--
       ObsidianSettings serialises with Newtonsoft. Same version the add-in and SlingMD.Tests already
       reference from packages\Newtonsoft.Json.13.0.3 (assembly 13.0.0.0), so the add-in's own copy
-      satisfies it at run time and ClickOnce ships one Newtonsoft.Json.dll.
+      should satisfy it at run time, with one Newtonsoft.Json.dll in the ClickOnce payload (not yet
+      checked with a VS publish; see docs/ROADMAP.md).
     -->
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
