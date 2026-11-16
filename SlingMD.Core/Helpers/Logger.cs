@@ -22,7 +22,16 @@ namespace SlingMD.Outlook.Helpers
                 "logs"
             );
 
-            Directory.CreateDirectory(logDir);
+            // Lazy<T> caches a constructor exception, so a throw here would make every later
+            // Logger.Instance call throw. Without the folder, Log() fails quietly instead.
+            try
+            {
+                Directory.CreateDirectory(logDir);
+            }
+            catch (System.Exception)
+            {
+                // Deliberately broad, as in Log(): the logger must never take the add-in down.
+            }
 
             string logFileName = $"SlingMD_{DateTime.Now:yyyyMMdd}.log";
             _logFilePath = Path.Combine(logDir, logFileName);
@@ -91,9 +100,12 @@ namespace SlingMD.Outlook.Helpers
                     File.AppendAllText(_logFilePath, logEntry + Environment.NewLine);
                 }
             }
-            catch
+            catch (System.Exception)
             {
-                // Silently fail - don't crash the add-in if logging fails
+                // Deliberately broad and silent: this is the logger, so there is nowhere to report a
+                // failure to, and logging must never crash the add-in. The expected failures are I/O
+                // and permission errors (file locked by another Outlook process, disk full, AppData
+                // redirected and offline); anything else is swallowed for the same reason.
             }
         }
 
@@ -109,16 +121,26 @@ namespace SlingMD.Outlook.Helpers
 
                 foreach (string logFile in logFiles)
                 {
-                    FileInfo fileInfo = new FileInfo(logFile);
-                    if (fileInfo.LastWriteTime < DateTime.Now.AddDays(-30))
+                    try
                     {
-                        File.Delete(logFile);
+                        FileInfo fileInfo = new FileInfo(logFile);
+                        if (fileInfo.LastWriteTime < DateTime.Now.AddDays(-30))
+                        {
+                            File.Delete(logFile);
+                        }
+                    }
+                    catch (System.Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                    {
+                        // One locked or read-only old log must not stop the rest being cleaned up.
+                        Warning($"Logger.CleanOldLogs: could not delete '{logFile}': {ex.GetType().Name}: {ex.Message}");
                     }
                 }
             }
-            catch
+            catch (System.Exception ex)
             {
-                // Silently fail
+                // Deliberately broad: clean-up is housekeeping, and the logger must never throw. Log()
+                // itself cannot throw, so recording the failure is safe.
+                Warning($"Logger.CleanOldLogs: could not clean up old logs: {ex.GetType().Name}: {ex.Message}");
             }
         }
     }

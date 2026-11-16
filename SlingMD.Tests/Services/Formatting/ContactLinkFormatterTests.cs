@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using SlingMD.Outlook.Models;
 using SlingMD.Outlook.Services.Formatting;
 using Xunit;
@@ -20,6 +22,43 @@ namespace SlingMD.Tests.Services.Formatting
                 ShortName = "John",
                 Email = "john@example.com"
             };
+        }
+
+        [Fact]
+        public void Resolve_ExistenceCheckThrowsIOException_TriesTheNextFormat()
+        {
+            List<string> formats = new List<string> { "[[{FullName}]]", "[[{Email}]]" };
+
+            string result = _formatter.Resolve(JohnSmith(), formats, stem =>
+            {
+                if (stem == "John Smith")
+                {
+                    throw new IOException("The network path was not found.");
+                }
+
+                return stem == "john@example.com";
+            });
+
+            Assert.Equal("[[john@example.com]]", result);
+        }
+
+        [Fact]
+        public void Resolve_ExistenceCheckRejectsTheStem_FallsBackToTheFirstFormat()
+        {
+            List<string> formats = new List<string> { "[[{FullName}]]", "[[{Email}]]" };
+
+            string result = _formatter.Resolve(JohnSmith(), formats, stem => { throw new ArgumentException("Illegal characters in path."); });
+
+            Assert.Equal("[[John Smith]]", result);
+        }
+
+        [Fact]
+        public void Resolve_ExistenceCheckHasABug_Propagates()
+        {
+            List<string> formats = new List<string> { "[[{FullName}]]" };
+
+            Assert.Throws<InvalidOperationException>(() =>
+                _formatter.Resolve(JohnSmith(), formats, stem => { throw new InvalidOperationException("bug"); }));
         }
 
         [Fact]

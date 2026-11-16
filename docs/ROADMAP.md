@@ -55,10 +55,22 @@ Left over from that work:
   (`NotificationService.cs`, `Forms/ToastForm.cs`, `EmailProcessor.cs` near the export-failure toast)
   and the ribbon icon loaders (`Ribbon/SlingRibbon.cs`) catch `System.Exception`, now with a log
   line and a comment. Narrow them only once the real failure types are known from logs.
-- **Other bare catches not yet reviewed:** `Services/ThreadService.cs` is done, but
-  `Services/Formatting/ContactLinkFormatter.cs:100`, `Services/EmailProcessor.cs:667` (subject read
-  for logging) and `Helpers/Logger.cs` (94, 119; the logger must not throw, so these may stay) were
-  not looked at.
+- ~~**Other bare catches not yet reviewed.**~~ Reviewed on `refactor/finish-core-split`; no bare
+  `catch` is left in these files:
+  - `SlingMD.Core/Services/Formatting/ContactLinkFormatter.cs` (`Resolve`): narrowed to file-system
+    failures (`IOException`, `UnauthorizedAccessException`, `ArgumentException`,
+    `NotSupportedException`, `SecurityException`) and logged; anything else from the callback now
+    propagates. Safe because both shipped callbacks (`ContactService.NoteFileExists`) catch their own
+    errors. Three tests in `ContactLinkFormatterTests`.
+  - `Services/EmailProcessor.cs` (subject read for the fuzzy-match log): narrowed to `COMException`
+    and `InvalidComObjectException`, and logged. Anything else reaches the existing "Error processing
+    contacts" handler. Not tested (needs a mail double driven through `ProcessEmail`).
+  - `Helpers/Logger.cs` (now in SlingMD.Core): `Log()` stays broad and silent, written as
+    `catch (System.Exception)` with the reason; there is nowhere to report to. `CleanOldLogs` stays
+    broad but now logs, and catches I/O and permission errors per file so one locked log doesn't stop
+    the rest. Also found: the constructor's `Directory.CreateDirectory` was unguarded inside a
+    `Lazy<T>`, which caches the exception, so an unwritable AppData would have made every
+    `Logger.Instance` call throw. It is now guarded. Not tested (singleton bound to AppData).
 - **No tests for the recipient-address fallbacks.** `SmtpAddressResolver.ForRecipient` and both
   `ContactService.BuildEmailList` overloads take Outlook COM objects. Moq can mock the embedded
   interop types (see `ThreadServiceConversationIdTests`), so a Moq test of `Recipient`

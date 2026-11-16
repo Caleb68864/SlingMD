@@ -58,6 +58,12 @@ All notable changes to SlingMD are documented in this file.
   attendee lists also stop leaking an Outlook object per attendee, and a To/CC recipient with an
   empty SMTP address now falls back to the address Outlook shows instead of being left out.
 - **A failed contact alias update leaves no temp file behind** and is logged with the note's path.
+- **SlingMD keeps working when its log folder can't be created.** The log could fail to start if
+  the AppData folder wasn't writable, and every later attempt to write a log line then failed with
+  it. Logging now just stops quietly. Old logs are cleaned up one by one, so a locked one no longer
+  stops the rest, and a failed clean-up is logged.
+- **A contact note that couldn't be checked for is logged**, and only file-system errors are passed
+  over; the next contact-link format is still tried.
 - **Folders named after a name ending in a dot pointed at a folder that wasn't there.** A sender or
   recipient such as "Robert Smith Jr." keeps its dot in note and contact names, but Windows drops a
   trailing dot or space from a folder name, so a thread folder, a recurring-meeting folder or a
