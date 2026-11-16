@@ -70,10 +70,13 @@ engine; its internal `BuildEmailMetadata`/`CleanNoteBody`/`GetVaultRelativePath`
 file names, front-matter keys and order, body cleanup flag, and the exact note text for both a
 token-dump template and the built-in default template.
 Left for EmailProcessor:
-  - The rest of `ProcessEmailWithResult` (duplicate check and cache, thread folder moves and
-    renames, attachments, contacts, tasks, launch/toast) is still in Outlook. Next: move the
-    duplicate cache and `WaitForFileAvailability` (pure file work) to Core, then put the thread
-    steps behind an interface until ThreadService is split.
+  - The duplicate check moved to Core as `ProcessedEmailCache` (code unchanged; EmailProcessor
+    keeps one static instance, as it had static fields, and passes its clock's time), pinned by
+    `ProcessedEmailCacheTests` (6, Linux). The tests were written after the move, against the same
+    code; nothing tested the cache before.
+  - The rest of `ProcessEmailWithResult` (thread folder moves and renames, attachments, contacts,
+    tasks, launch/toast) is still in Outlook. Next: `WaitForFileAvailability` (pure file work) to
+    Core, then the thread steps behind an interface until ThreadService is split.
   - Side-effect interfaces not yet introduced: the task-dates prompt (`TaskOptionsForm`), the
     duplicate/saved toasts (`ToastForm`), `StatusService`'s progress form, attachment saving
     (`AttachmentService.ProcessAttachments(MailItem, ...)`), and the Outlook task (`TaskService`).
