@@ -86,7 +86,11 @@ Left over from that work:
   and `Logger` moved as well, bringing `BodyCleanerService`, `SubjectCleanerService`,
   `ThreadIdHasher`, `FilenameSubjectNormalizer`, `TemplatePathResolver` and `ContactAliasWriter`;
   their tests and the `Models/` settings tests are linked in, 428 tests on Linux. The `core-tests`
-  CI job on `ubuntu-latest` passed on PR #16. Still Windows-only:
+  CI job on `ubuntu-latest` passed on PR #16. On `refactor/core-helpers-and-conv-index` `RuleEngine`,
+  `SlingDecisionEngine`, `ReminderDueDateCalculator`, `BatchSlingReport` and `BoundedHashSet` moved
+  too, with the five DTOs they use (`MailItemSnapshot`, `SlingDecision`, `TaskDueSettings`,
+  `TaskDueDates`, `EmailSlingResult`); their five test files are linked in (485 tests on Linux).
+  Still Windows-only:
   - The rest of SlingMD.Tests: services and forms that take Outlook or WinForms types.
   - The add-in build with SlingMD.Core referenced has not been built with VS MSBuild, nor
     published; check that the ClickOnce payload includes `SlingMD.Core.dll` (and still exactly one

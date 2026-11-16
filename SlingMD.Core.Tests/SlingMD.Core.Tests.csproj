@@ -55,5 +55,10 @@
     <Compile Include="..\SlingMD.Tests\Models\ObsidianSettingsTests.cs" Link="Linked\Models\ObsidianSettingsTests.cs" />
     <Compile Include="..\SlingMD.Tests\Models\ObsidianSettingsAppointmentTests.cs" Link="Linked\Models\ObsidianSettingsAppointmentTests.cs" />
     <Compile Include="..\SlingMD.Tests\Models\WatchedFolderTests.cs" Link="Linked\Models\WatchedFolderTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\RuleEngineTests.cs" Link="Linked\Services\RuleEngineTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\SlingDecisionEngineTests.cs" Link="Linked\Services\SlingDecisionEngineTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\ReminderDueDateCalculatorTests.cs" Link="Linked\Services\ReminderDueDateCalculatorTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\BatchSlingReportTests.cs" Link="Linked\Services\BatchSlingReportTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Helpers\BoundedHashSetTests.cs" Link="Linked\Helpers\BoundedHashSetTests.cs" />
   </ItemGroup>
 </Project>

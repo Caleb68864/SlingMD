@@ -290,18 +290,12 @@
     <Compile Include="Forms\ToastForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Helpers\BoundedHashSet.cs" />
     <Compile Include="Helpers\SafeComAction.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Models\EmailSlingResult.cs" />
     <Compile Include="Models\AttachmentSignals.cs" />
-    <Compile Include="Models\MailItemSnapshot.cs" />
     <Compile Include="Models\ClipboardEmail.cs" />
-    <Compile Include="Models\SlingDecision.cs" />
-    <Compile Include="Models\TaskDueDates.cs" />
-    <Compile Include="Models\TaskDueSettings.cs" />
     <Compile Include="Infrastructure\IClock.cs" />
     <Compile Include="Infrastructure\MapiPropertyTags.cs" />
     <Compile Include="Infrastructure\SystemClock.cs" />
@@ -312,11 +306,8 @@
     <Compile Include="Services\ContactService.cs" />
     <Compile Include="Services\ClipboardEmailService.cs" />
     <Compile Include="Services\EmailProcessor.cs" />
-    <Compile Include="Services\BatchSlingReport.cs" />
     <Compile Include="Services\SmtpAddressResolver.cs" />
     <Compile Include="Services\ContactInteractionMode.cs" />
-    <Compile Include="Services\ReminderDueDateCalculator.cs" />
-    <Compile Include="Services\SlingDecisionEngine.cs" />
     <Compile Include="Services\SubjectFilenameCleaner.cs" />
     <Compile Include="Ribbon\SlingRibbon.cs" />
     <EmbeddedResource Include="Forms\ContactMatchPromptForm.resx">
@@ -368,7 +359,6 @@
     <Compile Include="Services\FlagMonitorService.cs" />
     <Compile Include="Services\FolderMonitorService.cs" />
     <Compile Include="Services\NotificationService.cs" />
-    <Compile Include="Services\RuleEngine.cs" />
     <Compile Include="Services\StatusService.cs" />
     <Compile Include="Services\SupportService.cs" />
     <Compile Include="Services\TaskService.cs" />
