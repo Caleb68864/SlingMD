@@ -38,12 +38,23 @@ Found and left:
   VSTest on .NET Framework. `ReadInternetMessageId` now releases the accessor only when
   `Marshal.IsComObject` is true, since `ReleaseComObject` throws on a test double. The same approach
   should work for the recipient-address fallbacks below.
-- **`MapiPropertyTags.PrConversationIndex` is probably the wrong type.** PR_CONVERSATION_INDEX is
-  binary (`0x00710102`), but the tag asks for `0x0071001F` (Unicode string), so `GetProperty`
-  likely never returns a `byte[]` and `GetConversationId`'s strategy 2 never fires: emails with no
-  topic go straight to the subject hash. Not confirmed against a real Outlook store. Fixing it would
-  change the thread id of such emails, so not done without a decision. Strategy 2 also never
-  releases the `PropertyAccessor` it reads.
+- ~~**`MapiPropertyTags.PrConversationIndex` is probably the wrong type.**~~ Fixed on
+  `refactor/core-helpers-and-conv-index` (owner decision, new slings only): the tag is now the
+  binary `0x00710102`, so `GetConversationId`'s strategy 2 gets the `byte[]` it expects for emails
+  with no conversation topic. The step now reads the index through `ReadConversationIndex`, which
+  releases the `PropertyAccessor` (shared `ReleaseAccessor`, as `ReadInternetMessageId` does). Test:
+  `ThreadServiceConversationIdTests.GetConversationId_NoTopic_ReadsTheConversationIndexAsBinary`
+  (fails with the old tag; passed under Mono, needs the VSTest run). Not checked against a real
+  Outlook store that `GetProperty` returns `byte[]` for this tag.
+- **Thread ids changed for emails with no conversation topic** (from the fix above). They used to
+  get the subject hash; new slings now get the conversation-index id, so a new sling of a
+  conversation slung before may land in a new thread folder beside the old one. Old notes are not
+  migrated; a fix-up would have to find notes whose `threadId` is the subject hash and either
+  rewrite it or teach the thread lookup to try both ids.
+- **The conversation-index id uses only 10 bytes of the header**: the reserved byte, the 5-byte
+  timestamp and 4 of the 16 GUID bytes (`Take(22)` then the first 20 hex digits). Two conversations
+  started within a second or two of each other with equal leading GUID bytes would share an id. Unlikely;
+  left as is so the id shape matches what the code always meant to produce.
 
 ## Error handling and logging
 

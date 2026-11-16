@@ -74,7 +74,7 @@ namespace SlingMD.Outlook.Services
                 byte[] conversationIndex = null;
                 try
                 {
-                    conversationIndex = mail.PropertyAccessor.GetProperty(MapiPropertyTags.PrConversationIndex) as byte[];
+                    conversationIndex = ReadConversationIndex(mail);
                 }
                 catch (System.Runtime.InteropServices.COMException ex)
                 {
@@ -113,6 +113,38 @@ namespace SlingMD.Outlook.Services
         }
 
         /// <summary>
+        /// Reads PR_CONVERSATION_INDEX (PT_BINARY) through the item's PropertyAccessor, releasing the
+        /// accessor. Returns null when the property is not a byte array. Throws whatever the COM calls
+        /// throw; the caller falls back to the subject on a <see cref="System.Runtime.InteropServices.COMException"/>.
+        /// </summary>
+        private static byte[] ReadConversationIndex(MailItem mail)
+        {
+            PropertyAccessor accessor = null;
+            try
+            {
+                accessor = mail.PropertyAccessor;
+                return accessor.GetProperty(MapiPropertyTags.PrConversationIndex) as byte[];
+            }
+            finally
+            {
+                ReleaseAccessor(accessor);
+            }
+        }
+
+        /// <summary>
+        /// Releases a PropertyAccessor obtained from an Outlook item.
+        /// </summary>
+        private static void ReleaseAccessor(PropertyAccessor accessor)
+        {
+            // IsComObject: only a real COM accessor has a reference to release (a test double is a
+            // plain object, and ReleaseComObject would throw ArgumentException on it).
+            if (accessor != null && System.Runtime.InteropServices.Marshal.IsComObject(accessor))
+            {
+                System.Runtime.InteropServices.Marshal.ReleaseComObject(accessor);
+            }
+        }
+
+        /// <summary>
         /// Reads PR_INTERNET_MESSAGE_ID through the item's PropertyAccessor, releasing the accessor.
         /// Throws whatever the COM calls throw; <see cref="FallbackThreadId"/> catches it.
         /// </summary>
@@ -126,12 +158,7 @@ namespace SlingMD.Outlook.Services
             }
             finally
             {
-                // IsComObject: only a real COM accessor has a reference to release (a test double is a
-                // plain object, and ReleaseComObject would throw ArgumentException on it).
-                if (accessor != null && System.Runtime.InteropServices.Marshal.IsComObject(accessor))
-                {
-                    System.Runtime.InteropServices.Marshal.ReleaseComObject(accessor);
-                }
+                ReleaseAccessor(accessor);
             }
         }
 

@@ -18,8 +18,10 @@ namespace SlingMD.Outlook.Infrastructure
         /// <summary>
         /// PR_CONVERSATION_INDEX — Exchange-native byte blob identifying the conversation.
         /// First 22 bytes form the thread identifier; subsequent 5-byte tuples represent replies.
+        /// The property is PT_BINARY (type 0x0102), so <c>GetProperty</c> returns a <c>byte[]</c>.
+        /// (It was requested as PT_UNICODE, 0x001F, until 2026-11-16, which never gave a <c>byte[]</c>.)
         /// </summary>
-        public const string PrConversationIndex = "http://schemas.microsoft.com/mapi/proptag/0x0071001F";
+        public const string PrConversationIndex = "http://schemas.microsoft.com/mapi/proptag/0x00710102";
 
         /// <summary>
         /// PR_ATTACH_CONTENT_ID — Content-ID for an attachment. Non-empty value indicates
