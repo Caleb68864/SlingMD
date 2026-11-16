@@ -37,7 +37,7 @@ referenced there silently never compiles or runs.
 
 ### Service-Oriented Design
 The add-in uses a service-oriented architecture where `EmailProcessor` orchestrates multiple services:
-- **EmailProcessor** (SlingMD.Outlook/Services/EmailProcessor.cs): Main orchestrator that coordinates all services
+- **EmailProcessor** (SlingMD.Outlook/Services/EmailProcessor.cs): Main orchestrator that coordinates all services; shows its dialogs (errors, countdown, task dates, contact confirmation) through `IEmailPrompts` (`DialogEmailPrompts` in the add-in)
 - **FileService**: Handles file I/O operations, file naming, and path management
 - **ThreadService**: Groups related emails into thread folders with summary notes
 - **TaskService**: Creates follow-up tasks in Obsidian notes and/or Outlook
@@ -99,7 +99,7 @@ SlingMD.Core/
 │                     ProcessedEmailCache (duplicate check), FileAvailabilityWaiter (backoff wait),
 │                     StatusService (progress, over IProgressView),
 │                     NotificationService (auto-sling toasts/log, over IToastNotifier),
-│                     IUserNotifier, IToastNotifier, IProgressView (what the engine asks the front end to show)
+│                     IUserNotifier, IToastNotifier, IProgressView, IEmailPrompts (what the engine asks the front end to show)
 └── Services/Formatting/ - Pure helpers (sanitisers, parsers, cleaners, path budget, thread ids, ...)
 
 SlingMD.Outlook/
@@ -109,7 +109,7 @@ SlingMD.Outlook/
 ├── Ribbon/         - Outlook ribbon UI (SlingRibbon.cs/xml)
 ├── Services/       - COM readers, processors not yet split (EmailProcessor, ThreadService, ...),
 │                     monitors, OutlookEmailReader (MailItem -> EmailData), MessageBoxUserNotifier,
-│                     ToastFormNotifier, ProgressFormView (Core interfaces over the forms)
+│                     ToastFormNotifier, ProgressFormView, DialogEmailPrompts (Core interfaces over the forms)
 ├── Templates/      - Default markdown templates
 └── ThisAddIn.cs    - VSTO entry point
 

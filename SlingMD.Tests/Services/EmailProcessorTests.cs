@@ -287,6 +287,50 @@ namespace SlingMD.Tests.Services
             Assert.NotNull(processor);
         }
 
+        private sealed class RecordingEmailPrompts : IEmailPrompts
+        {
+            public List<string> Errors { get; } = new List<string>();
+            public List<int> Countdowns { get; } = new List<int>();
+            public void ShowError(string message) => Errors.Add(message);
+            public void ShowLaunchCountdown(int seconds) => Countdowns.Add(seconds);
+            public TaskDateChoice PromptTaskOptions(int defaultDueDays, int defaultReminderDays, int defaultReminderHour, bool useRelativeReminder) => null;
+            public IList<string> ConfirmNewContacts(List<string> newContacts) => new List<string>();
+        }
+
+        [Fact]
+        public void EmailProcessor_InjectionOverload_AcceptsInjectedPrompts()
+        {
+            ObsidianSettings settings = new ObsidianSettings
+            {
+                VaultBasePath = Path.GetTempPath(),
+                VaultName = "TestVault",
+                IncludeDailyNoteLink = false
+            };
+            RecordingEmailPrompts prompts = new RecordingEmailPrompts();
+
+            EmailProcessor processor = new EmailProcessor(
+                settings,
+                clock: null,
+                fileService: null,
+                templateService: null,
+                threadService: null,
+                taskService: null,
+                contactService: null,
+                attachmentService: null,
+                prompts: prompts);
+
+            // Construction alone shows nothing; the prompts are only used on the interactive path.
+            Assert.NotNull(processor);
+            Assert.Empty(prompts.Errors);
+            Assert.Empty(prompts.Countdowns);
+        }
+
+        [Fact]
+        public void DialogEmailPrompts_IsTheAddInImplementation()
+        {
+            Assert.IsAssignableFrom<IEmailPrompts>(new DialogEmailPrompts());
+        }
+
         // GetVaultRelativePath — the path handed to Obsidian must start at the vault root.
         // Paths are built with Path.Combine (not a literal C:\ path) so these also run under Mono.
 

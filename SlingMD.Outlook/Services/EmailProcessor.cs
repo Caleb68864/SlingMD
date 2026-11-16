@@ -42,6 +42,7 @@ namespace SlingMD.Outlook.Services
         private readonly IClock _clock;
         private readonly IToastNotifier _toasts;
         private readonly Func<IProgressView> _openProgressView;
+        private readonly IEmailPrompts _prompts;
 
         /// <summary>
         /// Whether any attachment processing should run for an email given the current settings.
@@ -86,11 +87,13 @@ namespace SlingMD.Outlook.Services
             ContactService contactService,
             AttachmentService attachmentService,
             IToastNotifier toastNotifier = null,
-            Func<IProgressView> openProgressView = null)
+            Func<IProgressView> openProgressView = null,
+            IEmailPrompts prompts = null)
         {
             _settings = settings;
             _toasts = toastNotifier ?? new ToastFormNotifier();
             _openProgressView = openProgressView ?? ProgressFormView.Open;
+            _prompts = prompts ?? new DialogEmailPrompts();
             _clock = clock ?? new SystemClock();
             _fileService = fileService ?? new FileService(settings, new MessageBoxUserNotifier());
             _templateService = templateService ?? new TemplateService(_fileService);
@@ -171,16 +174,14 @@ namespace SlingMD.Outlook.Services
             // otherwise pop one modal date dialog per email.
             if (!bulkMode && (_settings.CreateOutlookTask || _settings.CreateObsidianTask) && _settings.AskForDates)
             {
-                using (var form = new TaskOptionsForm(_settings.DefaultDueDays, _settings.DefaultReminderDays, _settings.DefaultReminderHour, _settings.UseRelativeReminder))
+                TaskDateChoice choice = _prompts.PromptTaskOptions(_settings.DefaultDueDays, _settings.DefaultReminderDays, _settings.DefaultReminderHour, _settings.UseRelativeReminder);
+                if (choice != null)
                 {
-                    if (form.ShowDialog() == DialogResult.OK)
-                    {
-                        _taskService.InitializeTaskSettings(form.DueDays, form.ReminderDays, form.ReminderHour, form.UseRelativeReminder);
-                    }
-                    else
-                    {
-                        _taskService.DisableTaskCreation();
-                    }
+                    _taskService.InitializeTaskSettings(choice.DueDays, choice.ReminderDays, choice.ReminderHour, choice.UseRelativeReminder);
+                }
+                else
+                {
+                    _taskService.DisableTaskCreation();
                 }
             }
             else
@@ -568,7 +569,7 @@ namespace SlingMD.Outlook.Services
                     }
                     else
                     {
-                        MessageBox.Show($"Error processing email: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        _prompts.ShowError($"Error processing email: {ex.Message}");
                     }
                 }
             }
@@ -645,21 +646,15 @@ namespace SlingMD.Outlook.Services
                     else if (unfuzzyNewContacts.Count > 0)
                     {
                         // Show contact confirmation dialog in interactive mode
-                        using (var dialog = new ContactConfirmationDialog(unfuzzyNewContacts))
+                        foreach (var contactName in _prompts.ConfirmNewContacts(unfuzzyNewContacts))
                         {
-                            if (dialog.ShowDialog() == DialogResult.OK)
-                            {
-                                foreach (var contactName in dialog.SelectedContacts)
-                                {
-                                    _contactService.CreateContactNote(contactName, EmailFor(contactEmails, contactName));
-                                }
-                            }
+                            _contactService.CreateContactNote(contactName, EmailFor(contactEmails, contactName));
                         }
                     }
                 }
                 catch (System.Exception ex)
                 {
-                    MessageBox.Show($"Error processing contacts: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    _prompts.ShowError($"Error processing contacts: {ex.Message}");
                 }
             }
             
@@ -686,10 +681,7 @@ namespace SlingMD.Outlook.Services
                     // Ensure delay happens after all file operations
                     if (_settings.ShowCountdown && _settings.ObsidianDelaySeconds > 0)
                     {
-                        using (var countdown = new CountdownForm(_settings.ObsidianDelaySeconds))
-                        {
-                            countdown.ShowDialog();
-                        }
+                        _prompts.ShowLaunchCountdown(_settings.ObsidianDelaySeconds);
                     }
                     else if (_settings.ObsidianDelaySeconds > 0)
                     {
@@ -702,7 +694,7 @@ namespace SlingMD.Outlook.Services
                 }
                 catch (System.Exception ex)
                 {
-                    MessageBox.Show($"Error launching Obsidian: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    _prompts.ShowError($"Error launching Obsidian: {ex.Message}");
                 }
             }
             else if (!bulkMode)
