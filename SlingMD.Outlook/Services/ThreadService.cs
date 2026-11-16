@@ -126,7 +126,9 @@ namespace SlingMD.Outlook.Services
             }
             finally
             {
-                if (accessor != null)
+                // IsComObject: only a real COM accessor has a reference to release (a test double is a
+                // plain object, and ReleaseComObject would throw ArgumentException on it).
+                if (accessor != null && System.Runtime.InteropServices.Marshal.IsComObject(accessor))
                 {
                     System.Runtime.InteropServices.Marshal.ReleaseComObject(accessor);
                 }

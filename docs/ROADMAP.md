@@ -31,9 +31,19 @@ Found and left:
   (`ThreadIdHasher.Hash("")` returns `""`), so all such emails share one. The new identity hash
   could be used there too, but that changes grouping for subjectless emails; not done without a
   decision.
-- **`GetConversationId` itself has no test.** It takes a `MailItem`; whether Moq can mock the
-  embedded interop type (`EmbedInteropTypes=true` in SlingMD.Tests) has not been checked, so only
-  the extracted fallback is tested.
+- ~~**`GetConversationId` itself has no test.**~~ Done on `refactor/finish-core-split`:
+  `SlingMD.Tests/Services/ThreadServiceConversationIdTests.cs` (9 tests) mocks `MailItem` and
+  `PropertyAccessor` with Moq. A probe showed Moq 4.18.4 proxies the embedded Outlook interop types
+  under .NET 10 and Mono, so no seam was needed; the tests passed under Mono but have not run under
+  VSTest on .NET Framework. `ReadInternetMessageId` now releases the accessor only when
+  `Marshal.IsComObject` is true, since `ReleaseComObject` throws on a test double. The same approach
+  should work for the recipient-address fallbacks below.
+- **`MapiPropertyTags.PrConversationIndex` is probably the wrong type.** PR_CONVERSATION_INDEX is
+  binary (`0x00710102`), but the tag asks for `0x0071001F` (Unicode string), so `GetProperty`
+  likely never returns a `byte[]` and `GetConversationId`'s strategy 2 never fires: emails with no
+  topic go straight to the subject hash. Not confirmed against a real Outlook store. Fixing it would
+  change the thread id of such emails, so not done without a decision. Strategy 2 also never
+  releases the `PropertyAccessor` it reads.
 
 ## Error handling and logging
 
@@ -45,30 +55,42 @@ Left over from that work:
   (`NotificationService.cs`, `Forms/ToastForm.cs`, `EmailProcessor.cs` near the export-failure toast)
   and the ribbon icon loaders (`Ribbon/SlingRibbon.cs`) catch `System.Exception`, now with a log
   line and a comment. Narrow them only once the real failure types are known from logs.
-- **Other bare catches not yet reviewed:** `Services/ThreadService.cs` is done, but
-  `Services/Formatting/ContactLinkFormatter.cs:100`, `Services/EmailProcessor.cs:667` (subject read
-  for logging) and `Helpers/Logger.cs` (94, 119; the logger must not throw, so these may stay) were
-  not looked at.
+- ~~**Other bare catches not yet reviewed.**~~ Reviewed on `refactor/finish-core-split`; no bare
+  `catch` is left in these files:
+  - `SlingMD.Core/Services/Formatting/ContactLinkFormatter.cs` (`Resolve`): narrowed to file-system
+    failures (`IOException`, `UnauthorizedAccessException`, `ArgumentException`,
+    `NotSupportedException`, `SecurityException`) and logged; anything else from the callback now
+    propagates. Safe because both shipped callbacks (`ContactService.NoteFileExists`) catch their own
+    errors. Three tests in `ContactLinkFormatterTests`.
+  - `Services/EmailProcessor.cs` (subject read for the fuzzy-match log): narrowed to `COMException`
+    and `InvalidComObjectException`, and logged. Anything else reaches the existing "Error processing
+    contacts" handler. Not tested (needs a mail double driven through `ProcessEmail`).
+  - `Helpers/Logger.cs` (now in SlingMD.Core): `Log()` stays broad and silent, written as
+    `catch (System.Exception)` with the reason; there is nowhere to report to. `CleanOldLogs` stays
+    broad but now logs, and catches I/O and permission errors per file so one locked log doesn't stop
+    the rest. Also found: the constructor's `Directory.CreateDirectory` was unguarded inside a
+    `Lazy<T>`, which caches the exception, so an unwritable AppData would have made every
+    `Logger.Instance` call throw. It is now guarded. Not tested (singleton bound to AppData).
 - **No tests for the recipient-address fallbacks.** `SmtpAddressResolver.ForRecipient` and both
-  `ContactService.BuildEmailList` overloads take Outlook COM objects. A Moq test of `Recipient`
-  (PropertyAccessor throws, Address throws) is worth trying, but whether Moq can mock the
-  embedded interop types has not been checked.
+  `ContactService.BuildEmailList` overloads take Outlook COM objects. Moq can mock the embedded
+  interop types (see `ThreadServiceConversationIdTests`), so a Moq test of `Recipient`
+  (PropertyAccessor throws, Address throws) should work; watch for `Marshal.ReleaseComObject` calls
+  on the doubles, which throw `ArgumentException`.
 
 ## Build and tests
 
 - ~~**Tests can only run on Windows with Visual Studio.**~~ Partly done on
   `fix/folder-names-thread-ids`: the pure helpers moved to `SlingMD.Core` (`net472;netstandard2.0`)
-  and `SlingMD.Core.Tests` (`net10.0`, outside `SlingMD.sln`) runs them with `dotnet test` on Linux,
-  including 19 linked `SlingMD.Tests/Services/Formatting/*Tests.cs` files. A `core-tests` CI job on
-  `ubuntu-latest` was added but has not run yet. Still Windows-only:
-  - The rest of SlingMD.Tests. Left in SlingMD.Outlook because they take `ObsidianSettings` or
-    `Logger`: `BodyCleanerService`, `SubjectCleanerService` (and so `ThreadIdHasher`),
-    `FilenameSubjectNormalizer`, `TemplatePathResolver`, `ContactAliasWriter`. Moving
-    `ObsidianSettings` (Newtonsoft only) and `Logger` to Core would bring these, plus
-    `RuleEngine`, `SlingDecisionEngine`, `ReminderDueDateCalculator`, `BatchSlingReport` and
-    `Helpers/BoundedHashSet`, which look pure but were not checked.
+  and `SlingMD.Core.Tests` (`net10.0`, outside `SlingMD.sln`) runs them with `dotnet test` on Linux.
+  On `refactor/finish-core-split` (2026-11-16) `ObsidianSettings` (plus the models it serialises)
+  and `Logger` moved as well, bringing `BodyCleanerService`, `SubjectCleanerService`,
+  `ThreadIdHasher`, `FilenameSubjectNormalizer`, `TemplatePathResolver` and `ContactAliasWriter`;
+  their tests and the `Models/` settings tests are linked in, 428 tests on Linux. The `core-tests`
+  CI job on `ubuntu-latest` passed on PR #16. Still Windows-only:
+  - The rest of SlingMD.Tests: services and forms that take Outlook or WinForms types.
   - The add-in build with SlingMD.Core referenced has not been built with VS MSBuild, nor
-    published; check that the ClickOnce payload includes `SlingMD.Core.dll`.
+    published; check that the ClickOnce payload includes `SlingMD.Core.dll` (and still exactly one
+    `Newtonsoft.Json.dll`, now that SlingMD.Core references it by PackageReference).
 - **Tests added on 2026-11-09 have not been run.** `TemplateServiceTests` (control-character
   escaping, invariant numbers, `{{<list>Yaml}}` escaping) and `FileServiceTests`
   (`BuildObsidianOpenUri`, `EnsureDirectoryExists` on an invalid path, `AppendToFile`) were written

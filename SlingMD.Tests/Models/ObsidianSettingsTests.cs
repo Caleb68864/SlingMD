@@ -192,7 +192,11 @@ namespace SlingMD.Tests.Models
             settings.Load();
 
             Assert.Equal("Logic", settings.VaultName);
-            Assert.Contains("Documents\\Notes", settings.VaultBasePath);
+            // Path.Combine rather than a literal "Documents\\Notes" so this also runs off Windows
+            // (SlingMD.Core.Tests); on Windows the expected value is the same ...\Documents\Notes.
+            Assert.Equal(
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Notes"),
+                settings.VaultBasePath);
             Assert.Equal("Inbox", settings.InboxFolder);
             Assert.Equal("Contacts", settings.ContactsFolder);
             Assert.True(settings.EnableContactSaving);
@@ -238,7 +242,7 @@ namespace SlingMD.Tests.Models
 
             string fullPath = settings.GetFullVaultPath();
 
-            Assert.Equal(@"C:\Test\Path\TestVault", fullPath);
+            Assert.Equal(Path.Combine(@"C:\Test\Path", "TestVault"), fullPath);
         }
 
         [Fact]
@@ -253,7 +257,7 @@ namespace SlingMD.Tests.Models
 
             string inboxPath = settings.GetInboxPath();
 
-            Assert.Equal(@"C:\Test\Path\TestVault\TestInbox", inboxPath);
+            Assert.Equal(Path.Combine(@"C:\Test\Path", "TestVault", "TestInbox"), inboxPath);
         }
 
         [Fact]
@@ -268,7 +272,7 @@ namespace SlingMD.Tests.Models
 
             string contactsPath = settings.GetContactsPath();
 
-            Assert.Equal(@"C:\Test\Path\TestVault\TestContacts", contactsPath);
+            Assert.Equal(Path.Combine(@"C:\Test\Path", "TestVault", "TestContacts"), contactsPath);
         }
 
         [Fact]

@@ -5,7 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 SlingMD is a .NET Framework 4.7.2 C# Outlook VSTO add-in that exports emails to Obsidian as markdown. The solution consists of three projects, plus one test project kept outside it:
 - **SlingMD.Outlook**: Main add-in project
-- **SlingMD.Core**: Pure helpers with no Office/WinForms/settings dependency (SDK-style,
+- **SlingMD.Core**: Pure helpers, `ObsidianSettings` (with the models it serialises) and `Logger`,
+  with no Office/WinForms dependency (SDK-style,
   `net472;netstandard2.0`). Namespaces stay `SlingMD.Outlook.*`, so moving a file here needs no
   `using` changes. Internals are visible to SlingMD.Outlook, SlingMD.Tests and SlingMD.Core.Tests.
 - **SlingMD.Tests**: xUnit test project with Moq for mocking (VSTest, Windows only)
@@ -55,7 +56,7 @@ The add-in uses a service-oriented architecture where `EmailProcessor` orchestra
 4. Settings are persisted to JSON via `ObsidianSettings.Save()`
 
 ### Key Models
-- **ObsidianSettings** (Models/ObsidianSettings.cs): Centralized configuration with JSON persistence
+- **ObsidianSettings** (SlingMD.Core/Models/ObsidianSettings.cs): Centralized configuration with JSON persistence
   - Vault paths, task defaults, threading settings, subject cleanup patterns, template formats
   - Load/Save methods handle serialization to AppData
 
@@ -82,13 +83,15 @@ When `GroupEmailThreads` is enabled:
 ## Project Structure
 ```
 SlingMD.Core/
-├── Models/         - Pure DTOs (ContactName, FilenameSubjectRule)
-└── Services/Formatting/ - Pure helpers (sanitisers, parsers, path budget, thread-id fallback, ...)
+├── Helpers/        - Logger (file log under AppData; never throws)
+├── Models/         - ObsidianSettings and the DTOs it serialises (AutoSlingRule, WatchedFolder,
+│                     CalendarFolderInfo, AttachmentStorageMode), ContactName, FilenameSubjectRule
+└── Services/Formatting/ - Pure helpers (sanitisers, parsers, cleaners, path budget, thread ids, ...)
 
 SlingMD.Outlook/
 ├── Forms/          - WinForms dialogs (Settings, TaskOptions, Progress, etc.)
 ├── Helpers/        - Utility classes (deprecated - use Services instead)
-├── Models/         - Data models (ObsidianSettings)
+├── Models/         - The other data models (MailItemSnapshot, SlingDecision, TaskDueSettings, ...)
 ├── Properties/     - Assembly info, resources
 ├── Ribbon/         - Outlook ribbon UI (SlingRibbon.cs/xml)
 ├── Services/       - Business logic services (FileService, EmailProcessor, etc.)

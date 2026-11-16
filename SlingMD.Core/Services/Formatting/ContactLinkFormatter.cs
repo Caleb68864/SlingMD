@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text.RegularExpressions;
+using SlingMD.Outlook.Helpers;
 using SlingMD.Outlook.Models;
 
 namespace SlingMD.Outlook.Services.Formatting
@@ -97,13 +99,30 @@ namespace SlingMD.Outlook.Services.Formatting
                         return rendered;
                     }
                 }
-                catch
+                catch (System.Exception ex) when (IsFileSystemFailure(ex))
                 {
-                    // Existence check is advisory — fall through to the next candidate.
+                    // The existence check is advisory: a candidate that can't be checked counts as
+                    // not found, and the next one is tried. Only file-system failures are absorbed
+                    // (the shipped callbacks, ContactService.NoteFileExists, already catch their own);
+                    // anything else is a bug in the callback and propagates.
+                    Logger.Instance.Warning($"ContactLinkFormatter.Resolve: could not check for a note named '{stem}': {ex.GetType().Name}: {ex.Message}");
                 }
             }
 
             return firstRendered ?? string.Empty;
+        }
+
+        /// <summary>
+        /// What checking a vault path for a note can throw: I/O and permission errors, and a stem
+        /// with characters the file system rejects (ArgumentException, NotSupportedException).
+        /// </summary>
+        private static bool IsFileSystemFailure(System.Exception ex)
+        {
+            return ex is IOException
+                || ex is UnauthorizedAccessException
+                || ex is ArgumentException
+                || ex is NotSupportedException
+                || ex is System.Security.SecurityException;
         }
 
         /// <summary>

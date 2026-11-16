@@ -668,7 +668,18 @@ namespace SlingMD.Outlook.Services
                     // For truly new contacts, try fuzzy matching first (when enabled)
                     var unfuzzyNewContacts = new List<string>();
                     string subjectForLog = string.Empty;
-                    try { subjectForLog = mail.Subject ?? string.Empty; } catch { }
+                    try
+                    {
+                        subjectForLog = mail.Subject ?? string.Empty;
+                    }
+                    catch (System.Exception ex) when (ex is System.Runtime.InteropServices.COMException
+                        || ex is System.Runtime.InteropServices.InvalidComObjectException)
+                    {
+                        // The subject only labels the fuzzy-match log lines, so a failed read must not stop
+                        // the contacts. It was read once already to build the note, so this means the item
+                        // went away mid-sling (store offline, item moved or released).
+                        Logger.Instance.Warning($"EmailProcessor: could not read the subject for the contact log: {ex.GetType().Name}: {ex.Message}");
+                    }
 
                     foreach (var contactName in newContacts)
                     {

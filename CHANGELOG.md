@@ -58,6 +58,12 @@ All notable changes to SlingMD are documented in this file.
   attendee lists also stop leaking an Outlook object per attendee, and a To/CC recipient with an
   empty SMTP address now falls back to the address Outlook shows instead of being left out.
 - **A failed contact alias update leaves no temp file behind** and is logged with the note's path.
+- **SlingMD keeps working when its log folder can't be created.** The log could fail to start if
+  the AppData folder wasn't writable, and every later attempt to write a log line then failed with
+  it. Logging now just stops quietly. Old logs are cleaned up one by one, so a locked one no longer
+  stops the rest, and a failed clean-up is logged.
+- **A contact note that couldn't be checked for is logged**, and only file-system errors are passed
+  over; the next contact-link format is still tried.
 - **Folders named after a name ending in a dot pointed at a folder that wasn't there.** A sender or
   recipient such as "Robert Smith Jr." keeps its dot in note and contact names, but Windows drops a
   trailing dot or space from a folder name, so a thread folder, a recurring-meeting folder or a
@@ -76,6 +82,17 @@ All notable changes to SlingMD are documented in this file.
   .NET Framework 4.7.2 and .NET Standard 2.0, which the add-in references. `SlingMD.Core.Tests` runs
   their tests with `dotnet test SlingMD.Core.Tests` on any OS, and CI runs it on Linux.
   `package-release.ps1` checks `SlingMD.Core.dll` for a stale publish as well.
+- **The settings, the log and the last six helpers moved to `SlingMD.Core` too.** `ObsidianSettings`
+  (with `AutoSlingRule`, `WatchedFolder`, `CalendarFolderInfo` and `AttachmentInfo`/`AttachmentStorageMode`,
+  which it serialises) and `Logger` now live there, so `BodyCleanerService`, `SubjectCleanerService`,
+  `ThreadIdHasher`, `FilenameSubjectNormalizer`, `TemplatePathResolver` and `ContactAliasWriter`
+  followed. Namespaces are unchanged. `SlingMD.Core` now references Newtonsoft.Json 13.0.3, the
+  version the add-in already ships. Their tests and the five settings-model test files run in
+  `SlingMD.Core.Tests` as well (428 tests on Linux, up from 275); five tests that compared against
+  literal `C:\` paths now build the expected path with `Path.Combine`, with the same value on Windows.
+- **`ThreadService.GetConversationId` has tests** (`ThreadServiceConversationIdTests`), using Moq
+  doubles of the Outlook `MailItem` and `PropertyAccessor`: topic, conversation index, subject,
+  message-id and EntryID fallbacks, and the random last resort.
 - **File-name sanitising uses the Windows list of invalid characters on every OS**, rather than
   whatever the machine running it reports. The result on Windows is unchanged.
 

@@ -54,10 +54,13 @@ namespace SlingMD.Tests.Services.Formatting
             // When TemplatesFolder is rooted, GetTemplatesPath() returns it directly (so the
             // absolute path appears exactly once). The resolver must NOT additionally combine
             // base dirs with the rooted folder. The literal "Templates" fallback still fires.
-            ObsidianSettings settings = DefaultSettings(templatesFolder: "C:\\AbsoluteTemplates");
+            // A folder that is rooted on the OS running the test: C:\\AbsoluteTemplates on a usual
+            // Windows machine, /AbsoluteTemplates elsewhere (SlingMD.Core.Tests runs on Linux).
+            string absoluteFolder = Path.Combine(Path.GetPathRoot(Path.GetTempPath()), "AbsoluteTemplates");
+            ObsidianSettings settings = DefaultSettings(templatesFolder: absoluteFolder);
             List<string> result = _resolver.Resolve("X.md", settings, new[] { "C:\\Install", "C:\\App" });
 
-            string absoluteCandidate = Path.Combine("C:\\AbsoluteTemplates", "X.md");
+            string absoluteCandidate = Path.Combine(absoluteFolder, "X.md");
             int hits = 0;
             foreach (string p in result)
             {
