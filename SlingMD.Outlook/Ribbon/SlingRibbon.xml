@@ -40,6 +40,11 @@
                   size="large"
                   imageMso="ControlProperties"
                   onAction="OnSettingsButtonClick" />
+          <button id="RepairFolderLinksButton"
+                  label="Repair Folder Links"
+                  imageMso="HyperlinkInsert"
+                  onAction="OnRepairFolderLinksClick"
+                  supertip="Fix links in older notes that point to a folder name ending in a dot (e.g. ...Jr./file.pdf) while the folder on disk has no dot"/>
         </group>
         <group id="AppointmentsGroup" label="Appointments">
           <button id="SaveTodaysButton"
