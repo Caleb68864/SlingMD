@@ -1,21 +1,26 @@
-using System.Windows.Forms;
-using SlingMD.Outlook.Forms;
 using SlingMD.Outlook.Helpers;
 using SlingMD.Outlook.Models;
 
 namespace SlingMD.Outlook.Services
 {
+    /// <summary>
+    /// Logs a message and, when <see cref="ObsidianSettings.AutoSlingNotificationMode"/> is "Toast",
+    /// shows it through an <see cref="IToastNotifier"/> (the add-in passes <c>ToastFormNotifier</c>).
+    /// In any other mode it only logs.
+    /// </summary>
     public class NotificationService
     {
         private readonly ObsidianSettings _settings;
+        private readonly IToastNotifier _toasts;
 
-        public NotificationService(ObsidianSettings settings)
+        public NotificationService(ObsidianSettings settings, IToastNotifier toastNotifier)
         {
             _settings = settings;
+            _toasts = toastNotifier ?? throw new System.ArgumentNullException(nameof(toastNotifier));
         }
 
         /// <summary>
-        /// Displays an informational notification. In Toast mode, shows a MessageBox.
+        /// Displays an informational notification. In Toast mode, shows a toast.
         /// In Silent mode, writes to the log only.
         /// </summary>
         public virtual void Notify(string message)
@@ -26,7 +31,7 @@ namespace SlingMD.Outlook.Services
             {
                 try
                 {
-                    ToastForm.ShowToast(message, isError: false);
+                    _toasts.ShowToast(message, isError: false);
                 }
                 catch (System.Exception ex)
                 {
@@ -38,7 +43,7 @@ namespace SlingMD.Outlook.Services
         }
 
         /// <summary>
-        /// Displays an error notification. In Toast mode, shows a MessageBox with a warning icon.
+        /// Displays an error notification. In Toast mode, shows an error toast.
         /// In Silent mode, writes to the log only.
         /// </summary>
         public virtual void NotifyError(string message, string error)
@@ -51,7 +56,7 @@ namespace SlingMD.Outlook.Services
             {
                 try
                 {
-                    ToastForm.ShowToast(fullMessage, isError: true);
+                    _toasts.ShowToast(fullMessage, isError: true);
                 }
                 catch (System.Exception ex)
                 {

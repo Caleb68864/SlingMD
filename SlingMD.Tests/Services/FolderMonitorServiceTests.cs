@@ -22,7 +22,7 @@ namespace SlingMD.Tests.Services
         {
             ObsidianSettings settings = CreateValidSettings();
             EmailProcessor emailProcessor = new EmailProcessor(settings);
-            NotificationService notificationService = new NotificationService(settings);
+            NotificationService notificationService = new NotificationService(settings, new ToastFormNotifier());
 
             System.Exception caughtException = null;
             try
@@ -43,7 +43,7 @@ namespace SlingMD.Tests.Services
         {
             ObsidianSettings settings = CreateValidSettings();
             EmailProcessor emailProcessor = new EmailProcessor(settings);
-            NotificationService notificationService = new NotificationService(settings);
+            NotificationService notificationService = new NotificationService(settings, new ToastFormNotifier());
             FolderMonitorService service = new FolderMonitorService(settings, emailProcessor, notificationService, null);
 
             System.Exception caughtException = null;
@@ -66,7 +66,7 @@ namespace SlingMD.Tests.Services
             // can be shut down without error — prerequisite for Automated mode wiring.
             ObsidianSettings settings = CreateValidSettings();
             EmailProcessor emailProcessor = new EmailProcessor(settings);
-            NotificationService notificationService = new NotificationService(settings);
+            NotificationService notificationService = new NotificationService(settings, new ToastFormNotifier());
             FolderMonitorService service = new FolderMonitorService(settings, emailProcessor, notificationService, null);
 
             System.Exception caughtException = null;

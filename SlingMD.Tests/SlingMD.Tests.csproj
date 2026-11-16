@@ -97,6 +97,7 @@
     <Compile Include="Services\ProcessedEmailCacheTests.cs" />
     <Compile Include="Services\FileAvailabilityWaiterTests.cs" />
     <Compile Include="Services\StatusServiceTests.cs" />
+    <Compile Include="Services\NotificationServiceTests.cs" />
     <Compile Include="Services\AppointmentProcessorTests.cs" />
     <Compile Include="Services\CalendarFolderServiceTests.cs" />
     <Compile Include="Services\ContactProcessorTests.cs" />

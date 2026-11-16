@@ -35,7 +35,8 @@ Core, COM/UI part stays; stays = front end):
 | `Services/FileService.cs` | move; the "could not launch Obsidian" `MessageBox` goes behind `IUserNotifier` (Core), implemented by `MessageBoxUserNotifier` (Outlook). `Process.Start` is in netstandard2.0. |
 | `Services/ClipboardEmailService.cs`, `ContactInteractionMode.cs` | move (formatting only / enum) |
 | `Services/StatusService.cs` | done: moved to Core over an `IProgressView` (Core); `ProgressFormView` (Outlook) wraps the `ProgressForm` |
-| `Services/NotificationService.cs`, `SupportService.cs` | stays (toasts, MessageBox); the engine calls them through `IUserNotifier` and `IToastNotifier` (Core, implemented by `ToastFormNotifier` over `ToastForm`). `NotificationService` could move to Core over `IToastNotifier` next; its tests and `ThisAddIn` construct it with settings only, so that needs a constructor change |
+| `Services/NotificationService.cs` | done: moved to Core; takes an `IToastNotifier` (`ThisAddIn` passes `ToastFormNotifier`), pinned by `NotificationServiceTests` |
+| `Services/SupportService.cs` | stays (MessageBox); the engine calls the front end through `IUserNotifier` and `IToastNotifier` (Core, implemented by `MessageBoxUserNotifier` and `ToastFormNotifier`) |
 | `Services/EmailProcessor.cs` | split (first of the big four, see below) |
 | `Services/AppointmentProcessor.cs` | split (second) |
 | `Services/ThreadService.cs` | split (third): thread folder/note naming, `FindExistingThread`, summary note, resuffixing are file work; `GetConversationId` and the `MailItem` overloads stay as a reader |
@@ -187,7 +188,7 @@ icon failures, ContactAliasWriter's catches) were fixed on `harden/2026-11-09`; 
 Left over from that work:
 
 - **Some best-effort catches are still broad on purpose.** The toast catches
-  (`NotificationService.cs`, `Forms/ToastForm.cs`, `EmailProcessor.cs` near the export-failure toast)
+  (`SlingMD.Core/Services/NotificationService.cs`, `Forms/ToastForm.cs`, `EmailProcessor.cs` near the export-failure toast)
   and the ribbon icon loaders (`Ribbon/SlingRibbon.cs`) catch `System.Exception`, now with a log
   line and a comment. Narrow them only once the real failure types are known from logs.
 - ~~**Other bare catches not yet reviewed.**~~ Reviewed on `refactor/finish-core-split`; no bare

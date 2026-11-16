@@ -71,6 +71,7 @@
     <Compile Include="..\SlingMD.Tests\Services\ProcessedEmailCacheTests.cs" Link="Linked\Services\ProcessedEmailCacheTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\FileAvailabilityWaiterTests.cs" Link="Linked\Services\FileAvailabilityWaiterTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\StatusServiceTests.cs" Link="Linked\Services\StatusServiceTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\NotificationServiceTests.cs" Link="Linked\Services\NotificationServiceTests.cs" />
     <Compile Include="..\SlingMD.Tests\Helpers\BoundedHashSetTests.cs" Link="Linked\Helpers\BoundedHashSetTests.cs" />
   </ItemGroup>
 </Project>
