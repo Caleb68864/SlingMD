@@ -146,7 +146,9 @@ All notable changes to SlingMD are documented in this file.
   Obsidian countdown, task-dates prompt (its choice comes back as a `TaskDateChoice`) and new-contact
   confirmation. The add-in's `DialogEmailPrompts` wraps the same `MessageBox`, `CountdownForm`,
   `TaskOptionsForm` and `ContactConfirmationDialog`. Same text, buttons and timing.
-  `AppointmentProcessor` still shows its forms directly (see `docs/ROADMAP.md`).
+  `AppointmentProcessor` now shows its task-dates prompt and new-contact confirmation through the
+  same interface (optional constructor argument, default `DialogEmailPrompts`); same dialogs and
+  cancel handling. Its other message boxes and countdown are still direct (see `docs/ROADMAP.md`).
 - **File-name sanitising uses the Windows list of invalid characters on every OS**, rather than
   whatever the machine running it reports. The result on Windows is unchanged.
 

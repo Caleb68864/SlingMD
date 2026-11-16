@@ -101,8 +101,12 @@ Left for EmailProcessor:
     `DialogEmailPrompts` wraps `TaskOptionsForm` and EmailProcessor initialises or disables tasks
     from it as before. Contacts (done): `IEmailPrompts.ConfirmNewContacts(names)` returns the
     ticked names (empty on cancel), over `ContactConfirmationDialog`.
-    Remaining: `AppointmentProcessor` still shows `TaskOptionsForm` (its date overload) and
-    `ContactConfirmationDialog` directly; the clipboard copy has no interface yet. No test drives
+    Appointments (done): `AppointmentProcessor` takes an optional `prompts` constructor argument
+    (default: `DialogEmailPrompts`) and its task-dates prompt and new-contact confirmation go
+    through `PromptTaskOptions`/`ConfirmNewContacts`, same defaults and cancel handling; a
+    construction test pins it (Mono). Still direct there: the master-note Yes/No and warning
+    `MessageBox`es, the contacts error box and `CountdownForm`.
+    Remaining: the clipboard copy has no interface yet. No test drives
     the prompts through `ProcessEmailWithResult` (needs a `MailItem` double).
     Needs Windows: the VS build (`DialogEmailPrompts.cs` added to `SlingMD.Outlook.csproj`) and a
     sling that fails, and one with the countdown on, to see the same dialogs.
