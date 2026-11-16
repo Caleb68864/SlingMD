@@ -25,7 +25,7 @@ namespace SlingMD.Outlook.Services
         public TaskService(ObsidianSettings settings, TemplateService templateService = null, IClock clock = null)
         {
             _settings = settings;
-            _templateService = templateService ?? new TemplateService(new FileService(settings));
+            _templateService = templateService ?? new TemplateService(new FileService(settings, new MessageBoxUserNotifier()));
             _clock = clock ?? new SystemClock();
             _calculator = new ReminderDueDateCalculator();
         }

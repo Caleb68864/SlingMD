@@ -47,6 +47,15 @@ Core, COM/UI part stays; stays = front end):
 | `Services/SmtpAddressResolver.cs`, `CalendarFolderService.cs` | stays (COM readers) |
 | `Services/AutoSlingService.cs`, `FlagMonitorService.cs`, `FolderMonitorService.cs` | stays (monitors); their decisions already use `RuleEngine`/`SlingDecisionEngine` in Core |
 
+**Done so far** (`refactor/engine-frontend-split`): the "move" rows above, apart from
+`SettingsHelp`, are in SlingMD.Core, with their tests linked into SlingMD.Core.Tests (572 on
+Linux). `StatusService` did not move: it creates a `ProgressForm`, so it needs the interface split.
+Needs Windows: `TemplateService` looks for templates beside `Assembly.GetExecutingAssembly()`,
+which is now `SlingMD.Core.dll` instead of `SlingMD.Outlook.dll`; both are built into the same
+folder, and `AppDomain.BaseDirectory` is tried first anyway, but check a published install still
+finds the `Templates/` copies. The `IUserNotifier` warning when Obsidian cannot be launched is not
+covered by a test.
+
 **Order for the big four**, each pinned by Linux characterization tests of the engine before the
 Outlook class is cut down:
 

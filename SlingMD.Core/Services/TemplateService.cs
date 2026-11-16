@@ -821,6 +821,8 @@ for (const email of emails) {
             List<string> baseDirectories = new List<string>
             {
                 AppDomain.CurrentDomain.BaseDirectory,
+                // Was the add-in assembly's folder before TemplateService moved to SlingMD.Core;
+                // SlingMD.Core.dll is deployed beside it, so this is the same folder.
                 Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),
                 Directory.GetCurrentDirectory(),
                 Environment.CurrentDirectory

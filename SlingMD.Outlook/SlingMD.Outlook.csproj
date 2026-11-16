@@ -294,21 +294,13 @@
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Models\AttachmentSignals.cs" />
-    <Compile Include="Models\ClipboardEmail.cs" />
-    <Compile Include="Infrastructure\IClock.cs" />
-    <Compile Include="Infrastructure\MapiPropertyTags.cs" />
-    <Compile Include="Infrastructure\SystemClock.cs" />
     <Compile Include="Services\AppointmentProcessor.cs" />
     <Compile Include="Services\CalendarFolderService.cs" />
     <Compile Include="Services\ContactProcessor.cs" />
     <Compile Include="Services\AttachmentService.cs" />
     <Compile Include="Services\ContactService.cs" />
-    <Compile Include="Services\ClipboardEmailService.cs" />
     <Compile Include="Services\EmailProcessor.cs" />
     <Compile Include="Services\SmtpAddressResolver.cs" />
-    <Compile Include="Services\ContactInteractionMode.cs" />
-    <Compile Include="Services\SubjectFilenameCleaner.cs" />
     <Compile Include="Ribbon\SlingRibbon.cs" />
     <EmbeddedResource Include="Forms\ContactMatchPromptForm.resx">
       <DependentUpon>ContactMatchPromptForm.cs</DependentUpon>
@@ -355,14 +347,13 @@
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
     <Compile Include="Services\AutoSlingService.cs" />
-    <Compile Include="Services\FileService.cs" />
     <Compile Include="Services\FlagMonitorService.cs" />
     <Compile Include="Services\FolderMonitorService.cs" />
+    <Compile Include="Services\MessageBoxUserNotifier.cs" />
     <Compile Include="Services\NotificationService.cs" />
     <Compile Include="Services\StatusService.cs" />
     <Compile Include="Services\SupportService.cs" />
     <Compile Include="Services\TaskService.cs" />
-    <Compile Include="Services\TemplateService.cs" />
     <Compile Include="Services\ThreadService.cs" />
     <Compile Include="Services\ThreadCompletionService.cs" />
     <Compile Include="ThisAddIn.cs">

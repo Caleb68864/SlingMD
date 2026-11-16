@@ -19,10 +19,21 @@ namespace SlingMD.Outlook.Services
         private readonly ObsidianSettings _settings;
         private readonly FileNameSanitizer _fileNameSanitizer;
         private readonly PathLengthBudget _pathBudget;
+        private readonly IUserNotifier _notifier;
 
         public FileService(ObsidianSettings settings)
+            : this(settings, null)
+        {
+        }
+
+        /// <param name="notifier">
+        /// Shows the "could not launch Obsidian" warning. The add-in passes a
+        /// <c>MessageBoxUserNotifier</c>; with <c>null</c> the failure is only logged.
+        /// </param>
+        public FileService(ObsidianSettings settings, IUserNotifier notifier)
         {
             _settings = settings;
+            _notifier = notifier;
             _fileNameSanitizer = new FileNameSanitizer();
             _pathBudget = new PathLengthBudget();
         }
@@ -252,8 +263,7 @@ namespace SlingMD.Outlook.Services
             catch (System.Exception ex) when (ex is System.ComponentModel.Win32Exception || ex is InvalidOperationException || ex is FileNotFoundException)
             {
                 Logger.Instance.Error($"FileService.LaunchObsidian: could not open '{obsidianUrl}'", ex);
-                System.Windows.Forms.MessageBox.Show($"Failed to launch Obsidian: {ex.Message}\n\nIs Obsidian installed and registered for obsidian:// links?", "SlingMD",
-                    System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Warning);
+                _notifier?.ShowWarning($"Failed to launch Obsidian: {ex.Message}\n\nIs Obsidian installed and registered for obsidian:// links?", "SlingMD");
             }
         }
 

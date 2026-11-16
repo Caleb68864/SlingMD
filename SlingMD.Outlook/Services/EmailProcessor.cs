@@ -103,7 +103,7 @@ namespace SlingMD.Outlook.Services
         {
             _settings = settings;
             _clock = clock ?? new SystemClock();
-            _fileService = fileService ?? new FileService(settings);
+            _fileService = fileService ?? new FileService(settings, new MessageBoxUserNotifier());
             _templateService = templateService ?? new TemplateService(_fileService);
             _threadService = threadService ?? new ThreadService(_fileService, _templateService, settings);
             _taskService = taskService ?? new TaskService(settings, _templateService, _clock);

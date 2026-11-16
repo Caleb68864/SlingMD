@@ -79,7 +79,7 @@ namespace SlingMD.Outlook.Services
         public AppointmentProcessor(ObsidianSettings settings, IClock clock = null)
         {
             _settings = settings;
-            _fileService = new FileService(settings);
+            _fileService = new FileService(settings, new MessageBoxUserNotifier());
             _templateService = new TemplateService(_fileService);
             _threadService = new ThreadService(_fileService, _templateService, settings);
             _clock = clock ?? new SystemClock();
