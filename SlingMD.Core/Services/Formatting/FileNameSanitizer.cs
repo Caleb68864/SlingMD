@@ -16,6 +16,26 @@ namespace SlingMD.Outlook.Services.Formatting
         private static readonly Regex SeparatorRunRegex = new Regex(@"[-_]{2,}", RegexOptions.Compiled);
 
         /// <summary>
+        /// The characters Windows forbids in a file name: exactly what
+        /// <see cref="Path.GetInvalidFileNameChars"/> returns on Windows (<c>" &lt; &gt; |</c>, NUL and
+        /// the other control characters, <c>: * ? \ /</c>). Spelled out because the vault is always on
+        /// Windows, while on Linux and macOS that method returns only NUL and '/', which made the
+        /// result depend on the machine running the tests.
+        /// </summary>
+        private static readonly char[] WindowsInvalidFileNameChars = BuildWindowsInvalidFileNameChars();
+
+        private static char[] BuildWindowsInvalidFileNameChars()
+        {
+            List<char> chars = new List<char> { '"', '<', '>', '|' };
+            for (int c = 0; c < 32; c++)
+            {
+                chars.Add((char)c);
+            }
+            chars.AddRange(new[] { ':', '*', '?', '\\', '/' });
+            return chars.ToArray();
+        }
+
+        /// <summary>
         /// Reserved Windows device names. A file named exactly one of these (any casing, with or
         /// without an extension) cannot be created — the OS routes it to the device — so a subject
         /// that reduces to e.g. "CON" or "NUL" would otherwise abort the sling with an I/O error.
@@ -42,8 +62,7 @@ namespace SlingMD.Outlook.Services.Formatting
             string cleaned = input;
 
             // Replace invalid filename characters with underscore.
-            char[] invalidChars = Path.GetInvalidFileNameChars();
-            cleaned = string.Join("_", cleaned.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
+            cleaned = string.Join("_", cleaned.Split(WindowsInvalidFileNameChars, StringSplitOptions.RemoveEmptyEntries));
 
             // Strip / replace additional problematic characters.
             cleaned = cleaned.Replace("\"", string.Empty)

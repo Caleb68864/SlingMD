@@ -169,6 +169,14 @@
       <EmbedInteropTypes>true</EmbedInteropTypes>
     </Reference>
   </ItemGroup>
+  <ItemGroup>
+    <!-- Pure helpers (formatting, name parsing, path budgeting) live in SlingMD.Core so they can be
+         built and tested without Office. Multi-targeted; this project gets its net472 build. -->
+    <ProjectReference Include="..\SlingMD.Core\SlingMD.Core.csproj">
+      <Project>{50ed707d-a5fd-46dc-95dd-4ddfc1f3d6b0}</Project>
+      <Name>SlingMD.Core</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>

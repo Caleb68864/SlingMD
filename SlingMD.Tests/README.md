@@ -19,6 +19,13 @@ dotnet restore
 dotnet test SlingMD.Tests/SlingMD.Tests.csproj
 ```
 
+Tests for the classes in `SlingMD.Core` (most of `Services/Formatting/`) are also compiled into
+`SlingMD.Core.Tests`, which runs on any OS with the .NET SDK:
+
+```
+dotnet test SlingMD.Core.Tests
+```
+
 ## Prerequisites
 
 Running `dotnet test` requires **Visual Studio** with the **Office/VSTO development workload** installed. Without it the build fails with `error MSB4019: The imported project "...\Microsoft.VisualStudio.Tools.Office.targets" was not found`. Open the solution in Visual Studio or install that workload via the Visual Studio Installer under *Workloads > Office/SharePoint development*.

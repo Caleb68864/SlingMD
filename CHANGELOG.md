@@ -59,6 +59,15 @@ All notable changes to SlingMD are documented in this file.
   empty SMTP address now falls back to the address Outlook shows instead of being left out.
 - **A failed contact alias update leaves no temp file behind** and is logged with the note's path.
 
+### Internal
+- **The pure helpers now build and test without Office.** Most of `Services/Formatting/` (and the
+  `ContactName` and `FilenameSubjectRule` models) moved to a new `SlingMD.Core` library built for
+  .NET Framework 4.7.2 and .NET Standard 2.0, which the add-in references. `SlingMD.Core.Tests` runs
+  their tests with `dotnet test SlingMD.Core.Tests` on any OS, and CI runs it on Linux.
+  `package-release.ps1` checks `SlingMD.Core.dll` for a stale publish as well.
+- **File-name sanitising uses the Windows list of invalid characters on every OS**, rather than
+  whatever the machine running it reports. The result on Windows is unchanged.
+
 ## [1.2.5.0] - 2026-10-22
 
 ### Added
