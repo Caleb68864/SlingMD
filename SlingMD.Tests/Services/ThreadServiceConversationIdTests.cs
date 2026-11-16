@@ -94,6 +94,32 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
+        public void GetConversationId_NoTopic_ReadsTheConversationIndexAsBinary()
+        {
+            // PR_CONVERSATION_INDEX is PT_BINARY (0x0102). Outlook returns its byte[] only for the binary
+            // tag; the Unicode-string tag (0x001F) used before 2026-11-16 never yielded one, so the
+            // conversation-index strategy never ran and these emails were grouped by subject.
+            byte[] index = new byte[27];
+            for (int i = 0; i < index.Length; i++)
+            {
+                index[i] = (byte)(0xA0 + i);
+            }
+
+            Mock<PropertyAccessor> accessor = new Mock<PropertyAccessor>();
+            accessor.Setup(a => a.GetProperty("http://schemas.microsoft.com/mapi/proptag/0x00710102")).Returns(index);
+            accessor.Setup(a => a.GetProperty("http://schemas.microsoft.com/mapi/proptag/0x0071001F")).Returns((object)null);
+            Mock<MailItem> mail = new Mock<MailItem>();
+            mail.Setup(m => m.ConversationTopic).Returns(string.Empty);
+            mail.Setup(m => m.Subject).Returns("Quarterly loan review");
+            mail.Setup(m => m.PropertyAccessor).Returns(accessor.Object);
+
+            string id = _threadService.GetConversationId(mail.Object);
+
+            Assert.Equal("A0A1A2A3A4A5A6A7A8A9", id);
+            Assert.NotEqual(_hasher.Hash("Quarterly loan review"), id);
+        }
+
+        [Fact]
         public void GetConversationId_NoTopic_ConversationIndexTooShort_HashesTheSubject()
         {
             Mock<MailItem> mail = new Mock<MailItem>();

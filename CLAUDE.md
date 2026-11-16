@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 SlingMD is a .NET Framework 4.7.2 C# Outlook VSTO add-in that exports emails to Obsidian as markdown. The solution consists of three projects, plus one test project kept outside it:
 - **SlingMD.Outlook**: Main add-in project
-- **SlingMD.Core**: Pure helpers, `ObsidianSettings` (with the models it serialises) and `Logger`,
+- **SlingMD.Core**: Pure helpers and engines, `ObsidianSettings` (with the models it serialises) and `Logger`,
   with no Office/WinForms dependency (SDK-style,
   `net472;netstandard2.0`). Namespaces stay `SlingMD.Outlook.*`, so moving a file here needs no
   `using` changes. Internals are visible to SlingMD.Outlook, SlingMD.Tests and SlingMD.Core.Tests.
@@ -83,15 +83,17 @@ When `GroupEmailThreads` is enabled:
 ## Project Structure
 ```
 SlingMD.Core/
-├── Helpers/        - Logger (file log under AppData; never throws)
+├── Helpers/        - Logger (file log under AppData; never throws), BoundedHashSet
 ├── Models/         - ObsidianSettings and the DTOs it serialises (AutoSlingRule, WatchedFolder,
-│                     CalendarFolderInfo, AttachmentStorageMode), ContactName, FilenameSubjectRule
+│                     CalendarFolderInfo, AttachmentStorageMode), ContactName, FilenameSubjectRule,
+│                     MailItemSnapshot, SlingDecision, TaskDueSettings, TaskDueDates, EmailSlingResult
+├── Services/       - RuleEngine, SlingDecisionEngine, ReminderDueDateCalculator, BatchSlingReport
 └── Services/Formatting/ - Pure helpers (sanitisers, parsers, cleaners, path budget, thread ids, ...)
 
 SlingMD.Outlook/
 ├── Forms/          - WinForms dialogs (Settings, TaskOptions, Progress, etc.)
 ├── Helpers/        - Utility classes (deprecated - use Services instead)
-├── Models/         - The other data models (MailItemSnapshot, SlingDecision, TaskDueSettings, ...)
+├── Models/         - The other data models (AttachmentSignals, ClipboardEmail)
 ├── Properties/     - Assembly info, resources
 ├── Ribbon/         - Outlook ribbon UI (SlingRibbon.cs/xml)
 ├── Services/       - Business logic services (FileService, EmailProcessor, etc.)

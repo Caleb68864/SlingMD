@@ -1,7 +1,7 @@
 namespace SlingMD.Outlook.Models
 {
     /// <summary>
-    /// What happened to one email passed to <see cref="Services.EmailProcessor.ProcessEmailWithResult"/>.
+    /// What happened to one email passed to <c>EmailProcessor.ProcessEmailWithResult</c> (in the add-in).
     /// </summary>
     public enum EmailSlingOutcome
     {

@@ -71,6 +71,13 @@ All notable changes to SlingMD are documented in this file.
   Those folders are now named without trailing dots and spaces from the start, and moving a note
   into a thread folder finds its attachment folder again. Links already written to a dotted folder
   name in older notes are not rewritten.
+- **Emails with no conversation topic are grouped by their Outlook conversation index again.**
+  SlingMD asked Outlook for the conversation index as text, but it is binary, so it never got one and
+  these emails were grouped by subject instead. It now reads it as binary, and releases the Outlook
+  object it reads it through. **Heads-up:** this changes the thread id for such emails, so slinging a
+  new email of a conversation you slung before may start a new thread folder beside the old one.
+  Existing notes are not changed or moved. Emails with a conversation topic (most of them) are not
+  affected.
 - **A retried sling of an email with no readable conversation id landed in a new thread folder each
   time.** The last-resort thread id was random; it is now a hash of the email's Internet message id
   (or its EntryID when that can't be read), so the same email always gets the same id. A random id is
@@ -90,6 +97,12 @@ All notable changes to SlingMD are documented in this file.
   version the add-in already ships. Their tests and the five settings-model test files run in
   `SlingMD.Core.Tests` as well (428 tests on Linux, up from 275); five tests that compared against
   literal `C:\` paths now build the expected path with `Path.Combine`, with the same value on Windows.
+- **The auto-sling rules, the sling decision, task due dates, the batch report and the
+  recently-seen set moved to `SlingMD.Core` as well.** `RuleEngine`, `SlingDecisionEngine`,
+  `ReminderDueDateCalculator`, `BatchSlingReport` and `BoundedHashSet` had no Office dependency; the
+  DTOs they use (`MailItemSnapshot`, `SlingDecision`, `TaskDueSettings`, `TaskDueDates`,
+  `EmailSlingResult`) moved with them. Namespaces are unchanged. Their tests now run in
+  `SlingMD.Core.Tests` too (485 tests on Linux, up from 431).
 - **`ThreadService.GetConversationId` has tests** (`ThreadServiceConversationIdTests`), using Moq
   doubles of the Outlook `MailItem` and `PropertyAccessor`: topic, conversation index, subject,
   message-id and EntryID fallbacks, and the random last resort.
