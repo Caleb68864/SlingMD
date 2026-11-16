@@ -99,7 +99,7 @@ SlingMD.Core/
 │                     ProcessedEmailCache (duplicate check), FileAvailabilityWaiter (backoff wait),
 │                     StatusService (progress, over IProgressView),
 │                     NotificationService (auto-sling toasts/log, over IToastNotifier),
-│                     IUserNotifier, IToastNotifier, IProgressView (what the engine asks the front end to show)
+│                     IUserNotifier, IToastNotifier, IProgressView, IEmailPrompts (what the engine asks the front end to show)
 └── Services/Formatting/ - Pure helpers (sanitisers, parsers, cleaners, path budget, thread ids, ...)
 
 SlingMD.Outlook/
@@ -109,7 +109,7 @@ SlingMD.Outlook/
 ├── Ribbon/         - Outlook ribbon UI (SlingRibbon.cs/xml)
 ├── Services/       - COM readers, processors not yet split (EmailProcessor, ThreadService, ...),
 │                     monitors, OutlookEmailReader (MailItem -> EmailData), MessageBoxUserNotifier,
-│                     ToastFormNotifier, ProgressFormView (Core interfaces over the forms)
+│                     ToastFormNotifier, ProgressFormView, DialogEmailPrompts (Core interfaces over the forms)
 ├── Templates/      - Default markdown templates
 └── ThisAddIn.cs    - VSTO entry point
 

@@ -142,6 +142,10 @@ All notable changes to SlingMD are documented in this file.
 - **`NotificationService` moved to `SlingMD.Core`** and shows its toasts through `IToastNotifier`;
   the add-in passes `ToastFormNotifier`. Same log lines, toasts and Toast/Silent behaviour;
   `NotificationServiceTests` (606).
+- **`EmailProcessor`'s error boxes and Obsidian countdown sit behind a Core interface**,
+  `IEmailPrompts`; the add-in's `DialogEmailPrompts` wraps the same `MessageBox` and
+  `CountdownForm`. Same text, buttons and timing. The task-options and contact-confirmation
+  dialogs are still shown directly (see `docs/ROADMAP.md`).
 - **File-name sanitising uses the Windows list of invalid characters on every OS**, rather than
   whatever the machine running it reports. The result on Windows is unchanged.
 

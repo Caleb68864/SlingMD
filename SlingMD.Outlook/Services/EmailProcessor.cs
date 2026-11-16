@@ -42,6 +42,7 @@ namespace SlingMD.Outlook.Services
         private readonly IClock _clock;
         private readonly IToastNotifier _toasts;
         private readonly Func<IProgressView> _openProgressView;
+        private readonly IEmailPrompts _prompts;
 
         /// <summary>
         /// Whether any attachment processing should run for an email given the current settings.
@@ -86,11 +87,13 @@ namespace SlingMD.Outlook.Services
             ContactService contactService,
             AttachmentService attachmentService,
             IToastNotifier toastNotifier = null,
-            Func<IProgressView> openProgressView = null)
+            Func<IProgressView> openProgressView = null,
+            IEmailPrompts prompts = null)
         {
             _settings = settings;
             _toasts = toastNotifier ?? new ToastFormNotifier();
             _openProgressView = openProgressView ?? ProgressFormView.Open;
+            _prompts = prompts ?? new DialogEmailPrompts();
             _clock = clock ?? new SystemClock();
             _fileService = fileService ?? new FileService(settings, new MessageBoxUserNotifier());
             _templateService = templateService ?? new TemplateService(_fileService);
@@ -568,7 +571,7 @@ namespace SlingMD.Outlook.Services
                     }
                     else
                     {
-                        MessageBox.Show($"Error processing email: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        _prompts.ShowError($"Error processing email: {ex.Message}");
                     }
                 }
             }
@@ -659,7 +662,7 @@ namespace SlingMD.Outlook.Services
                 }
                 catch (System.Exception ex)
                 {
-                    MessageBox.Show($"Error processing contacts: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    _prompts.ShowError($"Error processing contacts: {ex.Message}");
                 }
             }
             
@@ -686,10 +689,7 @@ namespace SlingMD.Outlook.Services
                     // Ensure delay happens after all file operations
                     if (_settings.ShowCountdown && _settings.ObsidianDelaySeconds > 0)
                     {
-                        using (var countdown = new CountdownForm(_settings.ObsidianDelaySeconds))
-                        {
-                            countdown.ShowDialog();
-                        }
+                        _prompts.ShowLaunchCountdown(_settings.ObsidianDelaySeconds);
                     }
                     else if (_settings.ObsidianDelaySeconds > 0)
                     {
@@ -702,7 +702,7 @@ namespace SlingMD.Outlook.Services
                 }
                 catch (System.Exception ex)
                 {
-                    MessageBox.Show($"Error launching Obsidian: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    _prompts.ShowError($"Error launching Obsidian: {ex.Message}");
                 }
             }
             else if (!bulkMode)
