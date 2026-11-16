@@ -31,9 +31,19 @@ Found and left:
   (`ThreadIdHasher.Hash("")` returns `""`), so all such emails share one. The new identity hash
   could be used there too, but that changes grouping for subjectless emails; not done without a
   decision.
-- **`GetConversationId` itself has no test.** It takes a `MailItem`; whether Moq can mock the
-  embedded interop type (`EmbedInteropTypes=true` in SlingMD.Tests) has not been checked, so only
-  the extracted fallback is tested.
+- ~~**`GetConversationId` itself has no test.**~~ Done on `refactor/finish-core-split`:
+  `SlingMD.Tests/Services/ThreadServiceConversationIdTests.cs` (9 tests) mocks `MailItem` and
+  `PropertyAccessor` with Moq. A probe showed Moq 4.18.4 proxies the embedded Outlook interop types
+  under .NET 10 and Mono, so no seam was needed; the tests passed under Mono but have not run under
+  VSTest on .NET Framework. `ReadInternetMessageId` now releases the accessor only when
+  `Marshal.IsComObject` is true, since `ReleaseComObject` throws on a test double. The same approach
+  should work for the recipient-address fallbacks below.
+- **`MapiPropertyTags.PrConversationIndex` is probably the wrong type.** PR_CONVERSATION_INDEX is
+  binary (`0x00710102`), but the tag asks for `0x0071001F` (Unicode string), so `GetProperty`
+  likely never returns a `byte[]` and `GetConversationId`'s strategy 2 never fires: emails with no
+  topic go straight to the subject hash. Not confirmed against a real Outlook store. Fixing it would
+  change the thread id of such emails, so not done without a decision. Strategy 2 also never
+  releases the `PropertyAccessor` it reads.
 
 ## Error handling and logging
 
@@ -50,9 +60,10 @@ Left over from that work:
   for logging) and `Helpers/Logger.cs` (94, 119; the logger must not throw, so these may stay) were
   not looked at.
 - **No tests for the recipient-address fallbacks.** `SmtpAddressResolver.ForRecipient` and both
-  `ContactService.BuildEmailList` overloads take Outlook COM objects. A Moq test of `Recipient`
-  (PropertyAccessor throws, Address throws) is worth trying, but whether Moq can mock the
-  embedded interop types has not been checked.
+  `ContactService.BuildEmailList` overloads take Outlook COM objects. Moq can mock the embedded
+  interop types (see `ThreadServiceConversationIdTests`), so a Moq test of `Recipient`
+  (PropertyAccessor throws, Address throws) should work; watch for `Marshal.ReleaseComObject` calls
+  on the doubles, which throw `ArgumentException`.
 
 ## Build and tests
 

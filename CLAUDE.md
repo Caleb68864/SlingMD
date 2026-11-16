@@ -91,7 +91,7 @@ SlingMD.Core/
 SlingMD.Outlook/
 ├── Forms/          - WinForms dialogs (Settings, TaskOptions, Progress, etc.)
 ├── Helpers/        - Utility classes (deprecated - use Services instead)
-├── Models/         - Data models that touch Outlook (MailItemSnapshot, SlingDecision, ...)
+├── Models/         - The other data models (MailItemSnapshot, SlingDecision, TaskDueSettings, ...)
 ├── Properties/     - Assembly info, resources
 ├── Ribbon/         - Outlook ribbon UI (SlingRibbon.cs/xml)
 ├── Services/       - Business logic services (FileService, EmailProcessor, etc.)

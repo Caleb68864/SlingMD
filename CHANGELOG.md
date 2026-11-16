@@ -84,6 +84,9 @@ All notable changes to SlingMD are documented in this file.
   version the add-in already ships. Their tests and the five settings-model test files run in
   `SlingMD.Core.Tests` as well (428 tests on Linux, up from 275); five tests that compared against
   literal `C:\` paths now build the expected path with `Path.Combine`, with the same value on Windows.
+- **`ThreadService.GetConversationId` has tests** (`ThreadServiceConversationIdTests`), using Moq
+  doubles of the Outlook `MailItem` and `PropertyAccessor`: topic, conversation index, subject,
+  message-id and EntryID fallbacks, and the random last resort.
 - **File-name sanitising uses the Windows list of invalid characters on every OS**, rather than
   whatever the machine running it reports. The result on Windows is unchanged.
 
