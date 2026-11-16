@@ -133,6 +133,8 @@ All notable changes to SlingMD are documented in this file.
   tasks and the duplicate check are still in the add-in (see `docs/ROADMAP.md`).
   `EmailNoteEngineTests` pin the exact output on Linux (583 tests, up from 572). The duplicate
   check's id cache moved too, as `ProcessedEmailCache`, with `ProcessedEmailCacheTests` (589).
+  The wait for a renamed thread note to be openable moved too, as `FileAvailabilityWaiter`, with
+  `FileAvailabilityWaiterTests` (594).
 - **File-name sanitising uses the Windows list of invalid characters on every OS**, rather than
   whatever the machine running it reports. The result on Windows is unchanged.
 

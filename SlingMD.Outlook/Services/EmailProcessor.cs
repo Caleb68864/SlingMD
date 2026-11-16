@@ -22,11 +22,6 @@ namespace SlingMD.Outlook.Services
     /// </summary>
     public class EmailProcessor
     {
-        // Exponential-backoff parameters for WaitForFileAvailability.
-        // 5 attempts × starting at 50 ms doubles to ~1550 ms total wait worst-case.
-        private const int MaxFileWaitAttempts = 5;
-        private const int InitialFileWaitDelayMs = 50;
-
         // Static lock dictionary to prevent race conditions when multiple emails target the same thread folder
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.SemaphoreSlim> _threadFolderLocks
             = new System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.SemaphoreSlim>(StringComparer.OrdinalIgnoreCase);
@@ -412,7 +407,7 @@ namespace SlingMD.Outlook.Services
                             // Verify the file exists with retry logic
                             if (!string.IsNullOrWhiteSpace(updatedCurrentPath))
                             {
-                                await WaitForFileAvailability(updatedCurrentPath);
+                                await FileAvailabilityWaiter.WaitAsync(updatedCurrentPath);
                                 filePath = updatedCurrentPath;
                                 fileName = Path.GetFileName(updatedCurrentPath);
                                 fileNameNoExt = Path.GetFileNameWithoutExtension(updatedCurrentPath);
@@ -725,55 +720,6 @@ namespace SlingMD.Outlook.Services
         /// <c>null</c> when it does not lie inside the vault.
         /// </summary>
         internal string GetVaultRelativePath(string path) => _engine.GetVaultRelativePath(path);
-
-        /// <summary>
-        /// Waits for a file to become available by checking its existence and attempting to open it.
-        /// Uses exponential backoff retry logic (see <see cref="MaxFileWaitAttempts"/> and
-        /// <see cref="InitialFileWaitDelayMs"/>). Replaces hard-coded delays.
-        /// </summary>
-        /// <param name="filePath">The full path to the file to wait for.</param>
-        private async Task WaitForFileAvailability(string filePath)
-        {
-            int attempt = 0;
-            int delayMs = InitialFileWaitDelayMs;
-
-            while (attempt < MaxFileWaitAttempts)
-            {
-                try
-                {
-                    // Check if file exists and can be opened
-                    if (File.Exists(filePath))
-                    {
-                        // Try to open the file briefly to ensure it's not locked
-                        using (var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                        {
-                            // File is accessible
-                            return;
-                        }
-                    }
-                }
-                catch (IOException)
-                {
-                    // File is locked or not yet available
-                }
-                catch (UnauthorizedAccessException)
-                {
-                    // Permission issue, but file exists
-                    return;
-                }
-
-                // Exponential backoff: InitialFileWaitDelayMs doubled on each retry.
-                attempt++;
-                if (attempt < MaxFileWaitAttempts)
-                {
-                    await Task.Delay(delayMs);
-                    delayMs *= 2;
-                }
-            }
-
-            // If we get here, file still isn't available but we've tried our best
-            // Continue anyway - the worst case is the same as before
-        }
 
         /// <summary>
         /// Applies <see cref="ObsidianSettings.BodyCleanupPatterns"/> to the Markdown body and, when a

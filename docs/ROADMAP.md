@@ -76,7 +76,9 @@ Left for EmailProcessor:
     code; nothing tested the cache before.
   - The rest of `ProcessEmailWithResult` (thread folder moves and renames, attachments, contacts,
     tasks, launch/toast) is still in Outlook. Next: `WaitForFileAvailability` (pure file work) to
-    Core, then the thread steps behind an interface until ThreadService is split.
+    Core (done: `FileAvailabilityWaiter.WaitAsync`, code unchanged, the delay injectable for tests,
+    pinned by `FileAvailabilityWaiterTests`, 5, Linux), then the thread steps behind an interface
+    until ThreadService is split.
   - Side-effect interfaces not yet introduced: the task-dates prompt (`TaskOptionsForm`), the
     duplicate/saved toasts (`ToastForm`), `StatusService`'s progress form, attachment saving
     (`AttachmentService.ProcessAttachments(MailItem, ...)`), and the Outlook task (`TaskService`).

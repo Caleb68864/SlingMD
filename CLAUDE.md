@@ -95,7 +95,7 @@ SlingMD.Core/
 ├── Services/       - TemplateService, FileService, SubjectFilenameCleaner, ClipboardEmailService,
 │                     RuleEngine, SlingDecisionEngine, ReminderDueDateCalculator, BatchSlingReport,
 │                     EmailNoteEngine (title, file name, front matter and note text from EmailData),
-│                     ProcessedEmailCache (duplicate check),
+│                     ProcessedEmailCache (duplicate check), FileAvailabilityWaiter (backoff wait),
 │                     IUserNotifier (what the engine asks the front end to show)
 └── Services/Formatting/ - Pure helpers (sanitisers, parsers, cleaners, path budget, thread ids, ...)
 
