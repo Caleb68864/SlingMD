@@ -48,7 +48,8 @@ The add-in uses a service-oriented architecture where `EmailProcessor` orchestra
 ### Core Flow
 1. User selects email in Outlook and clicks "Sling" ribbon button
 2. `ThisAddIn.ProcessSelectedEmail()` retrieves the `MailItem`
-3. `EmailProcessor.ProcessEmail()` orchestrates:
+3. `EmailProcessor.ProcessEmail()` reads the mail into `EmailData` (`OutlookEmailReader`), builds the
+   note with `EmailNoteEngine` (SlingMD.Core), and orchestrates:
    - Task options dialog (if enabled)
    - Email-to-markdown conversion
    - Thread detection and organization
@@ -90,9 +91,10 @@ SlingMD.Core/
 ├── Models/         - ObsidianSettings and the DTOs it serialises (AutoSlingRule, WatchedFolder,
 │                     CalendarFolderInfo, AttachmentStorageMode), ContactName, FilenameSubjectRule,
 │                     MailItemSnapshot, SlingDecision, TaskDueSettings, TaskDueDates, EmailSlingResult,
-│                     ClipboardEmail, AttachmentSignals
+│                     ClipboardEmail, AttachmentSignals, EmailData (an email as plain values)
 ├── Services/       - TemplateService, FileService, SubjectFilenameCleaner, ClipboardEmailService,
 │                     RuleEngine, SlingDecisionEngine, ReminderDueDateCalculator, BatchSlingReport,
+│                     EmailNoteEngine (title, file name, front matter and note text from EmailData),
 │                     IUserNotifier (what the engine asks the front end to show)
 └── Services/Formatting/ - Pure helpers (sanitisers, parsers, cleaners, path budget, thread ids, ...)
 
@@ -102,7 +104,7 @@ SlingMD.Outlook/
 ├── Properties/     - Assembly info, resources
 ├── Ribbon/         - Outlook ribbon UI (SlingRibbon.cs/xml)
 ├── Services/       - COM readers, processors not yet split (EmailProcessor, ThreadService, ...),
-│                     monitors, MessageBoxUserNotifier
+│                     monitors, OutlookEmailReader (MailItem -> EmailData), MessageBoxUserNotifier
 ├── Templates/      - Default markdown templates
 └── ThisAddIn.cs    - VSTO entry point
 

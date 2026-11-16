@@ -56,6 +56,35 @@ folder, and `AppDomain.BaseDirectory` is tried first anyway, but check a publish
 finds the `Templates/` copies. The `IUserNotifier` warning when Obsidian cannot be launched is not
 covered by a test.
 
+**EmailProcessor, first cut** (same branch). `EmailData` (Core, `Models/`) holds what the note is
+built from: subject, sender name and SMTP address, received time, HTML and plain bodies, EntryID,
+Internet message id, first To recipient, and each recipient's name and SMTP address.
+`OutlookEmailReader` (Outlook) fills it, with the COM reads and releases moved there unchanged
+(`ExtractEmailUniqueIds`, `GetFirstRecipient`, the contact-collection recipient loop).
+`EmailNoteEngine` (Core) holds the note-building code moved out of `EmailProcessor` unchanged:
+title, base file name, front matter (`BuildMetadata`), body conversion and cleanup, note rendering
+and the vault-relative path. `EmailProcessor` now reads once (`ReadRecipients` where the contact
+loop was, `Read` inside the existing try, so a failed read is reported as before) and calls the
+engine; its internal `BuildEmailMetadata`/`CleanNoteBody`/`GetVaultRelativePath` delegate, so
+`EmailProcessorTests` are unchanged. Pinned by `EmailNoteEngineTests` (11, Linux): exact title,
+file names, front-matter keys and order, body cleanup flag, and the exact note text for both a
+token-dump template and the built-in default template.
+Left for EmailProcessor:
+  - The rest of `ProcessEmailWithResult` (duplicate check and cache, thread folder moves and
+    renames, attachments, contacts, tasks, launch/toast) is still in Outlook. Next: move the
+    duplicate cache and `WaitForFileAvailability` (pure file work) to Core, then put the thread
+    steps behind an interface until ThreadService is split.
+  - Side-effect interfaces not yet introduced: the task-dates prompt (`TaskOptionsForm`), the
+    duplicate/saved toasts (`ToastForm`), `StatusService`'s progress form, attachment saving
+    (`AttachmentService.ProcessAttachments(MailItem, ...)`), and the Outlook task (`TaskService`).
+  - To/Cc linked names and address lists still come from `ContactService.BuildLinkedNames`/
+    `BuildEmailList` on the COM `Recipients`; `EmailData.Recipients` has no To/Cc flag yet. Adding
+    it means one more COM read (`Recipient.Type`) in the contact loop.
+  - `GetConversationId`, `GetThreadFolderName` and `GetThreadNoteName` still take the `MailItem`.
+  - Needs Windows: the add-in has not been built with VS MSBuild since this change (the Mono
+    harness compiles the same sources minus `ThisAddIn` and the ribbon), and a real sling should be
+    checked in Outlook, since `ProcessEmailWithResult` itself has no automated test.
+
 **Order for the big four**, each pinned by Linux characterization tests of the engine before the
 Outlook class is cut down:
 

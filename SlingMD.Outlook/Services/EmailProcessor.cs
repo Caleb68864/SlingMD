@@ -51,10 +51,8 @@ namespace SlingMD.Outlook.Services
         private readonly TaskService _taskService;
         private readonly ContactService _contactService;
         private readonly AttachmentService _attachmentService;
-        private readonly DateFormatter _dateFormatter;
+        private readonly EmailNoteEngine _engine;
         private readonly SubjectFilenameCleaner _subjectFilenameCleaner;
-        private readonly BodyCleanerService _bodyCleaner;
-        private readonly NoteTitleBuilder _noteTitleBuilder;
         private readonly UniqueFilenameResolver _uniqueFilenameResolver = new UniqueFilenameResolver();
         private readonly IClock _clock;
 
@@ -109,15 +107,8 @@ namespace SlingMD.Outlook.Services
             _taskService = taskService ?? new TaskService(settings, _templateService, _clock);
             _contactService = contactService ?? new ContactService(_fileService, _templateService, _clock);
             _attachmentService = attachmentService ?? new AttachmentService(settings, _fileService, _clock);
-            _dateFormatter = new DateFormatter();
             _subjectFilenameCleaner = new SubjectFilenameCleaner(settings, _fileService);
-            _bodyCleaner = new BodyCleanerService(settings ?? new ObsidianSettings());
-            _noteTitleBuilder = new NoteTitleBuilder();
-        }
-
-        private string FormatSenderLink(string senderName, string senderEmail)
-        {
-            return _contactService.FormatContactLink(senderName, senderEmail);
+            _engine = new EmailNoteEngine(settings, _templateService, (name, email) => _contactService.FormatContactLink(name, email));
         }
 
         private static void RememberContactEmail(Dictionary<string, string> contactEmails, string name, string email)
@@ -214,35 +205,11 @@ namespace SlingMD.Outlook.Services
                 RememberContactEmail(contactEmails, mail.SenderName, _contactService.GetSenderEmail(mail));
             }
 
-            // Properly release COM objects to prevent memory leaks
-            Recipients recipients = null;
-            try
+            List<EmailRecipientData> recipientData = OutlookEmailReader.ReadRecipients(mail, _contactService);
+            foreach (EmailRecipientData recipient in recipientData)
             {
-                recipients = mail.Recipients;
-                foreach (Recipient recipient in recipients)
-                {
-                    try
-                    {
-                        contactNames.Add(recipient.Name);
-                        RememberContactEmail(contactEmails, recipient.Name, _contactService.GetSMTPEmailAddress(recipient));
-                    }
-                    finally
-                    {
-                        // Release each Recipient COM object
-                        if (recipient != null)
-                        {
-                            System.Runtime.InteropServices.Marshal.ReleaseComObject(recipient);
-                        }
-                    }
-                }
-            }
-            finally
-            {
-                // Release the Recipients collection COM object
-                if (recipients != null)
-                {
-                    System.Runtime.InteropServices.Marshal.ReleaseComObject(recipients);
-                }
+                contactNames.Add(recipient.Name);
+                RememberContactEmail(contactEmails, recipient.Name, recipient.Email);
             }
 
             using (var status = new StatusService(silent: bulkMode))
@@ -262,33 +229,18 @@ namespace SlingMD.Outlook.Services
                     // Check for cancellation
                     cancellationToken.ThrowIfCancellationRequested();
 
+                    // Everything the note is built from, read from the MailItem once.
+                    EmailData email = OutlookEmailReader.Read(mail, _contactService, recipientData);
+
                     // Build note title using settings (with null safety)
-                    string noteTitle = mail.Subject ?? "No Subject";
-                    string senderClean = _contactService.GetFilenameSafeShortName(mail.SenderName ?? "Unknown Sender");
-                    string fileDateTime = mail.ReceivedTime.ToString("yyyy-MM-dd-HHmm");
-                    string dateStr = mail.ReceivedTime.ToString("yyyy-MM-dd");
-                    string subjectClean = CleanSubject(mail.Subject ?? "No Subject");
-
-                    // Use settings for title format; delegate token substitution + truncation
-                    // to NoteTitleBuilder (unit-tested), then post-process to strip a trailing
-                    // separator if {Date} rendered empty.
-                    string titleFormat = _settings.NoteTitleFormat ?? "{Subject} - {Date}";
-                    bool includeDate = _settings.NoteTitleIncludeDate;
-                    int maxLength = _settings.NoteTitleMaxLength > 0 ? _settings.NoteTitleMaxLength : 50;
-
-                    Dictionary<string, string> titleTokens = new Dictionary<string, string>
-                    {
-                        { "Subject", subjectClean },
-                        { "Sender", senderClean },
-                        { "Date", includeDate ? dateStr : string.Empty }
-                    };
-                    // BuildTrimmed handles trailing dash/space left behind when a token like {Date} renders empty.
-                    string formattedTitle = _noteTitleBuilder.BuildTrimmed(titleFormat, titleTokens, maxLength);
-                    noteTitle = formattedTitle;
+                    string senderClean = _contactService.GetFilenameSafeShortName(email.SenderName ?? "Unknown Sender");
+                    string fileDateTime = email.ReceivedTime.ToString("yyyy-MM-dd-HHmm");
+                    string subjectClean = CleanSubject(email.Subject ?? "No Subject");
+                    string noteTitle = _engine.BuildNoteTitle(subjectClean, senderClean, email.ReceivedTime);
 
                     // Email threading logic moved to its own method
                     (conversationId, threadNoteName, threadFolderPath, threadNotePath, shouldGroupThread, obsidianLinkPath, fileName, filePath, fileNameNoExt) =
-                        GetThreadingInfo(mail, subjectClean, senderClean, fileDateTime, "");
+                        GetThreadingInfo(mail, email, subjectClean, senderClean, fileDateTime, "");
                     if (shouldGroupThread)
                     {
                         status.UpdateProgress($"Email thread found: {threadNoteName}", 48);
@@ -302,8 +254,8 @@ namespace SlingMD.Outlook.Services
 
                     status.UpdateProgress("Processing email metadata", 50);
 
-                    // Extract real email IDs
-                    var (realInternetMessageId, realEntryId) = ExtractEmailUniqueIds(mail);
+                    string realInternetMessageId = email.InternetMessageId;
+                    string realEntryId = email.EntryId;
 
                     // Get Recipients collection once and release it properly to prevent COM leaks
                     List<string> toLinked;
@@ -331,12 +283,12 @@ namespace SlingMD.Outlook.Services
 
                     Dictionary<string, object> metadata = BuildEmailMetadata(
                         noteTitle,
-                        mail.SenderName ?? "Unknown Sender",
-                        _contactService.GetSenderEmail(mail),
+                        email.SenderName ?? "Unknown Sender",
+                        email.SenderEmail,
                         toLinked,
                         toEmails,
                         conversationId,
-                        mail.ReceivedTime,
+                        email.ReceivedTime,
                         realInternetMessageId,
                         realEntryId,
                         ccLinked,
@@ -353,10 +305,10 @@ namespace SlingMD.Outlook.Services
                     }
 
                     // Convert and clean once; the note may be re-rendered below after a rename.
-                    string noteBody = ConvertBody(mail, metadata);
+                    string noteBody = _engine.ConvertBody(email, metadata);
 
                     string renderedContent = BuildEmailNoteContent(
-                        mail,
+                        email,
                         metadata,
                         noteTitle,
                         subjectClean,
@@ -396,7 +348,7 @@ namespace SlingMD.Outlook.Services
                             // temporary -eid{hash} suffix. Both ids can be empty (unsaved item with no
                             // InternetMessageID); that still produces a usable, if less unique, "-eid" suffix.
                             string emailId = !string.IsNullOrEmpty(realInternetMessageId) ? realInternetMessageId : realEntryId;
-                            string baseName = BuildEmailBaseFileName(mail, subjectClean, senderClean, fileDateTime, true);
+                            string baseName = _engine.BuildBaseFileName(email.ReceivedTime, subjectClean, senderClean, fileDateTime, true);
                             string tempFileName = _threadService.GetTemporaryThreadNoteName(threadFolderPath, baseName, emailId) + ".md";
                             string tempFilePath = Path.Combine(threadFolderPath, tempFileName);
                             _fileService.EnsureDirectoryExists(threadFolderPath);
@@ -476,7 +428,7 @@ namespace SlingMD.Outlook.Services
                                 fileNameNoExt = Path.GetFileNameWithoutExtension(updatedCurrentPath);
                                 obsidianLinkPath = $"{threadNoteName}/{fileNameNoExt}";
                                 renderedContent = BuildEmailNoteContent(
-                                    mail,
+                                    email,
                                     metadata,
                                     noteTitle,
                                     subjectClean,
@@ -547,7 +499,7 @@ namespace SlingMD.Outlook.Services
                             fileNameNoExt = Path.GetFileNameWithoutExtension(resolvedPath);
                             obsidianLinkPath = fileNameNoExt;
                             renderedContent = BuildEmailNoteContent(
-                                mail,
+                                email,
                                 metadata,
                                 noteTitle,
                                 subjectClean,
@@ -778,103 +730,11 @@ namespace SlingMD.Outlook.Services
 
         private string CleanSubject(string subject) => _subjectFilenameCleaner.Clean(subject);
 
-        private static readonly System.Text.RegularExpressions.Regex ForwardSubjectRegex =
-            new System.Text.RegularExpressions.Regex(@"^\s*(?:fw|fwd)\s*:", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-        /// <summary>
-        /// Converts the email body to Markdown, folding the quoted history of a reply into a collapsed
-        /// callout when <see cref="ObsidianSettings.FoldQuotedReplies"/> is on. A forward's quoted part is
-        /// the message itself, so forwards are always converted in full. The
-        /// <see cref="ObsidianSettings.BodyCleanupPatterns"/> run on the reply and on the quoted history
-        /// before it is folded, and <c>bodyCleaned: true</c> is recorded in <paramref name="metadata"/>
-        /// when they removed anything.
-        /// </summary>
-        private string ConvertBody(MailItem mail, Dictionary<string, object> metadata)
-        {
-            bool removedContent = false;
-            Func<string, string> clean = text =>
-            {
-                string cleaned = _bodyCleaner.Clean(text, out bool removed);
-                removedContent |= removed;
-                return cleaned;
-            };
-
-            string body;
-            if (_settings.FoldQuotedReplies && !ForwardSubjectRegex.IsMatch(mail.Subject ?? string.Empty))
-            {
-                body = QuotedReplyFolder.ConvertFolded(mail.HTMLBody, mail.Body, clean);
-            }
-            else
-            {
-                body = clean(HtmlToMarkdownConverter.Convert(mail.HTMLBody, mail.Body));
-            }
-
-            if (removedContent && metadata != null)
-            {
-                metadata["bodyCleaned"] = true;
-            }
-
-            return body;
-        }
-
         /// <summary>
         /// Returns <paramref name="path"/> relative to the vault root with forward slashes, or
         /// <c>null</c> when it does not lie inside the vault.
         /// </summary>
-        internal string GetVaultRelativePath(string path)
-        {
-            if (string.IsNullOrEmpty(path))
-            {
-                return null;
-            }
-
-            string vaultRoot = _settings.GetFullVaultPath().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            if (path.Length <= vaultRoot.Length + 1
-                || !path.StartsWith(vaultRoot, StringComparison.OrdinalIgnoreCase)
-                || (path[vaultRoot.Length] != Path.DirectorySeparatorChar && path[vaultRoot.Length] != Path.AltDirectorySeparatorChar))
-            {
-                return null;
-            }
-
-            return path.Substring(vaultRoot.Length + 1).Replace('\\', '/');
-        }
-
-        private string GetFirstRecipient(MailItem mail)
-        {
-            Recipients recipients = null;
-            try
-            {
-                recipients = mail.Recipients;
-                foreach (Recipient recipient in recipients)
-                {
-                    try
-                    {
-                        if (recipient.Type == (int)OlMailRecipientType.olTo)
-                        {
-                            string recipientName = recipient.Name;
-                            return recipientName;
-                        }
-                    }
-                    finally
-                    {
-                        // Release each Recipient COM object
-                        if (recipient != null)
-                        {
-                            System.Runtime.InteropServices.Marshal.ReleaseComObject(recipient);
-                        }
-                    }
-                }
-            }
-            finally
-            {
-                // Release the Recipients collection COM object
-                if (recipients != null)
-                {
-                    System.Runtime.InteropServices.Marshal.ReleaseComObject(recipients);
-                }
-            }
-            return "Unknown";
-        }
+        internal string GetVaultRelativePath(string path) => _engine.GetVaultRelativePath(path);
 
         /// <summary>
         /// Waits for a file to become available by checking its existence and attempting to open it.
@@ -926,64 +786,16 @@ namespace SlingMD.Outlook.Services
         }
 
         /// <summary>
-        /// Extracts the InternetMessageID and EntryID from a MailItem.
-        /// Returns (internetMessageId, entryId).
-        /// </summary>
-        private (string internetMessageId, string entryId) ExtractEmailUniqueIds(MailItem mail)
-        {
-            string entryId = mail.EntryID;
-            string internetMessageId = null;
-            PropertyAccessor pa = null;
-            try
-            {
-                // Try to get InternetMessageID via PropertyAccessor (works for most accounts).
-                // The accessor is a COM object that must be released or it leaks per slung email.
-                pa = mail.PropertyAccessor;
-                internetMessageId = pa.GetProperty(MapiPropertyTags.PrInternetMessageId) as string;
-            }
-            catch (System.Exception ex)
-            {
-                Logger.Instance.Debug($"PropertyAccessor method failed for InternetMessageID: {ex.Message}");
-            }
-            finally
-            {
-                if (pa != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(pa);
-            }
-            // Fallback to property if available
-            if (string.IsNullOrEmpty(internetMessageId))
-            {
-                try
-                {
-                    internetMessageId = mail.GetType().GetProperty("InternetMessageID")?.GetValue(mail) as string;
-                }
-                catch (System.Exception ex)
-                {
-                    Logger.Instance.Debug($"Reflection method failed for InternetMessageID: {ex.Message}");
-                }
-            }
-            return (internetMessageId, entryId);
-        }
-
-        /// <summary>
         /// Applies <see cref="ObsidianSettings.BodyCleanupPatterns"/> to the Markdown body and, when a
         /// pattern removed text, records <c>bodyCleaned: true</c> in <paramref name="metadata"/> so the
         /// note is never mistaken for a verbatim copy of the email.
         /// </summary>
-        internal string CleanNoteBody(string body, Dictionary<string, object> metadata)
-        {
-            string cleaned = _bodyCleaner.Clean(body, out bool removedContent);
-            if (removedContent && metadata != null)
-            {
-                metadata["bodyCleaned"] = true;
-            }
-
-            return cleaned;
-        }
+        internal string CleanNoteBody(string body, Dictionary<string, object> metadata) => _engine.CleanNoteBody(body, metadata);
 
         /// <summary>
         /// Returns thread-related info for an email, including paths and names.
         /// </summary>
-        private string BuildEmailNoteContent(MailItem mail, Dictionary<string, object> metadata, string noteTitle, string subjectClean, string senderClean, string noteBody, string fileNameNoExt, string conversationId, string threadNoteLink)
+        private string BuildEmailNoteContent(EmailData email, Dictionary<string, object> metadata, string noteTitle, string subjectClean, string senderClean, string noteBody, string fileNameNoExt, string conversationId, string threadNoteLink)
         {
             string taskBlock = string.Empty;
             if (_settings.CreateObsidianTask && _taskService.ShouldCreateTasks)
@@ -996,70 +808,16 @@ namespace SlingMD.Outlook.Services
                 }
             }
 
-            EmailTemplateContext context = new EmailTemplateContext
-            {
-                Metadata = metadata,
-                NoteTitle = noteTitle,
-                Subject = subjectClean,
-                SenderName = mail.SenderName ?? "Unknown Sender",
-                SenderShortName = senderClean,
-                SenderEmail = _contactService.GetSenderEmail(mail),
-                Date = mail.ReceivedTime.ToString("yyyy-MM-dd"),
-                Timestamp = _dateFormatter.FormatOrDefault(mail.ReceivedTime, _settings.EmailDateFormat, _dateFormatter.Format(mail.ReceivedTime, ObsidianSettings.DefaultEmailDateFormat)),
-                Body = noteBody,
-                TaskBlock = taskBlock,
-                FileName = fileNameNoExt + ".md",
-                FileNameWithoutExtension = fileNameNoExt,
-                ThreadNote = threadNoteLink,
-                ThreadId = conversationId
-            };
-
-            return _templateService.RenderEmailContent(context);
-        }
-
-        private string BuildEmailBaseFileName(MailItem mail, string subjectClean, string senderClean, string fileDateTime, bool isThreaded)
-        {
-            bool includeDate = _settings.NoteTitleIncludeDate;
-            string legacyBaseName;
-            if (isThreaded)
-            {
-                if (includeDate)
-                {
-                    legacyBaseName = _settings.MoveDateToFrontInThread
-                        ? $"{fileDateTime}-{subjectClean}-{senderClean}"
-                        : $"{subjectClean}-{senderClean}-{fileDateTime}";
-                }
-                else
-                {
-                    legacyBaseName = $"{subjectClean}-{senderClean}";
-                }
-            }
-            else
-            {
-                legacyBaseName = includeDate
-                    ? $"{subjectClean}-{senderClean}-{fileDateTime}"
-                    : $"{subjectClean}-{senderClean}";
-            }
-
-            Dictionary<string, string> replacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                { "Subject", subjectClean },
-                { "Sender", senderClean },
-                { "Date", mail.ReceivedTime.ToString("yyyy-MM-dd") },
-                { "Timestamp", fileDateTime },
-                { "Threaded", isThreaded ? "true" : "false" }
-            };
-
-            return _templateService.RenderFilename(_settings.EmailFilenameFormat, replacements, legacyBaseName);
+            return _engine.RenderNote(email, metadata, noteTitle, subjectClean, senderClean, noteBody, fileNameNoExt, conversationId, threadNoteLink, taskBlock);
         }
 
         /// <summary>
         /// Returns thread-related info for an email, including paths and names.
         /// </summary>
-        private (string conversationId, string threadNoteName, string threadFolderPath, string threadNotePath, bool shouldGroupThread, string obsidianLinkPath, string fileName, string filePath, string fileNameNoExt) GetThreadingInfo(MailItem mail, string subjectClean, string senderClean, string fileDateTime, string fileNameNoExt)
+        private (string conversationId, string threadNoteName, string threadFolderPath, string threadNotePath, bool shouldGroupThread, string obsidianLinkPath, string fileName, string filePath, string fileNameNoExt) GetThreadingInfo(MailItem mail, EmailData email, string subjectClean, string senderClean, string fileDateTime, string fileNameNoExt)
         {
             string conversationId = _threadService.GetConversationId(mail);
-            string firstRecipient = _contactService.GetFilenameSafeShortName(GetFirstRecipient(mail));
+            string firstRecipient = _contactService.GetFilenameSafeShortName(email.FirstToRecipientName);
             string threadFolderName = _threadService.GetThreadFolderName(mail, subjectClean, senderClean, firstRecipient);
             string threadNoteName = _threadService.GetThreadNoteName(mail, subjectClean, senderClean, firstRecipient);
             string threadFolderPath = Path.Combine(_settings.GetInboxPath(), threadFolderName);
@@ -1078,14 +836,14 @@ namespace SlingMD.Outlook.Services
                 threadNotePath = Path.Combine(threadFolderPath, $"0-{threadNoteName}.md");
             }
 
-            string fileNameNoExtResult = BuildEmailBaseFileName(mail, subjectClean, senderClean, fileDateTime, shouldGroupThread);
+            string fileNameNoExtResult = _engine.BuildBaseFileName(email.ReceivedTime, subjectClean, senderClean, fileDateTime, shouldGroupThread);
             if (!shouldGroupThread && _settings.GroupEmailThreads)
             {
                 // Give a standalone note the name it would have inside a thread, derived from the
                 // same front-matter date the thread rename pass reads. Moving it into a thread
                 // folder later then keeps its name, so the Obsidian task link and links from other
                 // notes don't break when a reply is slung.
-                string frontMatterDate = _dateFormatter.FormatOrDefault(mail.ReceivedTime, _settings.EmailDateFormat, _dateFormatter.Format(mail.ReceivedTime, ObsidianSettings.DefaultEmailDateFormat));
+                string frontMatterDate = _engine.FormatFrontMatterDate(email.ReceivedTime);
                 if (ThreadService.TryParseNoteDate(frontMatterDate, out DateTime noteDate))
                 {
                     fileNameNoExtResult = _threadService.GetThreadedNoteName(fileNameNoExtResult, noteDate, threadFolderPath);
@@ -1122,48 +880,8 @@ namespace SlingMD.Outlook.Services
             bool shouldGroupThread,
             string threadNoteName)
         {
-            Dictionary<string, object> metadata = new Dictionary<string, object>
-            {
-                { "title", noteTitle },
-                { "type", "email" },
-                { "from", FormatSenderLink(senderName, senderEmail) },
-                { "fromEmail", senderEmail },
-                { "to", toLinked },
-                { "toEmail", toEmails },
-                { "threadId", conversationId },
-                { "date", _dateFormatter.FormatOrDefault(receivedTime, _settings.EmailDateFormat, _dateFormatter.Format(receivedTime, ObsidianSettings.DefaultEmailDateFormat)) },
-                { "internetMessageId", realInternetMessageId },
-                { "entryId", realEntryId }
-            };
-
-            if (_settings.IncludeDailyNoteLink)
-            {
-                string dailyLinkFormat = _settings.DailyNoteLinkFormat ?? "[[yyyy-MM-dd]]";
-                string rawDailyFormat = dailyLinkFormat.Replace("[[", string.Empty).Replace("]]", string.Empty);
-                // A malformed DailyNoteLinkFormat (e.g. from hand-edited JSON) would otherwise throw
-                // FormatException and fail the whole export; fall back to a safe ISO date.
-                string dailyNoteLink = _dateFormatter.FormatOrDefault(receivedTime, rawDailyFormat, _dateFormatter.Format(receivedTime, "yyyy-MM-dd"));
-                metadata.Add("dailyNoteLink", "[[" + dailyNoteLink + "]]");
-            }
-
-            List<string> noteTags = TagNormalizer.Normalize(_settings.DefaultNoteTags);
-            if (noteTags.Count > 0)
-            {
-                metadata.Add("tags", noteTags);
-            }
-
-            if (ccEmails != null && ccEmails.Count > 0)
-            {
-                metadata.Add("cc", ccLinked);
-                metadata.Add("ccEmail", ccEmails);
-            }
-
-            if (shouldGroupThread)
-            {
-                metadata.Add("threadNote", $"[[0-{threadNoteName}]]");
-            }
-
-            return metadata;
+            return _engine.BuildMetadata(noteTitle, senderName, senderEmail, toLinked, toEmails, conversationId, receivedTime,
+                realInternetMessageId, realEntryId, ccLinked, ccEmails, shouldGroupThread, threadNoteName);
         }
 
         /// <summary>

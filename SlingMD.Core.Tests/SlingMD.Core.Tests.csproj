@@ -67,6 +67,7 @@
     <Compile Include="..\SlingMD.Tests\Services\TemplateServiceAppointmentTests.cs" Link="Linked\Services\TemplateServiceAppointmentTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\SubjectFilenameCleanerTests.cs" Link="Linked\Services\SubjectFilenameCleanerTests.cs" />
     <Compile Include="..\SlingMD.Tests\Infrastructure\FakeClock.cs" Link="Linked\Infrastructure\FakeClock.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\EmailNoteEngineTests.cs" Link="Linked\Services\EmailNoteEngineTests.cs" />
     <Compile Include="..\SlingMD.Tests\Helpers\BoundedHashSetTests.cs" Link="Linked\Helpers\BoundedHashSetTests.cs" />
   </ItemGroup>
 </Project>

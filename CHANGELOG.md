@@ -126,6 +126,12 @@ All notable changes to SlingMD are documented in this file.
   `new FileService(...)` in the add-in passes. Namespaces are unchanged. `FileServiceTests`,
   `TemplateServiceTests`, `TemplateServiceAppointmentTests`, `ClipboardEmailServiceTests` and
   `SubjectFilenameCleanerTests` run in `SlingMD.Core.Tests` too (572 tests on Linux, up from 521).
+- **The email note is built in `SlingMD.Core`.** `EmailNoteEngine` takes an `EmailData` (plain values
+  read from the `MailItem` by the add-in's new `OutlookEmailReader`) and produces the title, file
+  name, front matter and note text; the code moved from `EmailProcessor` unchanged, and
+  `EmailProcessor` now reads the email once and calls it. Thread grouping, attachments, contacts,
+  tasks and the duplicate check are still in the add-in (see `docs/ROADMAP.md`).
+  `EmailNoteEngineTests` pin the exact output on Linux (583 tests, up from 572).
 - **File-name sanitising uses the Windows list of invalid characters on every OS**, rather than
   whatever the machine running it reports. The result on Windows is unchanged.
 

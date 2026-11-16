@@ -350,6 +350,7 @@
     <Compile Include="Services\FlagMonitorService.cs" />
     <Compile Include="Services\FolderMonitorService.cs" />
     <Compile Include="Services\MessageBoxUserNotifier.cs" />
+    <Compile Include="Services\OutlookEmailReader.cs" />
     <Compile Include="Services\NotificationService.cs" />
     <Compile Include="Services\StatusService.cs" />
     <Compile Include="Services\SupportService.cs" />
