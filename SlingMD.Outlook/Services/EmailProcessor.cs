@@ -40,6 +40,8 @@ namespace SlingMD.Outlook.Services
         private readonly SubjectFilenameCleaner _subjectFilenameCleaner;
         private readonly UniqueFilenameResolver _uniqueFilenameResolver = new UniqueFilenameResolver();
         private readonly IClock _clock;
+        private readonly IToastNotifier _toasts;
+        private readonly Func<IProgressView> _openProgressView;
 
         /// <summary>
         /// Whether any attachment processing should run for an email given the current settings.
@@ -82,9 +84,13 @@ namespace SlingMD.Outlook.Services
             ThreadService threadService,
             TaskService taskService,
             ContactService contactService,
-            AttachmentService attachmentService)
+            AttachmentService attachmentService,
+            IToastNotifier toastNotifier = null,
+            Func<IProgressView> openProgressView = null)
         {
             _settings = settings;
+            _toasts = toastNotifier ?? new ToastFormNotifier();
+            _openProgressView = openProgressView ?? ProgressFormView.Open;
             _clock = clock ?? new SystemClock();
             _fileService = fileService ?? new FileService(settings, new MessageBoxUserNotifier());
             _templateService = templateService ?? new TemplateService(_fileService);
@@ -197,7 +203,7 @@ namespace SlingMD.Outlook.Services
                 RememberContactEmail(contactEmails, recipient.Name, recipient.Email);
             }
 
-            using (var status = new StatusService(silent: bulkMode))
+            using (var status = new StatusService(bulkMode ? null : _openProgressView()))
             {
                 try
                 {
@@ -315,7 +321,7 @@ namespace SlingMD.Outlook.Services
                         if (!bulkMode)
                         {
                             // The progress window closes as soon as this returns, so say it where it stays visible.
-                            ToastForm.ShowToast("SlingMD: this email is already in your vault.");
+                            _toasts.ShowToast("SlingMD: this email is already in your vault.", isError: false);
                         }
                         return new EmailSlingResult { Outcome = EmailSlingOutcome.Duplicate };
                     }
@@ -552,7 +558,7 @@ namespace SlingMD.Outlook.Services
                         // honoring the same notification mode NotificationService uses.
                         if (_settings.AutoSlingNotificationMode == "Toast")
                         {
-                            try { ToastForm.ShowToast($"SlingMD: email export failed — {ex.Message}", isError: true); }
+                            try { _toasts.ShowToast($"SlingMD: email export failed — {ex.Message}", isError: true); }
                             catch (System.Exception toastEx)
                             {
                                 // Best effort: the export failure itself is already logged.
@@ -702,7 +708,7 @@ namespace SlingMD.Outlook.Services
             else if (!bulkMode)
             {
                 // Without Obsidian opening on the note, nothing else confirms the sling worked.
-                ToastForm.ShowToast($"SlingMD: saved {GetVaultRelativePath(filePath) ?? Path.GetFileName(filePath)}");
+                _toasts.ShowToast($"SlingMD: saved {GetVaultRelativePath(filePath) ?? Path.GetFileName(filePath)}", isError: false);
             }
 
             if (!bulkMode && _settings.ShowNoteInExplorer)

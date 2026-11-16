@@ -1,32 +1,27 @@
 using System;
 using System.Threading.Tasks;
-using SlingMD.Outlook.Forms;
 
 namespace SlingMD.Outlook.Services
 {
+    /// <summary>
+    /// Reports progress of one sling to a progress window (<see cref="IProgressView"/>), or to
+    /// nothing in silent mode. Moved from the add-in; only the window became an interface.
+    /// </summary>
     public class StatusService : IDisposable
     {
-        private ProgressForm _progressForm;
+        private IProgressView _progressForm;
         private bool _isDisposed;
-        private readonly bool _silent;
-
-        public StatusService() : this(false)
-        {
-        }
 
         /// <summary>
-        /// Creates the status service. When <paramref name="silent"/> is true no progress window is
-        /// shown and all updates are no-ops — used for batch/bulk processing where one visible
-        /// progress window per item would be a focus-stealing window storm (batch sling).
+        /// Creates the status service over an already shown progress window. When
+        /// <paramref name="progressView"/> is null no progress window is shown and all updates are
+        /// no-ops, used for batch/bulk processing where one visible progress window per item would be
+        /// a focus-stealing window storm (batch sling). The add-in passes
+        /// <c>ProgressFormView.Open()</c> where it used to call <c>new StatusService()</c>.
         /// </summary>
-        public StatusService(bool silent)
+        public StatusService(IProgressView progressView)
         {
-            _silent = silent;
-            if (!_silent)
-            {
-                _progressForm = new ProgressForm();
-                _progressForm.Show();
-            }
+            _progressForm = progressView;
         }
 
         public void UpdateProgress(string message, int percentage)

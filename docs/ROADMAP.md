@@ -34,8 +34,8 @@ Core, COM/UI part stays; stays = front end):
 | `Services/SubjectFilenameCleaner.cs` | move (with FileService) |
 | `Services/FileService.cs` | move; the "could not launch Obsidian" `MessageBox` goes behind `IUserNotifier` (Core), implemented by `MessageBoxUserNotifier` (Outlook). `Process.Start` is in netstandard2.0. |
 | `Services/ClipboardEmailService.cs`, `ContactInteractionMode.cs` | move (formatting only / enum) |
-| `Services/StatusService.cs` | split: it owns a `ProgressForm`; an `IStatusReporter` interface goes to Core, the form-backed implementation stays |
-| `Services/NotificationService.cs`, `SupportService.cs` | stays (toasts, MessageBox); the engine calls them through `IUserNotifier` |
+| `Services/StatusService.cs` | done: moved to Core over an `IProgressView` (Core); `ProgressFormView` (Outlook) wraps the `ProgressForm` |
+| `Services/NotificationService.cs`, `SupportService.cs` | stays (toasts, MessageBox); the engine calls them through `IUserNotifier` and `IToastNotifier` (Core, implemented by `ToastFormNotifier` over `ToastForm`). `NotificationService` could move to Core over `IToastNotifier` next; its tests and `ThisAddIn` construct it with settings only, so that needs a constructor change |
 | `Services/EmailProcessor.cs` | split (first of the big four, see below) |
 | `Services/AppointmentProcessor.cs` | split (second) |
 | `Services/ThreadService.cs` | split (third): thread folder/note naming, `FindExistingThread`, summary note, resuffixing are file work; `GetConversationId` and the `MailItem` overloads stay as a reader |
@@ -49,7 +49,8 @@ Core, COM/UI part stays; stays = front end):
 
 **Done so far** (`refactor/engine-frontend-split`): the "move" rows above, apart from
 `SettingsHelp`, are in SlingMD.Core, with their tests linked into SlingMD.Core.Tests (572 on
-Linux). `StatusService` did not move: it creates a `ProgressForm`, so it needs the interface split.
+Linux). `StatusService` did not move then: it creates a `ProgressForm`, so it needed the interface
+split (done since, see below).
 Needs Windows: `TemplateService` looks for templates beside `Assembly.GetExecutingAssembly()`,
 which is now `SlingMD.Core.dll` instead of `SlingMD.Outlook.dll`; both are built into the same
 folder, and `AppDomain.BaseDirectory` is tried first anyway, but check a published install still
@@ -79,8 +80,18 @@ Left for EmailProcessor:
     Core (done: `FileAvailabilityWaiter.WaitAsync`, code unchanged, the delay injectable for tests,
     pinned by `FileAvailabilityWaiterTests`, 5, Linux), then the thread steps behind an interface
     until ThreadService is split.
+  - Toasts and progress window (done): `IToastNotifier` and `IProgressView` in Core;
+    `ToastFormNotifier` and `ProgressFormView` in Outlook wrap `ToastForm.ShowToast` and
+    `ProgressForm`. `StatusService` moved to Core and takes an `IProgressView` (null = silent, as
+    `silent: true` was); `EmailProcessor` and `AppointmentProcessor` pass `ProgressFormView.Open()`.
+    `EmailProcessor` takes both as optional arguments of its test constructor (defaults: the add-in
+    wrappers), and its three toasts go through `IToastNotifier` with the same text and gating.
+    Pinned by `StatusServiceTests` (5, Linux). `EmailProcessor` still uses WinForms directly for
+    `TaskOptionsForm`, `ContactConfirmationDialog`, `CountdownForm` and its `MessageBox` errors.
+    Needs Windows: the VS build (two new files in `SlingMD.Outlook.csproj`, `StatusService.cs`
+    removed from it) and a sling and an appointment save to see the progress window and toasts.
   - Side-effect interfaces not yet introduced: the task-dates prompt (`TaskOptionsForm`), the
-    duplicate/saved toasts (`ToastForm`), `StatusService`'s progress form, attachment saving
+    contact confirmation and countdown dialogs, the error `MessageBox`es, attachment saving
     (`AttachmentService.ProcessAttachments(MailItem, ...)`), and the Outlook task (`TaskService`).
   - To/Cc linked names and address lists still come from `ContactService.BuildLinkedNames`/
     `BuildEmailList` on the COM `Recipients`; `EmailData.Recipients` has no To/Cc flag yet. Adding

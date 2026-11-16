@@ -533,7 +533,7 @@ namespace SlingMD.Outlook.Services
             }
             else
             {
-                using (StatusService status = new StatusService())
+                using (StatusService status = new StatusService(ProgressFormView.Open()))
                 {
                     try
                     {

@@ -135,6 +135,10 @@ All notable changes to SlingMD are documented in this file.
   check's id cache moved too, as `ProcessedEmailCache`, with `ProcessedEmailCacheTests` (589).
   The wait for a renamed thread note to be openable moved too, as `FileAvailabilityWaiter`, with
   `FileAvailabilityWaiterTests` (594).
+- **The progress window and toasts sit behind Core interfaces.** `StatusService` moved to
+  `SlingMD.Core` and drives an `IProgressView`; the add-in's `ProgressFormView` wraps the existing
+  `ProgressForm`. `EmailProcessor`'s toasts go through `IToastNotifier`, implemented by
+  `ToastFormNotifier` over `ToastForm`. Same windows, text and timing; `StatusServiceTests` (599).
 - **File-name sanitising uses the Windows list of invalid characters on every OS**, rather than
   whatever the machine running it reports. The result on Windows is unchanged.
 

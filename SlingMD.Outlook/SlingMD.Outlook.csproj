@@ -352,7 +352,8 @@
     <Compile Include="Services\MessageBoxUserNotifier.cs" />
     <Compile Include="Services\OutlookEmailReader.cs" />
     <Compile Include="Services\NotificationService.cs" />
-    <Compile Include="Services\StatusService.cs" />
+    <Compile Include="Services\ProgressFormView.cs" />
+    <Compile Include="Services\ToastFormNotifier.cs" />
     <Compile Include="Services\SupportService.cs" />
     <Compile Include="Services\TaskService.cs" />
     <Compile Include="Services\ThreadService.cs" />
