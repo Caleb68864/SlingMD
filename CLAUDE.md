@@ -37,7 +37,7 @@ referenced there silently never compiles or runs.
 
 ### Service-Oriented Design
 The add-in uses a service-oriented architecture where `EmailProcessor` orchestrates multiple services:
-- **EmailProcessor** (SlingMD.Outlook/Services/EmailProcessor.cs): Main orchestrator that coordinates all services; shows its dialogs (errors, countdown, task dates, contact confirmation) through `IEmailPrompts` (`DialogEmailPrompts` in the add-in)
+- **EmailProcessor** (SlingMD.Outlook/Services/EmailProcessor.cs): Main orchestrator that coordinates all services; shows its dialogs (errors, countdown, task dates, contact confirmation) through `IEmailPrompts` (`DialogEmailPrompts` in the add-in); `AppointmentProcessor` routes its task-dates prompt and contact confirmation through the same interface
 - **FileService**: Handles file I/O operations, file naming, and path management
 - **ThreadService**: Groups related emails into thread folders with summary notes
 - **TaskService**: Creates follow-up tasks in Obsidian notes and/or Outlook

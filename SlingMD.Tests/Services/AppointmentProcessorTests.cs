@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using SlingMD.Outlook.Models;
 using SlingMD.Outlook.Services;
@@ -121,6 +122,27 @@ namespace SlingMD.Tests.Services
             Assert.NotNull(first);
             Assert.NotNull(second);
             Assert.NotSame(first, second);
+        }
+
+        private sealed class RecordingPrompts : IEmailPrompts
+        {
+            public int Calls { get; private set; }
+            public void ShowError(string message) => Calls++;
+            public void ShowLaunchCountdown(int seconds) => Calls++;
+            public TaskDateChoice PromptTaskOptions(int defaultDueDays, int defaultReminderDays, int defaultReminderHour, bool useRelativeReminder) { Calls++; return null; }
+            public IList<string> ConfirmNewContacts(List<string> newContacts) { Calls++; return new List<string>(); }
+        }
+
+        [Fact]
+        public void Constructor_AcceptsInjectedPrompts_AndShowsNothing()
+        {
+            RecordingPrompts prompts = new RecordingPrompts();
+
+            AppointmentProcessor processor = new AppointmentProcessor(_settings, clock: null, prompts: prompts);
+
+            // Construction alone shows nothing; the prompts are only used on the interactive path.
+            Assert.NotNull(processor);
+            Assert.Equal(0, prompts.Calls);
         }
 
         [Fact]

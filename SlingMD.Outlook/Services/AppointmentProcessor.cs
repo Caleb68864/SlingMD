@@ -55,6 +55,7 @@ namespace SlingMD.Outlook.Services
         private readonly UniqueFilenameResolver _uniqueFilenameResolver = new UniqueFilenameResolver();
         private readonly IClock _clock;
         private readonly ReminderDueDateCalculator _reminderCalculator;
+        private readonly IEmailPrompts _prompts;
 
         private List<string> _bulkErrors = new List<string>();
         private int _bulkAmbiguousCount;
@@ -76,9 +77,10 @@ namespace SlingMD.Outlook.Services
             return count;
         }
 
-        public AppointmentProcessor(ObsidianSettings settings, IClock clock = null)
+        public AppointmentProcessor(ObsidianSettings settings, IClock clock = null, IEmailPrompts prompts = null)
         {
             _settings = settings;
+            _prompts = prompts ?? new DialogEmailPrompts();
             _fileService = new FileService(settings, new MessageBoxUserNotifier());
             _templateService = new TemplateService(_fileService);
             _threadService = new ThreadService(_fileService, _templateService, settings);
@@ -340,23 +342,20 @@ namespace SlingMD.Outlook.Services
             {
                 if (!bulkMode && _settings.AskForDates)
                 {
-                    using (Forms.TaskOptionsForm form = new Forms.TaskOptionsForm(
+                    TaskDateChoice choice = _prompts.PromptTaskOptions(
                         _settings.DefaultDueDays, _settings.DefaultReminderDays,
-                        _settings.DefaultReminderHour, _settings.UseRelativeReminder))
+                        _settings.DefaultReminderHour, _settings.UseRelativeReminder);
+                    if (choice != null)
                     {
-                        System.Windows.Forms.DialogResult result = form.ShowDialog();
-                        if (result == System.Windows.Forms.DialogResult.OK)
-                        {
-                            _taskService.InitializeTaskSettings(
-                                form.DueDays, form.ReminderDays,
-                                form.ReminderHour, form.UseRelativeReminder);
-                        }
-                        else
-                        {
-                            _taskService.DisableTaskCreation();
-                            createObsidianTask = false;
-                            createOutlookTask = false;
-                        }
+                        _taskService.InitializeTaskSettings(
+                            choice.DueDays, choice.ReminderDays,
+                            choice.ReminderHour, choice.UseRelativeReminder);
+                    }
+                    else
+                    {
+                        _taskService.DisableTaskCreation();
+                        createObsidianTask = false;
+                        createOutlookTask = false;
                     }
                 }
                 else
@@ -694,15 +693,9 @@ namespace SlingMD.Outlook.Services
                         }
                         else if (unfuzzyNewContacts.Count > 0)
                         {
-                            using (ContactConfirmationDialog dialog = new ContactConfirmationDialog(unfuzzyNewContacts))
+                            foreach (string contactName in _prompts.ConfirmNewContacts(unfuzzyNewContacts))
                             {
-                                if (dialog.ShowDialog() == DialogResult.OK)
-                                {
-                                    foreach (string contactName in dialog.SelectedContacts)
-                                    {
-                                        _contactService.CreateContactNote(contactName);
-                                    }
-                                }
+                                _contactService.CreateContactNote(contactName);
                             }
                         }
                     }
