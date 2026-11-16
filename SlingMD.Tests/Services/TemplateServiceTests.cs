@@ -378,6 +378,10 @@ namespace SlingMD.Tests.Services
         {
             string templatePath = Path.Combine(_templatesDir, "EmailTemplate.md");
             File.WriteAllText(templatePath, "original");
+            // A whole-second mtime, so setting it again restores it exactly. Mono on Linux drops the
+            // sub-second part in SetLastWriteTimeUtc, so restoring a fresh mtime read back would not match.
+            DateTime originalMtime = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+            File.SetLastWriteTimeUtc(templatePath, originalMtime);
 
             // First load: reads from disk and caches.
             string first = _templateService.LoadTemplate("EmailTemplate.md");
@@ -385,7 +389,6 @@ namespace SlingMD.Tests.Services
 
             // Overwrite the file but force the mtime back to the original value. The cache
             // keys on mtime — with no change detected, the stale cached content is returned.
-            DateTime originalMtime = File.GetLastWriteTimeUtc(templatePath);
             File.WriteAllText(templatePath, "edited");
             File.SetLastWriteTimeUtc(templatePath, originalMtime);
 

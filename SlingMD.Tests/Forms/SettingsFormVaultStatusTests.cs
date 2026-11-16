@@ -5,6 +5,8 @@ using Xunit;
 
 namespace SlingMD.Tests.Forms
 {
+    // WinForms test: VSTest on Windows only. Mono runs skip it with -notrait "Category=WindowsOnly".
+    [Trait("Category", "WindowsOnly")]
     public class SettingsFormVaultStatusTests : IDisposable
     {
         private readonly string _testDir;

@@ -7,6 +7,8 @@ using SlingMD.Outlook.Models;
 
 namespace SlingMD.Tests.Forms
 {
+    // WinForms test: VSTest on Windows only. Mono runs skip it with -notrait "Category=WindowsOnly".
+    [Trait("Category", "WindowsOnly")]
     public class CalendarRangeDialogTests
     {
         /// <summary>

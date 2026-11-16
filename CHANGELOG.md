@@ -106,6 +106,12 @@ All notable changes to SlingMD are documented in this file.
 - **`ThreadService.GetConversationId` has tests** (`ThreadServiceConversationIdTests`), using Moq
   doubles of the Outlook `MailItem` and `PropertyAccessor`: topic, conversation index, subject,
   message-id and EntryID fallbacks, and the random last resort.
+- **The SlingMD.Tests path tests no longer assume a `C:\` drive.** Fifteen tests in
+  `AttachmentServiceTests`, `FileServiceTests`, `EmailProcessorTests` and `TemplateServiceTests`
+  built their input paths from literal `C:\` strings (or relied on sub-second file times), so they
+  failed when the suite was run under Mono on Linux. They now build paths with `Path.Combine` and
+  `Path.GetTempPath`; the expected values are unchanged and the same on Windows. The WinForms test
+  classes under `SlingMD.Tests/Forms/` carry `[Trait("Category", "WindowsOnly")]`. Test code only.
 - **File-name sanitising uses the Windows list of invalid characters on every OS**, rather than
   whatever the machine running it reports. The result on Windows is unchanged.
 
