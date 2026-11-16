@@ -22,11 +22,6 @@ namespace SlingMD.Outlook.Services
     /// </summary>
     public class EmailProcessor
     {
-        // Exponential-backoff parameters for WaitForFileAvailability.
-        // 5 attempts × starting at 50 ms doubles to ~1550 ms total wait worst-case.
-        private const int MaxFileWaitAttempts = 5;
-        private const int InitialFileWaitDelayMs = 50;
-
         // Static lock dictionary to prevent race conditions when multiple emails target the same thread folder
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.SemaphoreSlim> _threadFolderLocks
             = new System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.SemaphoreSlim>(StringComparer.OrdinalIgnoreCase);
@@ -45,6 +40,8 @@ namespace SlingMD.Outlook.Services
         private readonly SubjectFilenameCleaner _subjectFilenameCleaner;
         private readonly UniqueFilenameResolver _uniqueFilenameResolver = new UniqueFilenameResolver();
         private readonly IClock _clock;
+        private readonly IToastNotifier _toasts;
+        private readonly Func<IProgressView> _openProgressView;
 
         /// <summary>
         /// Whether any attachment processing should run for an email given the current settings.
@@ -87,9 +84,13 @@ namespace SlingMD.Outlook.Services
             ThreadService threadService,
             TaskService taskService,
             ContactService contactService,
-            AttachmentService attachmentService)
+            AttachmentService attachmentService,
+            IToastNotifier toastNotifier = null,
+            Func<IProgressView> openProgressView = null)
         {
             _settings = settings;
+            _toasts = toastNotifier ?? new ToastFormNotifier();
+            _openProgressView = openProgressView ?? ProgressFormView.Open;
             _clock = clock ?? new SystemClock();
             _fileService = fileService ?? new FileService(settings, new MessageBoxUserNotifier());
             _templateService = templateService ?? new TemplateService(_fileService);
@@ -202,7 +203,7 @@ namespace SlingMD.Outlook.Services
                 RememberContactEmail(contactEmails, recipient.Name, recipient.Email);
             }
 
-            using (var status = new StatusService(silent: bulkMode))
+            using (var status = new StatusService(bulkMode ? null : _openProgressView()))
             {
                 try
                 {
@@ -320,7 +321,7 @@ namespace SlingMD.Outlook.Services
                         if (!bulkMode)
                         {
                             // The progress window closes as soon as this returns, so say it where it stays visible.
-                            ToastForm.ShowToast("SlingMD: this email is already in your vault.");
+                            _toasts.ShowToast("SlingMD: this email is already in your vault.", isError: false);
                         }
                         return new EmailSlingResult { Outcome = EmailSlingOutcome.Duplicate };
                     }
@@ -412,7 +413,7 @@ namespace SlingMD.Outlook.Services
                             // Verify the file exists with retry logic
                             if (!string.IsNullOrWhiteSpace(updatedCurrentPath))
                             {
-                                await WaitForFileAvailability(updatedCurrentPath);
+                                await FileAvailabilityWaiter.WaitAsync(updatedCurrentPath);
                                 filePath = updatedCurrentPath;
                                 fileName = Path.GetFileName(updatedCurrentPath);
                                 fileNameNoExt = Path.GetFileNameWithoutExtension(updatedCurrentPath);
@@ -557,7 +558,7 @@ namespace SlingMD.Outlook.Services
                         // honoring the same notification mode NotificationService uses.
                         if (_settings.AutoSlingNotificationMode == "Toast")
                         {
-                            try { ToastForm.ShowToast($"SlingMD: email export failed — {ex.Message}", isError: true); }
+                            try { _toasts.ShowToast($"SlingMD: email export failed — {ex.Message}", isError: true); }
                             catch (System.Exception toastEx)
                             {
                                 // Best effort: the export failure itself is already logged.
@@ -707,7 +708,7 @@ namespace SlingMD.Outlook.Services
             else if (!bulkMode)
             {
                 // Without Obsidian opening on the note, nothing else confirms the sling worked.
-                ToastForm.ShowToast($"SlingMD: saved {GetVaultRelativePath(filePath) ?? Path.GetFileName(filePath)}");
+                _toasts.ShowToast($"SlingMD: saved {GetVaultRelativePath(filePath) ?? Path.GetFileName(filePath)}", isError: false);
             }
 
             if (!bulkMode && _settings.ShowNoteInExplorer)
@@ -725,55 +726,6 @@ namespace SlingMD.Outlook.Services
         /// <c>null</c> when it does not lie inside the vault.
         /// </summary>
         internal string GetVaultRelativePath(string path) => _engine.GetVaultRelativePath(path);
-
-        /// <summary>
-        /// Waits for a file to become available by checking its existence and attempting to open it.
-        /// Uses exponential backoff retry logic (see <see cref="MaxFileWaitAttempts"/> and
-        /// <see cref="InitialFileWaitDelayMs"/>). Replaces hard-coded delays.
-        /// </summary>
-        /// <param name="filePath">The full path to the file to wait for.</param>
-        private async Task WaitForFileAvailability(string filePath)
-        {
-            int attempt = 0;
-            int delayMs = InitialFileWaitDelayMs;
-
-            while (attempt < MaxFileWaitAttempts)
-            {
-                try
-                {
-                    // Check if file exists and can be opened
-                    if (File.Exists(filePath))
-                    {
-                        // Try to open the file briefly to ensure it's not locked
-                        using (var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                        {
-                            // File is accessible
-                            return;
-                        }
-                    }
-                }
-                catch (IOException)
-                {
-                    // File is locked or not yet available
-                }
-                catch (UnauthorizedAccessException)
-                {
-                    // Permission issue, but file exists
-                    return;
-                }
-
-                // Exponential backoff: InitialFileWaitDelayMs doubled on each retry.
-                attempt++;
-                if (attempt < MaxFileWaitAttempts)
-                {
-                    await Task.Delay(delayMs);
-                    delayMs *= 2;
-                }
-            }
-
-            // If we get here, file still isn't available but we've tried our best
-            // Continue anyway - the worst case is the same as before
-        }
 
         /// <summary>
         /// Applies <see cref="ObsidianSettings.BodyCleanupPatterns"/> to the Markdown body and, when a

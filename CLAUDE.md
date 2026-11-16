@@ -43,7 +43,7 @@ The add-in uses a service-oriented architecture where `EmailProcessor` orchestra
 - **TaskService**: Creates follow-up tasks in Obsidian notes and/or Outlook
 - **ContactService**: Creates and manages contact notes with communication history
 - **TemplateService**: Processes markdown templates for notes
-- **StatusService**: Shows progress UI during email processing
+- **StatusService** (SlingMD.Core): Reports progress to an `IProgressView`; the add-in's `ProgressFormView` shows it in `ProgressForm`
 
 ### Core Flow
 1. User selects email in Outlook and clicks "Sling" ribbon button
@@ -95,8 +95,9 @@ SlingMD.Core/
 ├── Services/       - TemplateService, FileService, SubjectFilenameCleaner, ClipboardEmailService,
 │                     RuleEngine, SlingDecisionEngine, ReminderDueDateCalculator, BatchSlingReport,
 │                     EmailNoteEngine (title, file name, front matter and note text from EmailData),
-│                     ProcessedEmailCache (duplicate check),
-│                     IUserNotifier (what the engine asks the front end to show)
+│                     ProcessedEmailCache (duplicate check), FileAvailabilityWaiter (backoff wait),
+│                     StatusService (progress, over IProgressView),
+│                     IUserNotifier, IToastNotifier, IProgressView (what the engine asks the front end to show)
 └── Services/Formatting/ - Pure helpers (sanitisers, parsers, cleaners, path budget, thread ids, ...)
 
 SlingMD.Outlook/
@@ -105,7 +106,8 @@ SlingMD.Outlook/
 ├── Properties/     - Assembly info, resources
 ├── Ribbon/         - Outlook ribbon UI (SlingRibbon.cs/xml)
 ├── Services/       - COM readers, processors not yet split (EmailProcessor, ThreadService, ...),
-│                     monitors, OutlookEmailReader (MailItem -> EmailData), MessageBoxUserNotifier
+│                     monitors, OutlookEmailReader (MailItem -> EmailData), MessageBoxUserNotifier,
+│                     ToastFormNotifier, ProgressFormView (Core interfaces over the forms)
 ├── Templates/      - Default markdown templates
 └── ThisAddIn.cs    - VSTO entry point
 
