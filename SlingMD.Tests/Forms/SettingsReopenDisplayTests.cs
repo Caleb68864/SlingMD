@@ -15,6 +15,8 @@ namespace SlingMD.Tests.Forms
     /// revert. Unlike the existing test, this reopens a NEW form on the reloaded settings and
     /// asserts the CONTROLS display the saved values (the path the user actually observes).
     /// </summary>
+    // WinForms test: VSTest on Windows only. Mono runs skip it with -notrait "Category=WindowsOnly".
+    [Trait("Category", "WindowsOnly")]
     public class SettingsReopenDisplayTests
     {
         private static void RunSta(Action action)

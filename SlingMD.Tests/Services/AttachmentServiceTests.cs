@@ -12,11 +12,26 @@ namespace SlingMD.Tests.Services
     /// </summary>
     public class AttachmentServiceTests
     {
+        // Built with Path.Combine rather than a literal C:\ path so the link tests also run under
+        // Mono on Linux. Nothing is written there; the expected links are relative, so they are the
+        // same on every OS.
+        private static readonly string VaultBasePath = Path.Combine(Path.GetTempPath(), "SlingMDTestVault");
+
+        private static string InVault(params string[] segments)
+        {
+            string path = Path.Combine(VaultBasePath, "MyVault");
+            foreach (string segment in segments)
+            {
+                path = Path.Combine(path, segment);
+            }
+            return path;
+        }
+
         private AttachmentService BuildService(AttachmentStorageMode mode, bool useWikilinks = true)
         {
             ObsidianSettings settings = new ObsidianSettings
             {
-                VaultBasePath = @"C:\Vault",
+                VaultBasePath = VaultBasePath,
                 VaultName = "MyVault",
                 AttachmentStorageMode = mode,
                 UseObsidianWikilinks = useWikilinks
@@ -38,8 +53,8 @@ namespace SlingMD.Tests.Services
         {
             AttachmentService service = BuildService(AttachmentStorageMode.SameAsNote);
 
-            string noteFile = @"C:\Vault\MyVault\Inbox\2026-03-12_my-email.md";
-            string attachFile = @"C:\Vault\MyVault\Inbox\image.png";
+            string noteFile = InVault("Inbox", "2026-03-12_my-email.md");
+            string attachFile = InVault("Inbox", "image.png");
 
             string target = service.BuildAttachmentLinkTarget(attachFile, noteFile);
 
@@ -55,8 +70,8 @@ namespace SlingMD.Tests.Services
         {
             AttachmentService service = BuildService(AttachmentStorageMode.SubfolderPerNote);
 
-            string noteFile = @"C:\Vault\MyVault\Inbox\2026-03-12_my-email.md";
-            string attachFile = @"C:\Vault\MyVault\Inbox\2026-03-12_my-email\image.png";
+            string noteFile = InVault("Inbox", "2026-03-12_my-email.md");
+            string attachFile = InVault("Inbox", "2026-03-12_my-email", "image.png");
 
             string target = service.BuildAttachmentLinkTarget(attachFile, noteFile);
 
@@ -73,8 +88,8 @@ namespace SlingMD.Tests.Services
         {
             AttachmentService service = BuildService(AttachmentStorageMode.Centralized);
 
-            string noteFile = @"C:\Vault\MyVault\Inbox\2026-03-12_my-email.md";
-            string attachFile = @"C:\Vault\MyVault\Attachments\2026-03\document.pdf";
+            string noteFile = InVault("Inbox", "2026-03-12_my-email.md");
+            string attachFile = InVault("Attachments", "2026-03", "document.pdf");
 
             string target = service.BuildAttachmentLinkTarget(attachFile, noteFile);
 
@@ -94,8 +109,8 @@ namespace SlingMD.Tests.Services
         {
             AttachmentService service = BuildService(AttachmentStorageMode.SameAsNote);
 
-            string noteFile = @"C:\Vault\MyVault\Inbox\email.md";
-            string attachFile = @"C:\Vault\MyVault\Inbox\photo.png";
+            string noteFile = InVault("Inbox", "email.md");
+            string attachFile = InVault("Inbox", "photo.png");
 
             string link = service.GenerateWikilink(attachFile, noteFile, isImage: true);
 
@@ -110,8 +125,8 @@ namespace SlingMD.Tests.Services
         {
             AttachmentService service = BuildService(AttachmentStorageMode.SubfolderPerNote);
 
-            string noteFile = @"C:\Vault\MyVault\Inbox\email.md";
-            string attachFile = @"C:\Vault\MyVault\Inbox\email\photo.png";
+            string noteFile = InVault("Inbox", "email.md");
+            string attachFile = InVault("Inbox", "email", "photo.png");
 
             string link = service.GenerateWikilink(attachFile, noteFile, isImage: true);
 
@@ -126,8 +141,8 @@ namespace SlingMD.Tests.Services
         {
             AttachmentService service = BuildService(AttachmentStorageMode.Centralized);
 
-            string noteFile = @"C:\Vault\MyVault\Inbox\email.md";
-            string attachFile = @"C:\Vault\MyVault\Attachments\2026-03\report.pdf";
+            string noteFile = InVault("Inbox", "email.md");
+            string attachFile = InVault("Attachments", "2026-03", "report.pdf");
 
             string link = service.GenerateWikilink(attachFile, noteFile, isImage: false);
 
@@ -279,14 +294,14 @@ namespace SlingMD.Tests.Services
             AttachmentInfo info = new AttachmentInfo();
             info.SavedAttachments.Add(new SavedAttachment
             {
-                FullPath = @"C:\Vault\MyVault\Inbox\email\logo.png",
+                FullPath = InVault("Inbox", "email", "logo.png"),
                 ContentId = "<logo@example>",
                 IsInline = true
             });
 
             string result = service.ResolveInlineImageLinks(
                 "Before ![Logo](cid:logo@example) after", info,
-                @"C:\Vault\MyVault\Inbox\email.md");
+                InVault("Inbox", "email.md"));
 
             Assert.Equal("Before ![[email/logo.png]] after", result);
         }
@@ -298,14 +313,14 @@ namespace SlingMD.Tests.Services
             AttachmentInfo info = new AttachmentInfo();
             info.SavedAttachments.Add(new SavedAttachment
             {
-                FullPath = @"C:\Vault\MyVault\Inbox\logo.png",
+                FullPath = InVault("Inbox", "logo.png"),
                 ContentId = "logo@example",
                 IsInline = true
             });
 
             string result = service.ResolveInlineImageLinks(
                 "![Company logo](cid:logo@example)", info,
-                @"C:\Vault\MyVault\Inbox\email.md");
+                InVault("Inbox", "email.md"));
 
             Assert.Equal("![Company logo](logo.png)", result);
         }
@@ -412,8 +427,8 @@ namespace SlingMD.Tests.Services
             AttachmentService service = BuildService(AttachmentStorageMode.SubfolderPerNote);
 
             string target = service.BuildAttachmentLinkTarget(
-                @"C:\Vault\MyVault\Attachments\Shared\logo.png",
-                @"C:\Vault\MyVault\Inbox\Some thread\email.md");
+                InVault("Attachments", "Shared", "logo.png"),
+                InVault("Inbox", "Some thread", "email.md"));
 
             Assert.Equal("Attachments/Shared/logo.png", target);
         }
@@ -559,7 +574,7 @@ namespace SlingMD.Tests.Services
         {
             AttachmentService service = BuildService(AttachmentStorageMode.SameAsNote, useWikilinks: false);
 
-            string link = service.GenerateWikilink(@"C:\Vault\MyVault\Inbox\Q3 Report #2.pdf", @"C:\Vault\MyVault\Inbox\email.md", isImage: false);
+            string link = service.GenerateWikilink(InVault("Inbox", "Q3 Report #2.pdf"), InVault("Inbox", "email.md"), isImage: false);
 
             Assert.Equal("[Q3 Report #2.pdf](Q3%20Report%20%232.pdf)", link);
         }
@@ -568,11 +583,11 @@ namespace SlingMD.Tests.Services
         public void BuildAttachmentSection_ListsFilesAsBulletsAndSkipsInlineImagesShownInBody()
         {
             AttachmentService service = BuildService(AttachmentStorageMode.SameAsNote);
-            string noteFile = @"C:\Vault\MyVault\Inbox\email.md";
+            string noteFile = InVault("Inbox", "email.md");
             AttachmentInfo info = new AttachmentInfo();
-            info.SavedAttachments.Add(new SavedAttachment { FullPath = @"C:\Vault\MyVault\Inbox\report.pdf" });
-            info.SavedAttachments.Add(new SavedAttachment { FullPath = @"C:\Vault\MyVault\Inbox\logo.png", IsInline = true });
-            info.SavedAttachments.Add(new SavedAttachment { FullPath = @"C:\Vault\MyVault\Inbox\unused.png", IsInline = true });
+            info.SavedAttachments.Add(new SavedAttachment { FullPath = InVault("Inbox", "report.pdf") });
+            info.SavedAttachments.Add(new SavedAttachment { FullPath = InVault("Inbox", "logo.png"), IsInline = true });
+            info.SavedAttachments.Add(new SavedAttachment { FullPath = InVault("Inbox", "unused.png"), IsInline = true });
 
             string section = service.BuildAttachmentSection(info, noteFile, "Hello\n\n![[logo.png]]\n");
 
@@ -584,9 +599,9 @@ namespace SlingMD.Tests.Services
         {
             AttachmentService service = BuildService(AttachmentStorageMode.SameAsNote);
             AttachmentInfo info = new AttachmentInfo();
-            info.SavedAttachments.Add(new SavedAttachment { FullPath = @"C:\Vault\MyVault\Inbox\logo.png", IsInline = true });
+            info.SavedAttachments.Add(new SavedAttachment { FullPath = InVault("Inbox", "logo.png"), IsInline = true });
 
-            Assert.Equal(string.Empty, service.BuildAttachmentSection(info, @"C:\Vault\MyVault\Inbox\email.md", "![[logo.png]]"));
+            Assert.Equal(string.Empty, service.BuildAttachmentSection(info, InVault("Inbox", "email.md"), "![[logo.png]]"));
         }
     }
 }

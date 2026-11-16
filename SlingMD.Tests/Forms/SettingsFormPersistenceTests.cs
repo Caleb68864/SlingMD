@@ -17,6 +17,8 @@ namespace SlingMD.Tests.Forms
     /// <see cref="SettingsForm"/> through the same LoadSettings -> controls -> Save handler ->
     /// disk round-trip the user exercises, then reloads from a fresh instance ("restart").
     /// </summary>
+    // WinForms test: VSTest on Windows only. Mono runs skip it with -notrait "Category=WindowsOnly".
+    [Trait("Category", "WindowsOnly")]
     public class SettingsFormPersistenceTests
     {
         /// <summary>

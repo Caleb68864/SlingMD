@@ -130,3 +130,21 @@ Left over from that work:
   failures, the same 43 that fail on `main` there, all from `C:\` paths or WinForms under Mono
   (`BuildObsidianOpenUri_AbsolutePathInsideVault_IsMadeVaultRelative` is one of them). The other
   2026-11-09 tests passed. That is evidence, not a substitute for the VSTest run.
+- ~~**Path tests fail off Windows.**~~ Done on `test/portable-paths` (2026-11-16, test code only).
+  With that Mono run (net472 build of SlingMD.Tests, `xvfb-run -a mono xunit.console.exe
+  SlingMD.Tests.dll -parallel none`), `main` had 17 failures. 14 were path tests that fed literal
+  `C:\` paths to `AttachmentService`, `FileService.BuildObsidianOpenUri` and
+  `EmailProcessor.GetVaultRelativePath` (12 in `AttachmentServiceTests`, one each in the other two),
+  and one was `TemplateServiceTests.LoadTemplate_CachesContentUntilFileMtimeChanges`, which restored a
+  sub-second mtime that Mono truncates. They now build paths with `Path.Combine(Path.GetTempPath(), ...)`
+  and a whole-second mtime; the expected values did not change. Mono: 17 failures before, 2 after
+  (734 tests). None of these test SlingMD.Core classes, so nothing new is linked into
+  SlingMD.Core.Tests (still 485, all passing). Not yet run under VSTest on Windows.
+  `AttachmentServiceTests.GetAttachmentFolder_SubfolderPerNote_NoteNameEndingInDot_DropsTheDot` still
+  uses a `C:\` literal (it passes under Mono; left alone because the dotted-folder work touches it).
+- **WinForms tests are Windows-only.** The five classes in `SlingMD.Tests/Forms/` carry
+  `[Trait("Category", "WindowsOnly")]` (46 tests). Two of them fail under Mono:
+  `SettingsFormPersistenceTests.InvalidField_DoesNotCloseDialogAndDoesNotPersist` (Mono WinForms) and
+  `BatchFolderPickerFormTests.UnsafeFolderName_IsRejected("sub\\nested")` (`\` is not a separator
+  on Linux). A Mono run with `-notrait "Category=WindowsOnly"` has 688 tests and 0 failures. The
+  VSTest CI job still runs them all.

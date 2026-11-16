@@ -209,7 +209,8 @@ namespace SlingMD.Tests.Services
         [Fact]
         public void BuildObsidianOpenUri_AbsolutePathInsideVault_IsMadeVaultRelative()
         {
-            string uri = FileService.BuildObsidianOpenUri("My Vault", @"C:\Notes\My Vault\Contacts", @"C:\Notes\My Vault");
+            string vaultRoot = Path.Combine(Path.GetTempPath(), "Notes", "My Vault");
+            string uri = FileService.BuildObsidianOpenUri("My Vault", Path.Combine(vaultRoot, "Contacts"), vaultRoot);
 
             Assert.Equal("obsidian://open?vault=My%20Vault&file=Contacts", uri);
         }
@@ -217,7 +218,7 @@ namespace SlingMD.Tests.Services
         [Fact]
         public void BuildObsidianOpenUri_RelativeNotePath_DropsMdExtensionAndUsesForwardSlashes()
         {
-            string uri = FileService.BuildObsidianOpenUri("Vault", @"Inbox\Thread\Note.MD", @"C:\Notes\Vault");
+            string uri = FileService.BuildObsidianOpenUri("Vault", @"Inbox\Thread\Note.MD", Path.Combine(Path.GetTempPath(), "Notes", "Vault"));
 
             Assert.Equal("obsidian://open?vault=Vault&file=Inbox%2FThread%2FNote", uri);
         }
@@ -225,10 +226,12 @@ namespace SlingMD.Tests.Services
         [Fact]
         public void BuildObsidianOpenUri_AbsolutePathOutsideVault_IsPassedThrough()
         {
-            // "C:\Notes\Vault2" shares a prefix with the vault root but is a different folder.
-            string uri = FileService.BuildObsidianOpenUri("Vault", @"C:\Notes\Vault2\Note.md", @"C:\Notes\Vault");
+            // "...\Notes\Vault2" shares a prefix with the vault root but is a different folder.
+            string notesRoot = Path.Combine(Path.GetTempPath(), "Notes");
+            string uri = FileService.BuildObsidianOpenUri("Vault", Path.Combine(notesRoot, "Vault2", "Note.md"), Path.Combine(notesRoot, "Vault"));
 
-            Assert.Equal("obsidian://open?vault=Vault&file=" + Uri.EscapeDataString("C:/Notes/Vault2/Note"), uri);
+            string expectedFile = Path.Combine(notesRoot, "Vault2", "Note").Replace('\\', '/');
+            Assert.Equal("obsidian://open?vault=Vault&file=" + Uri.EscapeDataString(expectedFile), uri);
         }
 
         [Fact]

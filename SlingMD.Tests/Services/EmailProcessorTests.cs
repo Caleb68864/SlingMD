@@ -288,14 +288,17 @@ namespace SlingMD.Tests.Services
         }
 
         // GetVaultRelativePath — the path handed to Obsidian must start at the vault root.
+        // Paths are built with Path.Combine (not a literal C:\ path) so these also run under Mono.
+
+        private static readonly string NotesRoot = Path.Combine(Path.GetTempPath(), "Notes");
 
         [Fact]
         public void GetVaultRelativePath_NoteInThreadFolder_IncludesInboxSegments()
         {
-            ObsidianSettings settings = new ObsidianSettings { VaultBasePath = @"C:\Notes", VaultName = "Vault", InboxFolder = @"Caleb\Inbox" };
+            ObsidianSettings settings = new ObsidianSettings { VaultBasePath = NotesRoot, VaultName = "Vault", InboxFolder = Path.Combine("Caleb", "Inbox") };
             EmailProcessor processor = new EmailProcessor(settings);
 
-            string relative = processor.GetVaultRelativePath(@"C:\Notes\Vault\Caleb\Inbox\Budget review-SaraA-CalebB\2026-09-23_181852_Budget review-SaraA.md");
+            string relative = processor.GetVaultRelativePath(Path.Combine(NotesRoot, "Vault", "Caleb", "Inbox", "Budget review-SaraA-CalebB", "2026-09-23_181852_Budget review-SaraA.md"));
 
             Assert.Equal("Caleb/Inbox/Budget review-SaraA-CalebB/2026-09-23_181852_Budget review-SaraA.md", relative);
         }
@@ -303,11 +306,11 @@ namespace SlingMD.Tests.Services
         [Fact]
         public void GetVaultRelativePath_PathOutsideVault_ReturnsNull()
         {
-            ObsidianSettings settings = new ObsidianSettings { VaultBasePath = @"C:\Notes", VaultName = "Vault" };
+            ObsidianSettings settings = new ObsidianSettings { VaultBasePath = NotesRoot, VaultName = "Vault" };
             EmailProcessor processor = new EmailProcessor(settings);
 
-            Assert.Null(processor.GetVaultRelativePath(@"C:\Elsewhere\note.md"));
-            Assert.Null(processor.GetVaultRelativePath(@"C:\Notes\VaultTwo\note.md"));
+            Assert.Null(processor.GetVaultRelativePath(Path.Combine(Path.GetTempPath(), "Elsewhere", "note.md")));
+            Assert.Null(processor.GetVaultRelativePath(Path.Combine(NotesRoot, "VaultTwo", "note.md")));
         }
 
         // -----------------------------------------------------------------------------------------

@@ -13,6 +13,8 @@ namespace SlingMD.Tests.Forms
     /// opt-in single-email folder prompt. The single-email path made an unconfigured vault far
     /// easier to hit, so the guards around a blank or relative Inbox path are exercised here.
     /// </summary>
+    // WinForms test: VSTest on Windows only. Mono runs skip it with -notrait "Category=WindowsOnly".
+    [Trait("Category", "WindowsOnly")]
     public class BatchFolderPickerFormTests
     {
         /// <summary>
