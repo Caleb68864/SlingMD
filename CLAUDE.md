@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 SlingMD is a .NET Framework 4.7.2 C# Outlook VSTO add-in that exports emails to Obsidian as markdown. The solution consists of three projects, plus one test project kept outside it:
-- **SlingMD.Outlook**: Main add-in project
+- **SlingMD.Outlook**: Main add-in project, becoming a thin front end (COM reading, ribbon, forms,
+  monitors, composition in ThisAddIn). Anything without Office/WinForms/COM goes to SlingMD.Core;
+  see "Engine / front end" in `docs/ROADMAP.md` for the per-file plan.
 - **SlingMD.Core**: Pure helpers and engines, `ObsidianSettings` (with the models it serialises) and `Logger`,
   with no Office/WinForms dependency (SDK-style,
   `net472;netstandard2.0`). Namespaces stay `SlingMD.Outlook.*`, so moving a file here needs no
@@ -46,7 +48,8 @@ The add-in uses a service-oriented architecture where `EmailProcessor` orchestra
 ### Core Flow
 1. User selects email in Outlook and clicks "Sling" ribbon button
 2. `ThisAddIn.ProcessSelectedEmail()` retrieves the `MailItem`
-3. `EmailProcessor.ProcessEmail()` orchestrates:
+3. `EmailProcessor.ProcessEmail()` reads the mail into `EmailData` (`OutlookEmailReader`), builds the
+   note with `EmailNoteEngine` (SlingMD.Core), and orchestrates:
    - Task options dialog (if enabled)
    - Email-to-markdown conversion
    - Thread detection and organization
@@ -84,19 +87,25 @@ When `GroupEmailThreads` is enabled:
 ```
 SlingMD.Core/
 ├── Helpers/        - Logger (file log under AppData; never throws), BoundedHashSet
+├── Infrastructure/ - IClock/SystemClock, MapiPropertyTags (constants only)
 ├── Models/         - ObsidianSettings and the DTOs it serialises (AutoSlingRule, WatchedFolder,
 │                     CalendarFolderInfo, AttachmentStorageMode), ContactName, FilenameSubjectRule,
-│                     MailItemSnapshot, SlingDecision, TaskDueSettings, TaskDueDates, EmailSlingResult
-├── Services/       - RuleEngine, SlingDecisionEngine, ReminderDueDateCalculator, BatchSlingReport
+│                     MailItemSnapshot, SlingDecision, TaskDueSettings, TaskDueDates, EmailSlingResult,
+│                     ClipboardEmail, AttachmentSignals, EmailData (an email as plain values)
+├── Services/       - TemplateService, FileService, SubjectFilenameCleaner, ClipboardEmailService,
+│                     RuleEngine, SlingDecisionEngine, ReminderDueDateCalculator, BatchSlingReport,
+│                     EmailNoteEngine (title, file name, front matter and note text from EmailData),
+│                     ProcessedEmailCache (duplicate check),
+│                     IUserNotifier (what the engine asks the front end to show)
 └── Services/Formatting/ - Pure helpers (sanitisers, parsers, cleaners, path budget, thread ids, ...)
 
 SlingMD.Outlook/
 ├── Forms/          - WinForms dialogs (Settings, TaskOptions, Progress, etc.)
 ├── Helpers/        - Utility classes (deprecated - use Services instead)
-├── Models/         - The other data models (AttachmentSignals, ClipboardEmail)
 ├── Properties/     - Assembly info, resources
 ├── Ribbon/         - Outlook ribbon UI (SlingRibbon.cs/xml)
-├── Services/       - Business logic services (FileService, EmailProcessor, etc.)
+├── Services/       - COM readers, processors not yet split (EmailProcessor, ThreadService, ...),
+│                     monitors, OutlookEmailReader (MailItem -> EmailData), MessageBoxUserNotifier
 ├── Templates/      - Default markdown templates
 └── ThisAddIn.cs    - VSTO entry point
 

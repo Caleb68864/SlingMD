@@ -117,6 +117,22 @@ All notable changes to SlingMD are documented in this file.
   failed when the suite was run under Mono on Linux. They now build paths with `Path.Combine` and
   `Path.GetTempPath`; the expected values are unchanged and the same on Windows. The WinForms test
   classes under `SlingMD.Tests/Forms/` carry `[Trait("Category", "WindowsOnly")]`. Test code only.
+- **Templates, file handling and the clipboard formatter moved to `SlingMD.Core`** (first step of
+  the engine / front end split; plan in `docs/ROADMAP.md`). `TemplateService`, `FileService`,
+  `SubjectFilenameCleaner`, `ClipboardEmailService`, `ContactInteractionMode`, `IClock`/`SystemClock`,
+  `MapiPropertyTags`, `ClipboardEmail` and `AttachmentSignals` had no Office, WinForms or COM
+  dependency. `FileService`'s "could not launch Obsidian" message box now goes through a new
+  `IUserNotifier` (Core), implemented by `MessageBoxUserNotifier` in the add-in, which every
+  `new FileService(...)` in the add-in passes. Namespaces are unchanged. `FileServiceTests`,
+  `TemplateServiceTests`, `TemplateServiceAppointmentTests`, `ClipboardEmailServiceTests` and
+  `SubjectFilenameCleanerTests` run in `SlingMD.Core.Tests` too (572 tests on Linux, up from 521).
+- **The email note is built in `SlingMD.Core`.** `EmailNoteEngine` takes an `EmailData` (plain values
+  read from the `MailItem` by the add-in's new `OutlookEmailReader`) and produces the title, file
+  name, front matter and note text; the code moved from `EmailProcessor` unchanged, and
+  `EmailProcessor` now reads the email once and calls it. Thread grouping, attachments, contacts,
+  tasks and the duplicate check are still in the add-in (see `docs/ROADMAP.md`).
+  `EmailNoteEngineTests` pin the exact output on Linux (583 tests, up from 572). The duplicate
+  check's id cache moved too, as `ProcessedEmailCache`, with `ProcessedEmailCacheTests` (589).
 - **File-name sanitising uses the Windows list of invalid characters on every OS**, rather than
   whatever the machine running it reports. The result on Windows is unchanged.
 

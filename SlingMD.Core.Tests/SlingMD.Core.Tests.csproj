@@ -61,6 +61,14 @@
     <Compile Include="..\SlingMD.Tests\Services\ReminderDueDateCalculatorTests.cs" Link="Linked\Services\ReminderDueDateCalculatorTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\BatchSlingReportTests.cs" Link="Linked\Services\BatchSlingReportTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\DottedFolderLinkRepairServiceTests.cs" Link="Linked\Services\DottedFolderLinkRepairServiceTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\FileServiceTests.cs" Link="Linked\Services\FileServiceTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\ClipboardEmailServiceTests.cs" Link="Linked\Services\ClipboardEmailServiceTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\TemplateServiceTests.cs" Link="Linked\Services\TemplateServiceTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\TemplateServiceAppointmentTests.cs" Link="Linked\Services\TemplateServiceAppointmentTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\SubjectFilenameCleanerTests.cs" Link="Linked\Services\SubjectFilenameCleanerTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Infrastructure\FakeClock.cs" Link="Linked\Infrastructure\FakeClock.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\EmailNoteEngineTests.cs" Link="Linked\Services\EmailNoteEngineTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\ProcessedEmailCacheTests.cs" Link="Linked\Services\ProcessedEmailCacheTests.cs" />
     <Compile Include="..\SlingMD.Tests\Helpers\BoundedHashSetTests.cs" Link="Linked\Helpers\BoundedHashSetTests.cs" />
   </ItemGroup>
 </Project>

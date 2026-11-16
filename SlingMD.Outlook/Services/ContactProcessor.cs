@@ -38,7 +38,7 @@ namespace SlingMD.Outlook.Services
         public ContactProcessor(ObsidianSettings settings)
         {
             _settings = settings;
-            _fileService = new FileService(settings);
+            _fileService = new FileService(settings, new MessageBoxUserNotifier());
             _templateService = new TemplateService(_fileService);
             _contactService = new ContactService(_fileService, _templateService);
         }

@@ -4,6 +4,104 @@ Open issues found in reviews that have not been fixed yet. Paths are relative to
 root; line numbers are as of the hardening pass on 2026-11-09 (branch `harden/2026-11-09`) and
 will drift. Move an item to `CHANGELOG.md` when it ships.
 
+## Engine / front end
+
+Goal (owner, 2026-11-16): everything that does not need Windows or Outlook lives in SlingMD.Core
+and is tested on Linux; SlingMD.Outlook becomes a thin front end. The project keeps its name and
+the namespaces stay `SlingMD.Outlook.*`.
+
+**The rule.** SlingMD.Core has no `Microsoft.Office.Interop`, no WinForms (`System.Windows.Forms`,
+`System.Drawing`), no COM (`Marshal`, `COMException`). SlingMD.Outlook holds only COM extraction
+(reading `MailItem`/`AppointmentItem`/`ContactItem` into plain data), the ribbon, the forms, the
+monitors (folder, flag, auto-sling event hooks), and the composition root in `ThisAddIn`. Anything
+the engine needs from the front end (a prompt, a confirmation, a toast, saving an attachment
+through COM, opening Obsidian) goes through a small interface defined in Core and implemented in
+Outlook.
+
+**Per file in SlingMD.Outlook** (move = no Office/WinForms/COM, moves as is; split = engine to
+Core, COM/UI part stays; stays = front end):
+
+| File | Target |
+| --- | --- |
+| `Forms/*` (all 16 files) | stays (WinForms) |
+| `Forms/SettingsHelp.cs` | move later: help text only, but read by `SettingsForm`/`HelpForm`; no gain until a non-WinForms front end exists |
+| `Helpers/SafeComAction.cs` | stays (COM) |
+| `Infrastructure/IClock.cs`, `SystemClock.cs` | move |
+| `Infrastructure/MapiPropertyTags.cs` | move (string constants only) |
+| `Models/AttachmentSignals.cs`, `Models/ClipboardEmail.cs` | move |
+| `Properties/*`, `Ribbon/*`, `ThisAddIn*.cs` | stays (VSTO, ribbon, composition) |
+| `Services/TemplateService.cs` | move |
+| `Services/SubjectFilenameCleaner.cs` | move (with FileService) |
+| `Services/FileService.cs` | move; the "could not launch Obsidian" `MessageBox` goes behind `IUserNotifier` (Core), implemented by `MessageBoxUserNotifier` (Outlook). `Process.Start` is in netstandard2.0. |
+| `Services/ClipboardEmailService.cs`, `ContactInteractionMode.cs` | move (formatting only / enum) |
+| `Services/StatusService.cs` | split: it owns a `ProgressForm`; an `IStatusReporter` interface goes to Core, the form-backed implementation stays |
+| `Services/NotificationService.cs`, `SupportService.cs` | stays (toasts, MessageBox); the engine calls them through `IUserNotifier` |
+| `Services/EmailProcessor.cs` | split (first of the big four, see below) |
+| `Services/AppointmentProcessor.cs` | split (second) |
+| `Services/ThreadService.cs` | split (third): thread folder/note naming, `FindExistingThread`, summary note, resuffixing are file work; `GetConversationId` and the `MailItem` overloads stay as a reader |
+| `Services/ContactService.cs` | split (fourth): contact notes, links and the contact index are file work; `GetSenderEmail`/`BuildEmailList` (COM recipients) stay as a reader |
+| `Services/ContactProcessor.cs` | split: `ContactItem` reader stays, note writing moves |
+| `Services/TaskService.cs` | split: Obsidian task text moves; Outlook `TaskItem` creation stays |
+| `Services/AttachmentService.cs` | split: naming, folders, inline/real decision (`ShouldSave` on `AttachmentSignals`) move; `Attachment.SaveAsFile` and the MAPI reads stay behind an attachment-saver interface |
+| `Services/ThreadCompletionService.cs` | split: matching moves, the Outlook search stays |
+| `Services/SmtpAddressResolver.cs`, `CalendarFolderService.cs` | stays (COM readers) |
+| `Services/AutoSlingService.cs`, `FlagMonitorService.cs`, `FolderMonitorService.cs` | stays (monitors); their decisions already use `RuleEngine`/`SlingDecisionEngine` in Core |
+
+**Done so far** (`refactor/engine-frontend-split`): the "move" rows above, apart from
+`SettingsHelp`, are in SlingMD.Core, with their tests linked into SlingMD.Core.Tests (572 on
+Linux). `StatusService` did not move: it creates a `ProgressForm`, so it needs the interface split.
+Needs Windows: `TemplateService` looks for templates beside `Assembly.GetExecutingAssembly()`,
+which is now `SlingMD.Core.dll` instead of `SlingMD.Outlook.dll`; both are built into the same
+folder, and `AppDomain.BaseDirectory` is tried first anyway, but check a published install still
+finds the `Templates/` copies. The `IUserNotifier` warning when Obsidian cannot be launched is not
+covered by a test.
+
+**EmailProcessor, first cut** (same branch). `EmailData` (Core, `Models/`) holds what the note is
+built from: subject, sender name and SMTP address, received time, HTML and plain bodies, EntryID,
+Internet message id, first To recipient, and each recipient's name and SMTP address.
+`OutlookEmailReader` (Outlook) fills it, with the COM reads and releases moved there unchanged
+(`ExtractEmailUniqueIds`, `GetFirstRecipient`, the contact-collection recipient loop).
+`EmailNoteEngine` (Core) holds the note-building code moved out of `EmailProcessor` unchanged:
+title, base file name, front matter (`BuildMetadata`), body conversion and cleanup, note rendering
+and the vault-relative path. `EmailProcessor` now reads once (`ReadRecipients` where the contact
+loop was, `Read` inside the existing try, so a failed read is reported as before) and calls the
+engine; its internal `BuildEmailMetadata`/`CleanNoteBody`/`GetVaultRelativePath` delegate, so
+`EmailProcessorTests` are unchanged. Pinned by `EmailNoteEngineTests` (11, Linux): exact title,
+file names, front-matter keys and order, body cleanup flag, and the exact note text for both a
+token-dump template and the built-in default template.
+Left for EmailProcessor:
+  - The duplicate check moved to Core as `ProcessedEmailCache` (code unchanged; EmailProcessor
+    keeps one static instance, as it had static fields, and passes its clock's time), pinned by
+    `ProcessedEmailCacheTests` (6, Linux). The tests were written after the move, against the same
+    code; nothing tested the cache before.
+  - The rest of `ProcessEmailWithResult` (thread folder moves and renames, attachments, contacts,
+    tasks, launch/toast) is still in Outlook. Next: `WaitForFileAvailability` (pure file work) to
+    Core, then the thread steps behind an interface until ThreadService is split.
+  - Side-effect interfaces not yet introduced: the task-dates prompt (`TaskOptionsForm`), the
+    duplicate/saved toasts (`ToastForm`), `StatusService`'s progress form, attachment saving
+    (`AttachmentService.ProcessAttachments(MailItem, ...)`), and the Outlook task (`TaskService`).
+  - To/Cc linked names and address lists still come from `ContactService.BuildLinkedNames`/
+    `BuildEmailList` on the COM `Recipients`; `EmailData.Recipients` has no To/Cc flag yet. Adding
+    it means one more COM read (`Recipient.Type`) in the contact loop.
+  - `GetConversationId`, `GetThreadFolderName` and `GetThreadNoteName` still take the `MailItem`.
+  - Needs Windows: the add-in has not been built with VS MSBuild since this change (the Mono
+    harness compiles the same sources minus `ThisAddIn` and the ribbon), and a real sling should be
+    checked in Outlook, since `ProcessEmailWithResult` itself has no automated test.
+
+**Order for the big four**, each pinned by Linux characterization tests of the engine before the
+Outlook class is cut down:
+
+1. **EmailProcessor.** `EmailData` (plain values read from a `MailItem`) in Core,
+   `OutlookEmailReader` in Outlook, and the note-building pipeline as a Core engine. This is the
+   pattern for the others. Its ThreadService/ContactService/TaskService calls are passed in as
+   interfaces until those are split.
+2. **AppointmentProcessor**: same shape with `AppointmentData`; it shares the template, file and
+   contact pieces, so it goes once EmailProcessor shows the pattern works.
+3. **ThreadService**: its file-system half (folders, summary note, resuffixing, `FindExistingThread`)
+   is already COM-free apart from the `MailItem` parameters; switch those to `EmailData`.
+4. **ContactService**: last, because both processors call it; the COM recipient reads move into the
+   readers and the rest goes to Core.
+
 ## Correctness
 
 Done on `fix/folder-names-thread-ids` (2026-11-16); see `CHANGELOG.md`:

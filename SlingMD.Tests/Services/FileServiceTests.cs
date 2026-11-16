@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Text;
 using Xunit;
-using Moq;
 using SlingMD.Outlook.Services;
 using SlingMD.Outlook.Models;
 using System.Collections.Generic;

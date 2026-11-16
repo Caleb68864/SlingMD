@@ -128,7 +128,7 @@ namespace SlingMD.Outlook
                 _emailProcessor = new EmailProcessor(_settings);
                 _appointmentProcessor = new AppointmentProcessor(_settings);
                 _contactProcessor = new ContactProcessor(_settings);
-                _fileService = new FileService(_settings);
+                _fileService = new FileService(_settings, new MessageBoxUserNotifier());
                 _notificationService = new NotificationService(_settings);
 
                 try
@@ -1620,7 +1620,7 @@ namespace SlingMD.Outlook
                         _emailProcessor = new EmailProcessor(_settings);
                         _appointmentProcessor = new AppointmentProcessor(_settings);
                         _contactProcessor = new ContactProcessor(_settings);
-                        _fileService = new FileService(_settings);
+                        _fileService = new FileService(_settings, new MessageBoxUserNotifier());
                         _notificationService = new NotificationService(_settings);
 
                         // Restart folder monitoring with updated watched folders
