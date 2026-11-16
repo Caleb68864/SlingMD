@@ -851,7 +851,8 @@ namespace SlingMD.Outlook.Services
                 }
             }
 
-            return _fileService.CleanFileName(cleanedSubject);
+            // Used as a folder name: drop the trailing dot/space CleanFileName keeps and Windows drops.
+            return FolderNameSanitizer.Sanitize(_fileService.CleanFileName(cleanedSubject));
         }
 
         private void WriteRecurringThreadSummary(

@@ -499,7 +499,7 @@ namespace SlingMD.Outlook.Services
         /// <summary>
         /// Determines the target folder for attachments based on settings and note path.
         /// </summary>
-        private string GetAttachmentFolder(string noteFilePath)
+        internal string GetAttachmentFolder(string noteFilePath)
         {
             string noteDir = Path.GetDirectoryName(noteFilePath);
             string noteNameWithoutExt = Path.GetFileNameWithoutExtension(noteFilePath);
@@ -507,8 +507,9 @@ namespace SlingMD.Outlook.Services
             switch (_settings.AttachmentStorageMode)
             {
                 case AttachmentStorageMode.SubfolderPerNote:
-                    // Create subfolder with same name as note
-                    return Path.Combine(noteDir, noteNameWithoutExt);
+                    // Subfolder named after the note. A note name may end in a dot ("...Robert Smith Jr..md"),
+                    // which Windows would drop from the folder, leaving links to a folder that isn't there.
+                    return Path.Combine(noteDir, FolderNameSanitizer.Sanitize(noteNameWithoutExt));
 
                 case AttachmentStorageMode.Centralized:
                     // Use centralized attachments folder with year-month subfolders

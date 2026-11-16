@@ -92,10 +92,44 @@ namespace SlingMD.Outlook.Services
             }
             catch (System.Exception ex)
             {
-                // Last resort, kept deliberately broad: a sling must not fail over a thread id. Logged
-                // because the random id means this email will not be grouped with its thread.
+                // Last resort, kept deliberately broad: a sling must not fail over a thread id. The id is
+                // then taken from the email's own identity, so slinging it again gives the same id and
+                // finds the note written the first time. Logged because the email will not be grouped
+                // with the rest of its conversation.
+                string fallbackId = FallbackThreadId.FromIdentity(
+                    () => ReadInternetMessageId(mail),
+                    () => mail.EntryID,
+                    message => Helpers.Logger.Instance.Warning($"ThreadService.GetConversationId: {message}"));
+                if (fallbackId != null)
+                {
+                    Helpers.Logger.Instance.Warning($"ThreadService.GetConversationId: no conversation id ({ex.GetType().Name}: {ex.Message}); using a hash of the email's message id or EntryID");
+                    return fallbackId;
+                }
+
+                // Nothing about the item can be read at all, so there is nothing stable to hash.
                 Helpers.Logger.Instance.Warning($"ThreadService.GetConversationId: falling back to a random thread id: {ex.GetType().Name}: {ex.Message}");
-                return Guid.NewGuid().ToString("N").Substring(0, 20);
+                return Guid.NewGuid().ToString("N").Substring(0, FallbackThreadId.Length).ToUpperInvariant();
+            }
+        }
+
+        /// <summary>
+        /// Reads PR_INTERNET_MESSAGE_ID through the item's PropertyAccessor, releasing the accessor.
+        /// Throws whatever the COM calls throw; <see cref="FallbackThreadId"/> catches it.
+        /// </summary>
+        private static string ReadInternetMessageId(MailItem mail)
+        {
+            PropertyAccessor accessor = null;
+            try
+            {
+                accessor = mail.PropertyAccessor;
+                return accessor.GetProperty(MapiPropertyTags.PrInternetMessageId) as string;
+            }
+            finally
+            {
+                if (accessor != null)
+                {
+                    System.Runtime.InteropServices.Marshal.ReleaseComObject(accessor);
+                }
             }
         }
 
@@ -119,7 +153,10 @@ namespace SlingMD.Outlook.Services
             }
             firstSender = _fileService.CleanFileName(firstSender);
             firstRecipient = _fileService.CleanFileName(firstRecipient);
-            return FitThreadName($"{threadSubject.Trim()}-{firstSender}-{firstRecipient}".Replace("--", "-"));
+            // CleanFileName keeps a trailing dot ("Robert Smith Jr."), which Windows drops from a folder
+            // name; the folder SlingMD links to has to be the one that ends up on disk.
+            return FolderNameSanitizer.Sanitize(
+                FitThreadName($"{threadSubject.Trim()}-{firstSender}-{firstRecipient}".Replace("--", "-")));
         }
 
         /// <summary>
@@ -391,14 +428,18 @@ namespace SlingMD.Outlook.Services
                 string content = File.ReadAllText(newNotePath);
                 string updated = content;
 
-                string oldFolder = Path.Combine(oldDir, oldName);
-                string newFolder = Path.Combine(newDir, newName);
+                // A note's own folder is named after the note without the trailing dots/spaces Windows
+                // drops from folder names (see AttachmentService.GetAttachmentFolder).
+                string oldFolderName = FolderNameSanitizer.Sanitize(oldName);
+                string newFolderName = FolderNameSanitizer.Sanitize(newName);
+                string oldFolder = Path.Combine(oldDir, oldFolderName);
+                string newFolder = Path.Combine(newDir, newFolderName);
 
                 // The note was grouped with its attachments (it lived in a folder of its own name).
                 // What is left in that folder becomes the note's attachment folder at the new
                 // location, and the bare links that worked while they were siblings gain the folder.
                 bool wasGrouped = !sameDir
-                    && string.Equals(Path.GetFileName(oldDir), oldName, StringComparison.OrdinalIgnoreCase);
+                    && string.Equals(Path.GetFileName(oldDir), oldFolderName, StringComparison.OrdinalIgnoreCase);
                 if (wasGrouped)
                 {
                     if (!Directory.EnumerateFileSystemEntries(oldDir).Any())
@@ -410,18 +451,18 @@ namespace SlingMD.Outlook.Services
                         && Directory.GetFiles(oldDir, "*.md", SearchOption.TopDirectoryOnly).Length == 0)
                     {
                         Directory.Move(oldDir, newFolder);
-                        string newEscaped = Uri.EscapeUriString(newName).Replace("#", "%23");
+                        string newEscaped = Uri.EscapeUriString(newFolderName).Replace("#", "%23");
                         foreach (string attachment in Directory.GetFiles(newFolder).Select(Path.GetFileName))
                         {
                             // Inline images are linked URL-escaped in markdown mode; the attachment
                             // list is not.
                             string escaped = Uri.EscapeUriString(attachment).Replace("#", "%23");
                             updated = updated
-                                .Replace("[[" + attachment + "]]", "[[" + newName + "/" + attachment + "]]")
+                                .Replace("[[" + attachment + "]]", "[[" + newFolderName + "/" + attachment + "]]")
                                 .Replace("](" + escaped + ")", "](" + newEscaped + "/" + escaped + ")");
                             if (escaped != attachment)
                             {
-                                updated = updated.Replace("](" + attachment + ")", "](" + newName + "/" + attachment + ")");
+                                updated = updated.Replace("](" + attachment + ")", "](" + newFolderName + "/" + attachment + ")");
                             }
                         }
                     }
@@ -434,13 +475,13 @@ namespace SlingMD.Outlook.Services
                     && Directory.GetFiles(oldFolder, "*.md", SearchOption.TopDirectoryOnly).Length == 0)
                 {
                     Directory.Move(oldFolder, newFolder);
-                    if (!string.Equals(oldName, newName, StringComparison.Ordinal))
+                    if (!string.Equals(oldFolderName, newFolderName, StringComparison.Ordinal))
                     {
-                        string oldEscaped = Uri.EscapeUriString(oldName).Replace("#", "%23");
-                        string newEscaped = Uri.EscapeUriString(newName).Replace("#", "%23");
+                        string oldEscaped = Uri.EscapeUriString(oldFolderName).Replace("#", "%23");
+                        string newEscaped = Uri.EscapeUriString(newFolderName).Replace("#", "%23");
                         updated = updated
-                            .Replace("[[" + oldName + "/", "[[" + newName + "/")
-                            .Replace("](" + oldName + "/", "](" + newName + "/")
+                            .Replace("[[" + oldFolderName + "/", "[[" + newFolderName + "/")
+                            .Replace("](" + oldFolderName + "/", "](" + newFolderName + "/")
                             .Replace("](" + oldEscaped + "/", "](" + newEscaped + "/");
                     }
                 }
@@ -631,7 +672,8 @@ namespace SlingMD.Outlook.Services
         private static bool IsNoteFolder(string notePath, string inboxPath)
         {
             string directory = Path.GetFullPath(Path.GetDirectoryName(notePath)).TrimEnd(Path.DirectorySeparatorChar);
-            return string.Equals(Path.GetFileName(directory), Path.GetFileNameWithoutExtension(notePath), StringComparison.OrdinalIgnoreCase)
+            string noteFolderName = FolderNameSanitizer.Sanitize(Path.GetFileNameWithoutExtension(notePath));
+            return string.Equals(Path.GetFileName(directory), noteFolderName, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(
                     Path.GetDirectoryName(directory),
                     Path.GetFullPath(inboxPath).TrimEnd(Path.DirectorySeparatorChar),

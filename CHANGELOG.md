@@ -58,6 +58,17 @@ All notable changes to SlingMD are documented in this file.
   attendee lists also stop leaking an Outlook object per attendee, and a To/CC recipient with an
   empty SMTP address now falls back to the address Outlook shows instead of being left out.
 - **A failed contact alias update leaves no temp file behind** and is logged with the note's path.
+- **Folders named after a name ending in a dot pointed at a folder that wasn't there.** A sender or
+  recipient such as "Robert Smith Jr." keeps its dot in note and contact names, but Windows drops a
+  trailing dot or space from a folder name, so a thread folder, a recurring-meeting folder or a
+  per-note attachment folder was created without it while SlingMD kept linking to the dotted name.
+  Those folders are now named without trailing dots and spaces from the start, and moving a note
+  into a thread folder finds its attachment folder again. Links already written to a dotted folder
+  name in older notes are not rewritten.
+- **A retried sling of an email with no readable conversation id landed in a new thread folder each
+  time.** The last-resort thread id was random; it is now a hash of the email's Internet message id
+  (or its EntryID when that can't be read), so the same email always gets the same id. A random id is
+  left only for an item Outlook can't read anything from at all.
 
 ### Internal
 - **The pure helpers now build and test without Office.** Most of `Services/Formatting/` (and the
