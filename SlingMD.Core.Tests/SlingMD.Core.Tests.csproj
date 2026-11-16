@@ -25,6 +25,8 @@
     <ProjectReference Include="..\SlingMD.Core\SlingMD.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\BodyCleanerServiceTests.cs" Link="Linked\BodyCleanerServiceTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\ContactAliasWriterTests.cs" Link="Linked\ContactAliasWriterTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\ContactIndexTests.cs" Link="Linked\ContactIndexTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\ContactLinkFormatterTests.cs" Link="Linked\ContactLinkFormatterTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\ContactMatcherTests.cs" Link="Linked\ContactMatcherTests.cs" />
@@ -33,8 +35,9 @@
     <Compile Include="..\SlingMD.Tests\Services\Formatting\DateFormatterTests.cs" Link="Linked\DateFormatterTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\EmailAddressParserTests.cs" Link="Linked\EmailAddressParserTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\FileNameSanitizerTests.cs" Link="Linked\FileNameSanitizerTests.cs" />
-    <Compile Include="..\SlingMD.Tests\Services\Formatting\FrontmatterReaderAliasesTests.cs" Link="Linked\FrontmatterReaderAliasesTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\FilenameSubjectNormalizerTests.cs" Link="Linked\FilenameSubjectNormalizerTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\FrontmatterReaderTests.cs" Link="Linked\FrontmatterReaderTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\FrontmatterReaderAliasesTests.cs" Link="Linked\FrontmatterReaderAliasesTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\HtmlToMarkdownConverterTests.cs" Link="Linked\HtmlToMarkdownConverterTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\LegacyFilenameStripperTests.cs" Link="Linked\LegacyFilenameStripperTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\MarkdownSectionFinderTests.cs" Link="Linked\MarkdownSectionFinderTests.cs" />
@@ -42,7 +45,15 @@
     <Compile Include="..\SlingMD.Tests\Services\Formatting\NoteTitleBuilderTests.cs" Link="Linked\NoteTitleBuilderTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\PathLengthBudgetTests.cs" Link="Linked\PathLengthBudgetTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\QuotedReplyFolderTests.cs" Link="Linked\QuotedReplyFolderTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\SubjectCleanerServiceTests.cs" Link="Linked\SubjectCleanerServiceTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\TagNormalizerTests.cs" Link="Linked\TagNormalizerTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\TemplatePathResolverTests.cs" Link="Linked\TemplatePathResolverTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\ThreadIdHasherTests.cs" Link="Linked\ThreadIdHasherTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\UniqueFilenameResolverTests.cs" Link="Linked\UniqueFilenameResolverTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Models\AppointmentExportCalendarsTests.cs" Link="Linked\Models\AppointmentExportCalendarsTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Models\AutoSlingRuleTests.cs" Link="Linked\Models\AutoSlingRuleTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Models\ObsidianSettingsTests.cs" Link="Linked\Models\ObsidianSettingsTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Models\ObsidianSettingsAppointmentTests.cs" Link="Linked\Models\ObsidianSettingsAppointmentTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Models\WatchedFolderTests.cs" Link="Linked\Models\WatchedFolderTests.cs" />
   </ItemGroup>
 </Project>

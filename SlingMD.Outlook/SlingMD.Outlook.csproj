@@ -290,18 +290,12 @@
     <Compile Include="Forms\ToastForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Helpers\Logger.cs" />
     <Compile Include="Helpers\BoundedHashSet.cs" />
     <Compile Include="Helpers\SafeComAction.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Models\ObsidianSettings.cs" />
     <Compile Include="Models\EmailSlingResult.cs" />
-    <Compile Include="Models\AutoSlingRule.cs" />
-    <Compile Include="Models\WatchedFolder.cs" />
-    <Compile Include="Models\CalendarFolderInfo.cs" />
-    <Compile Include="Models\AttachmentInfo.cs" />
     <Compile Include="Models\AttachmentSignals.cs" />
     <Compile Include="Models\MailItemSnapshot.cs" />
     <Compile Include="Models\ClipboardEmail.cs" />
@@ -320,13 +314,7 @@
     <Compile Include="Services\EmailProcessor.cs" />
     <Compile Include="Services\BatchSlingReport.cs" />
     <Compile Include="Services\SmtpAddressResolver.cs" />
-    <Compile Include="Services\Formatting\BodyCleanerService.cs" />
-    <Compile Include="Services\Formatting\FilenameSubjectNormalizer.cs" />
-    <Compile Include="Services\Formatting\ContactAliasWriter.cs" />
     <Compile Include="Services\ContactInteractionMode.cs" />
-    <Compile Include="Services\Formatting\SubjectCleanerService.cs" />
-    <Compile Include="Services\Formatting\TemplatePathResolver.cs" />
-    <Compile Include="Services\Formatting\ThreadIdHasher.cs" />
     <Compile Include="Services\ReminderDueDateCalculator.cs" />
     <Compile Include="Services\SlingDecisionEngine.cs" />
     <Compile Include="Services\SubjectFilenameCleaner.cs" />

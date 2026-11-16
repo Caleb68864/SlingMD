@@ -127,7 +127,8 @@ Editing the codebase (reading, searching, and modifying files) can happen in any
 
 ### Testing the pure helpers on any machine
 
-The formatting, name-parsing and path helpers that need no Office live in `SlingMD.Core`, a small
+The formatting, name-parsing and path helpers that need no Office, and the settings and log
+classes they use, live in `SlingMD.Core`, a small
 library built for both .NET Framework 4.7.2 (used by the add-in) and .NET Standard 2.0. Its tests
 run with just the .NET SDK (10 or later), on Windows, macOS or Linux:
 

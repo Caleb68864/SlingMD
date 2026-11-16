@@ -76,6 +76,14 @@ All notable changes to SlingMD are documented in this file.
   .NET Framework 4.7.2 and .NET Standard 2.0, which the add-in references. `SlingMD.Core.Tests` runs
   their tests with `dotnet test SlingMD.Core.Tests` on any OS, and CI runs it on Linux.
   `package-release.ps1` checks `SlingMD.Core.dll` for a stale publish as well.
+- **The settings, the log and the last six helpers moved to `SlingMD.Core` too.** `ObsidianSettings`
+  (with `AutoSlingRule`, `WatchedFolder`, `CalendarFolderInfo` and `AttachmentInfo`/`AttachmentStorageMode`,
+  which it serialises) and `Logger` now live there, so `BodyCleanerService`, `SubjectCleanerService`,
+  `ThreadIdHasher`, `FilenameSubjectNormalizer`, `TemplatePathResolver` and `ContactAliasWriter`
+  followed. Namespaces are unchanged. `SlingMD.Core` now references Newtonsoft.Json 13.0.3, the
+  version the add-in already ships. Their tests and the five settings-model test files run in
+  `SlingMD.Core.Tests` as well (428 tests on Linux, up from 275); five tests that compared against
+  literal `C:\` paths now build the expected path with `Path.Combine`, with the same value on Windows.
 - **File-name sanitising uses the Windows list of invalid characters on every OS**, rather than
   whatever the machine running it reports. The result on Windows is unchanged.
 

@@ -1,8 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Pure logic shared by the Outlook add-in: formatting, name parsing, path budgeting, thread ids.
-    Nothing here may reference Office interop, WinForms or ObsidianSettings, so it builds and is
-    tested on any OS (see SlingMD.Core.Tests). The add-in consumes the net472 build; the
+    Pure logic shared by the Outlook add-in: formatting, name parsing, path budgeting, thread ids,
+    plus ObsidianSettings (and the small models it serialises) and the file Logger. Nothing here may
+    reference Office interop or WinForms, so it builds and is tested on any OS (see
+    SlingMD.Core.Tests). The add-in consumes the net472 build; the
     netstandard2.0 build is what the cross-platform test project loads.
 
     Namespaces are kept as SlingMD.Outlook.* so the code that moved here did not have to change.
@@ -18,6 +19,12 @@
   <ItemGroup>
     <!-- Lets the net472 target build without Visual Studio or the targeting pack (e.g. on Linux). -->
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <!--
+      ObsidianSettings serialises with Newtonsoft. Same version the add-in and SlingMD.Tests already
+      reference from packages\Newtonsoft.Json.13.0.3 (assembly 13.0.0.0), so the add-in's own copy
+      satisfies it at run time and ClickOnce ships one Newtonsoft.Json.dll.
+    -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="SlingMD.Outlook" />

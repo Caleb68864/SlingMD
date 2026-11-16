@@ -58,17 +58,16 @@ Left over from that work:
 
 - ~~**Tests can only run on Windows with Visual Studio.**~~ Partly done on
   `fix/folder-names-thread-ids`: the pure helpers moved to `SlingMD.Core` (`net472;netstandard2.0`)
-  and `SlingMD.Core.Tests` (`net10.0`, outside `SlingMD.sln`) runs them with `dotnet test` on Linux,
-  including 19 linked `SlingMD.Tests/Services/Formatting/*Tests.cs` files. A `core-tests` CI job on
-  `ubuntu-latest` was added but has not run yet. Still Windows-only:
-  - The rest of SlingMD.Tests. Left in SlingMD.Outlook because they take `ObsidianSettings` or
-    `Logger`: `BodyCleanerService`, `SubjectCleanerService` (and so `ThreadIdHasher`),
-    `FilenameSubjectNormalizer`, `TemplatePathResolver`, `ContactAliasWriter`. Moving
-    `ObsidianSettings` (Newtonsoft only) and `Logger` to Core would bring these, plus
-    `RuleEngine`, `SlingDecisionEngine`, `ReminderDueDateCalculator`, `BatchSlingReport` and
-    `Helpers/BoundedHashSet`, which look pure but were not checked.
+  and `SlingMD.Core.Tests` (`net10.0`, outside `SlingMD.sln`) runs them with `dotnet test` on Linux.
+  On `refactor/finish-core-split` (2026-11-16) `ObsidianSettings` (plus the models it serialises)
+  and `Logger` moved as well, bringing `BodyCleanerService`, `SubjectCleanerService`,
+  `ThreadIdHasher`, `FilenameSubjectNormalizer`, `TemplatePathResolver` and `ContactAliasWriter`;
+  their tests and the `Models/` settings tests are linked in, 428 tests on Linux. The `core-tests`
+  CI job on `ubuntu-latest` passed on PR #16. Still Windows-only:
+  - The rest of SlingMD.Tests: services and forms that take Outlook or WinForms types.
   - The add-in build with SlingMD.Core referenced has not been built with VS MSBuild, nor
-    published; check that the ClickOnce payload includes `SlingMD.Core.dll`.
+    published; check that the ClickOnce payload includes `SlingMD.Core.dll` (and still exactly one
+    `Newtonsoft.Json.dll`, now that SlingMD.Core references it by PackageReference).
 - **Tests added on 2026-11-09 have not been run.** `TemplateServiceTests` (control-character
   escaping, invariant numbers, `{{<list>Yaml}}` escaping) and `FileServiceTests`
   (`BuildObsidianOpenUri`, `EnsureDirectoryExists` on an invalid path, `AppendToFile`) were written
