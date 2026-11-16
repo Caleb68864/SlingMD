@@ -139,6 +139,9 @@ All notable changes to SlingMD are documented in this file.
   `SlingMD.Core` and drives an `IProgressView`; the add-in's `ProgressFormView` wraps the existing
   `ProgressForm`. `EmailProcessor`'s toasts go through `IToastNotifier`, implemented by
   `ToastFormNotifier` over `ToastForm`. Same windows, text and timing; `StatusServiceTests` (599).
+- **`NotificationService` moved to `SlingMD.Core`** and shows its toasts through `IToastNotifier`;
+  the add-in passes `ToastFormNotifier`. Same log lines, toasts and Toast/Silent behaviour;
+  `NotificationServiceTests` (606).
 - **File-name sanitising uses the Windows list of invalid characters on every OS**, rather than
   whatever the machine running it reports. The result on Windows is unchanged.
 

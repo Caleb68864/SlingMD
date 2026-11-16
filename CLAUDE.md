@@ -44,6 +44,7 @@ The add-in uses a service-oriented architecture where `EmailProcessor` orchestra
 - **ContactService**: Creates and manages contact notes with communication history
 - **TemplateService**: Processes markdown templates for notes
 - **StatusService** (SlingMD.Core): Reports progress to an `IProgressView`; the add-in's `ProgressFormView` shows it in `ProgressForm`
+- **NotificationService** (SlingMD.Core): Logs auto-sling messages and, in Toast mode, shows them through an `IToastNotifier` (`ToastFormNotifier` in the add-in)
 
 ### Core Flow
 1. User selects email in Outlook and clicks "Sling" ribbon button
@@ -97,6 +98,7 @@ SlingMD.Core/
 │                     EmailNoteEngine (title, file name, front matter and note text from EmailData),
 │                     ProcessedEmailCache (duplicate check), FileAvailabilityWaiter (backoff wait),
 │                     StatusService (progress, over IProgressView),
+│                     NotificationService (auto-sling toasts/log, over IToastNotifier),
 │                     IUserNotifier, IToastNotifier, IProgressView (what the engine asks the front end to show)
 └── Services/Formatting/ - Pure helpers (sanitisers, parsers, cleaners, path budget, thread ids, ...)
 
