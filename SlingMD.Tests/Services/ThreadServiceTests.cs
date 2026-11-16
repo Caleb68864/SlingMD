@@ -394,6 +394,32 @@ namespace SlingMD.Tests.Services
             Assert.Contains("](Budget%20review-SaraA-2026-09-23-1818/Q3%20report.pdf)", content);
         }
 
+        /// <summary>
+        /// A grouped note whose name ends in a dot lives in a folder without the dot (Windows drops it, and
+        /// AttachmentService names the folder that way). The move must still recognise the folder as the
+        /// note's own and carry the attachments along.
+        /// </summary>
+        [Fact]
+        public void MoveToThreadFolder_GroupedNoteNameEndingInDot_TurnsItsFolderIntoAttachmentFolder()
+        {
+            string inboxPath = Path.Combine(_testDir, "InboxMoveGroupedDot");
+            string threadFolder = Path.Combine(inboxPath, "Budget review-SaraA-CalebB");
+            string noteName = "2026-09-23-1818-Budget review-Robert Smith Jr.";
+            string folderName = "2026-09-23-1818-Budget review-Robert Smith Jr";
+            string noteFolder = Path.Combine(inboxPath, folderName);
+            Directory.CreateDirectory(noteFolder);
+            string notePath = Path.Combine(noteFolder, noteName + ".md");
+            File.WriteAllText(notePath, BuildNote("T", "2026-09-23 18:18:52", "![[logo.png]]"));
+            File.WriteAllText(Path.Combine(noteFolder, "logo.png"), "png");
+
+            string movedPath = _threadService.MoveToThreadFolder(notePath, threadFolder, "Budget review-SaraA-CalebB");
+
+            Assert.Equal(Path.Combine(threadFolder, noteName + ".md"), movedPath);
+            Assert.False(Directory.Exists(noteFolder));
+            Assert.True(File.Exists(Path.Combine(threadFolder, folderName, "logo.png")));
+            Assert.Contains("![[" + folderName + "/logo.png]]", File.ReadAllText(movedPath));
+        }
+
         // -----------------------------------------------------------------------------------------
         // Stable note names
         // -----------------------------------------------------------------------------------------

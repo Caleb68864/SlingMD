@@ -125,6 +125,18 @@ This is expected. To resolve it, open the solution in Visual Studio with the Off
 
 Editing the codebase (reading, searching, and modifying files) can happen in any editor such as VS Code, but a full build or test run requires the Visual Studio tooling described above.
 
+### Testing the pure helpers on any machine
+
+The formatting, name-parsing and path helpers that need no Office live in `SlingMD.Core`, a small
+library built for both .NET Framework 4.7.2 (used by the add-in) and .NET Standard 2.0. Its tests
+run with just the .NET SDK (10 or later), on Windows, macOS or Linux:
+
+```
+dotnet test SlingMD.Core.Tests
+```
+
+This covers the helpers only; the rest of the suite (`SlingMD.Tests`) still needs Visual Studio.
+
 ## Usage
 
 1. Open Microsoft Outlook

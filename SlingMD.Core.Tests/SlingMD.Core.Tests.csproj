@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Cross-platform tests for SlingMD.Core. Runs anywhere the .NET SDK does:
+      dotnet test SlingMD.Core.Tests
+    It is deliberately not in SlingMD.sln, so the Windows MSBuild/VSTest build does not need this SDK.
+
+    Tests for classes that live in SlingMD.Core are compiled from SlingMD.Tests (linked below), so
+    they keep running under VSTest on Windows as well. Tests only this project has live here.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>SlingMD.Core.Tests</AssemblyName>
+    <RootNamespace>SlingMD.Core.Tests</RootNamespace>
+    <!-- The linked tests are written for C# 7.3 / xunit 2.4 and trip newer analyzer advice. -->
+    <NoWarn>$(NoWarn);xUnit1026;xUnit2013;xUnit1031;xUnit2009;xUnit2017;xUnit2012</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SlingMD.Core\SlingMD.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\ContactIndexTests.cs" Link="Linked\ContactIndexTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\ContactLinkFormatterTests.cs" Link="Linked\ContactLinkFormatterTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\ContactMatcherTests.cs" Link="Linked\ContactMatcherTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\ContactNameNormalizerTests.cs" Link="Linked\ContactNameNormalizerTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\ContactNameParserTests.cs" Link="Linked\ContactNameParserTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\DateFormatterTests.cs" Link="Linked\DateFormatterTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\EmailAddressParserTests.cs" Link="Linked\EmailAddressParserTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\FileNameSanitizerTests.cs" Link="Linked\FileNameSanitizerTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\FrontmatterReaderAliasesTests.cs" Link="Linked\FrontmatterReaderAliasesTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\FrontmatterReaderTests.cs" Link="Linked\FrontmatterReaderTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\HtmlToMarkdownConverterTests.cs" Link="Linked\HtmlToMarkdownConverterTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\LegacyFilenameStripperTests.cs" Link="Linked\LegacyFilenameStripperTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\MarkdownSectionFinderTests.cs" Link="Linked\MarkdownSectionFinderTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\MeetingLinkFinderTests.cs" Link="Linked\MeetingLinkFinderTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\NoteTitleBuilderTests.cs" Link="Linked\NoteTitleBuilderTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\PathLengthBudgetTests.cs" Link="Linked\PathLengthBudgetTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\QuotedReplyFolderTests.cs" Link="Linked\QuotedReplyFolderTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\TagNormalizerTests.cs" Link="Linked\TagNormalizerTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\UniqueFilenameResolverTests.cs" Link="Linked\UniqueFilenameResolverTests.cs" />
+  </ItemGroup>
+</Project>

@@ -303,13 +303,11 @@
     <Compile Include="Models\CalendarFolderInfo.cs" />
     <Compile Include="Models\AttachmentInfo.cs" />
     <Compile Include="Models\AttachmentSignals.cs" />
-    <Compile Include="Models\ContactName.cs" />
     <Compile Include="Models\MailItemSnapshot.cs" />
     <Compile Include="Models\ClipboardEmail.cs" />
     <Compile Include="Models\SlingDecision.cs" />
     <Compile Include="Models\TaskDueDates.cs" />
     <Compile Include="Models\TaskDueSettings.cs" />
-    <Compile Include="Models\FilenameSubjectRule.cs" />
     <Compile Include="Infrastructure\IClock.cs" />
     <Compile Include="Infrastructure\MapiPropertyTags.cs" />
     <Compile Include="Infrastructure\SystemClock.cs" />
@@ -323,33 +321,11 @@
     <Compile Include="Services\BatchSlingReport.cs" />
     <Compile Include="Services\SmtpAddressResolver.cs" />
     <Compile Include="Services\Formatting\BodyCleanerService.cs" />
-    <Compile Include="Services\Formatting\ContactLinkFormatter.cs" />
-    <Compile Include="Services\Formatting\ContactNameParser.cs" />
-    <Compile Include="Services\Formatting\DateFormatter.cs" />
-    <Compile Include="Services\Formatting\EmailAddressParser.cs" />
-    <Compile Include="Services\Formatting\FileNameSanitizer.cs" />
-    <Compile Include="Services\Formatting\HtmlToMarkdownConverter.cs" />
     <Compile Include="Services\Formatting\FilenameSubjectNormalizer.cs" />
-    <Compile Include="Services\Formatting\ContactIndex.cs" />
-    <Compile Include="Services\Formatting\ContactIndexEntry.cs" />
-    <Compile Include="Services\Formatting\ContactNameNormalizer.cs" />
     <Compile Include="Services\Formatting\ContactAliasWriter.cs" />
-    <Compile Include="Services\Formatting\MatchResult.cs" />
-    <Compile Include="Services\Formatting\MatchTier.cs" />
     <Compile Include="Services\ContactInteractionMode.cs" />
-    <Compile Include="Services\Formatting\ContactMatcher.cs" />
-    <Compile Include="Services\Formatting\ContactEmailIndex.cs" />
-    <Compile Include="Services\Formatting\FrontmatterReader.cs" />
-    <Compile Include="Services\Formatting\LegacyFilenameStripper.cs" />
-    <Compile Include="Services\Formatting\PathLengthBudget.cs" />
-    <Compile Include="Services\Formatting\QuotedReplyFolder.cs" />
-    <Compile Include="Services\Formatting\TagNormalizer.cs" />
-    <Compile Include="Services\Formatting\MeetingLinkFinder.cs" />
-    <Compile Include="Services\Formatting\MarkdownSectionFinder.cs" />
-    <Compile Include="Services\Formatting\NoteTitleBuilder.cs" />
     <Compile Include="Services\Formatting\SubjectCleanerService.cs" />
     <Compile Include="Services\Formatting\TemplatePathResolver.cs" />
-    <Compile Include="Services\Formatting\UniqueFilenameResolver.cs" />
     <Compile Include="Services\Formatting\ThreadIdHasher.cs" />
     <Compile Include="Services\ReminderDueDateCalculator.cs" />
     <Compile Include="Services\SlingDecisionEngine.cs" />
@@ -456,6 +432,14 @@
     <ManifestCertificateThumbprint>736CF7BD97289EC0E7B925A4364C54B1822892F2</ManifestCertificateThumbprint>
   </PropertyGroup>
   <!-- Include the build rules for a C# project. -->
+  <ItemGroup>
+    <!-- Pure helpers (formatting, name parsing, path budgeting) live in SlingMD.Core so they can be
+         built and tested without Office. Multi-targeted; this project gets its net472 build. -->
+    <ProjectReference Include="..\SlingMD.Core\SlingMD.Core.csproj">
+      <Project>{50ed707d-a5fd-46dc-95dd-4ddfc1f3d6b0}</Project>
+      <Name>SlingMD.Core</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- Include additional build rules for an Office application add-in. -->
   <Import Project="$(VSToolsPath)\OfficeTools\Microsoft.VisualStudio.Tools.Office.targets" Condition="'$(VSToolsPath)' != ''" />

@@ -7,6 +7,21 @@ on:
     branches: [main]
 
 jobs:
+  # The pure helpers in SlingMD.Core, tested without Office or Visual Studio.
+  core-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Run SlingMD.Core tests
+        run: dotnet test SlingMD.Core.Tests --logger "console;verbosity=normal"
+
   build-and-test:
     runs-on: windows-2022
 

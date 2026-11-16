@@ -3,9 +3,15 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-SlingMD is a .NET Framework 4.7.2 C# Outlook VSTO add-in that exports emails to Obsidian as markdown. The solution consists of two projects:
+SlingMD is a .NET Framework 4.7.2 C# Outlook VSTO add-in that exports emails to Obsidian as markdown. The solution consists of three projects, plus one test project kept outside it:
 - **SlingMD.Outlook**: Main add-in project
-- **SlingMD.Tests**: xUnit test project with Moq for mocking
+- **SlingMD.Core**: Pure helpers with no Office/WinForms/settings dependency (SDK-style,
+  `net472;netstandard2.0`). Namespaces stay `SlingMD.Outlook.*`, so moving a file here needs no
+  `using` changes. Internals are visible to SlingMD.Outlook, SlingMD.Tests and SlingMD.Core.Tests.
+- **SlingMD.Tests**: xUnit test project with Moq for mocking (VSTest, Windows only)
+- **SlingMD.Core.Tests** (not in SlingMD.sln): `net10.0` xUnit tests for SlingMD.Core that run
+  anywhere with `dotnet test SlingMD.Core.Tests`. It compiles the SlingMD.Tests test files for
+  classes in SlingMD.Core as links, so those run in both projects.
 
 ## Build and Test Commands
 **The `dotnet` CLI does NOT work on this repo** — the VSTO project imports
@@ -16,6 +22,9 @@ SlingMD is a .NET Framework 4.7.2 C# Outlook VSTO add-in that exports emails to 
 - **Run tests**: build Debug, then `& "C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\IDE\Extensions\TestPlatform\vstest.console.exe" SlingMD.Tests\bin\Debug\SlingMD.Tests.dll` (filter with `/Tests:Name` or `/TestCaseFilter:"FullyQualifiedName~X"`)
 - **Publish add-in**: use Visual Studio interactively (Build > Publish SlingMD.Outlook). CLI `msbuild -t:Publish` does not reliably regenerate the ClickOnce payload for VSTO projects.
 - **Package for distribution**: `.\package-release.ps1` (creates versioned ZIP in Releases/; refuses to package if the publish payload is stale vs the fresh Release build) — full steps in `RELEASING.md`
+
+- **Run the SlingMD.Core tests on any OS** (Linux, macOS, Windows without VS): `dotnet test SlingMD.Core.Tests`.
+  The `dotnet` CLI also builds `SlingMD.Core` itself; it is only the add-in and SlingMD.Tests that need VS.
 
 **Test files must be added to `SlingMD.Tests.csproj` explicitly** — the project uses
 explicit `<Compile Include=...>` items, no globbing. A new test .cs file that isn't
@@ -72,6 +81,10 @@ When `GroupEmailThreads` is enabled:
 
 ## Project Structure
 ```
+SlingMD.Core/
+├── Models/         - Pure DTOs (ContactName, FilenameSubjectRule)
+└── Services/Formatting/ - Pure helpers (sanitisers, parsers, path budget, thread-id fallback, ...)
+
 SlingMD.Outlook/
 ├── Forms/          - WinForms dialogs (Settings, TaskOptions, Progress, etc.)
 ├── Helpers/        - Utility classes (deprecated - use Services instead)

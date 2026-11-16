@@ -6,17 +6,34 @@ will drift. Move an item to `CHANGELOG.md` when it ships.
 
 ## Correctness
 
-- **Folder names ending in a dot or space.** `FileNameSanitizer.Sanitize` deliberately keeps a
-  trailing dot (`SlingMD.Outlook/Services/Formatting/FileNameSanitizer.cs:65`) because the value
-  doubles as a contact name. That is safe for notes (`.md` follows) but not for folders built from
-  the same value (thread folders, attachment subfolders): Windows silently drops trailing dots and
-  spaces from a directory name, so the folder on disk and the path SlingMD links to can differ.
-  Needs a separate folder-name sanitising step and a test.
-- **Random thread id as a last resort.** `ThreadService.GetConversationId`
-  (`SlingMD.Outlook/Services/ThreadService.cs:98`) still returns a random id when the topic and
-  subject both fail, so a retried sling of the same email lands in a new folder. Hashing the
-  EntryID or Internet message id would be stable. (The PR_CONVERSATION_INDEX failure case now falls
-  through to the subject; only a failure of everything is left.)
+Done on `fix/folder-names-thread-ids` (2026-11-16); see `CHANGELOG.md`:
+
+- ~~**Folder names ending in a dot or space.**~~ `FolderNameSanitizer`
+  (`SlingMD.Core/Services/Formatting/FolderNameSanitizer.cs`) trims trailing dots/spaces and guards
+  empty and reserved results. Used by `ThreadService.GetThreadFolderName`,
+  `AppointmentProcessor.GetRecurringThreadFolderName`, `AttachmentService.GetAttachmentFolder`
+  (per-note subfolder), and wherever `ThreadService` re-derives a note's folder from its name
+  (`RelocateNoteCompanions`, `IsNoteFolder`). `FileNameSanitizer` still keeps the dot for names.
+  `BatchFolderPickerForm` already rejected a typed name ending in a dot. Tests:
+  `SlingMD.Core.Tests/.../FolderNameSanitizerTests.cs` (Linux), and
+  `AttachmentServiceTests.*EndingInDot*`, `ThreadServiceTests.MoveToThreadFolder_GroupedNoteNameEndingInDot_*`
+  (VSTest).
+- ~~**Random thread id as a last resort.**~~ `ThreadService.GetConversationId` now falls back to
+  `FallbackThreadId.FromIdentity` (SHA-1 of the Internet message id, else the EntryID). Random only
+  when neither can be read. Tests: `SlingMD.Core.Tests/.../FallbackThreadIdTests.cs`.
+
+Found and left:
+
+- **Old notes still link to dotted folder names.** Notes written before the fix may link to
+  `...Jr./file.pdf` while the folder on disk is `...Jr`. Not repaired; a one-off vault fix-up would
+  need to find and rewrite those links.
+- **An email with no topic, no conversation index and an empty subject gets an empty thread id**
+  (`ThreadIdHasher.Hash("")` returns `""`), so all such emails share one. The new identity hash
+  could be used there too, but that changes grouping for subjectless emails; not done without a
+  decision.
+- **`GetConversationId` itself has no test.** It takes a `MailItem`; whether Moq can mock the
+  embedded interop type (`EmbedInteropTypes=true` in SlingMD.Tests) has not been checked, so only
+  the extracted fallback is tested.
 
 ## Error handling and logging
 
@@ -39,14 +56,27 @@ Left over from that work:
 
 ## Build and tests
 
-- **Tests can only run on Windows with Visual Studio.** Both projects target .NET Framework 4.7.2
-  and the add-in imports the VSTO targets, so `dotnet build`/`dotnet test` fail on Linux (MSB3644:
-  no 4.7.2 reference assemblies) as well as on Windows without VS (MSB4019). Moving the pure
-  helpers in `SlingMD.Outlook/Services/Formatting/` to a multi-targeted library with its own test
-  project would let the bulk of the logic be tested on any machine and in CI without Office.
+- ~~**Tests can only run on Windows with Visual Studio.**~~ Partly done on
+  `fix/folder-names-thread-ids`: the pure helpers moved to `SlingMD.Core` (`net472;netstandard2.0`)
+  and `SlingMD.Core.Tests` (`net10.0`, outside `SlingMD.sln`) runs them with `dotnet test` on Linux,
+  including 19 linked `SlingMD.Tests/Services/Formatting/*Tests.cs` files. A `core-tests` CI job on
+  `ubuntu-latest` was added but has not run yet. Still Windows-only:
+  - The rest of SlingMD.Tests. Left in SlingMD.Outlook because they take `ObsidianSettings` or
+    `Logger`: `BodyCleanerService`, `SubjectCleanerService` (and so `ThreadIdHasher`),
+    `FilenameSubjectNormalizer`, `TemplatePathResolver`, `ContactAliasWriter`. Moving
+    `ObsidianSettings` (Newtonsoft only) and `Logger` to Core would bring these, plus
+    `RuleEngine`, `SlingDecisionEngine`, `ReminderDueDateCalculator`, `BatchSlingReport` and
+    `Helpers/BoundedHashSet`, which look pure but were not checked.
+  - The add-in build with SlingMD.Core referenced has not been built with VS MSBuild, nor
+    published; check that the ClickOnce payload includes `SlingMD.Core.dll`.
 - **Tests added on 2026-11-09 have not been run.** `TemplateServiceTests` (control-character
   escaping, invariant numbers, `{{<list>Yaml}}` escaping) and `FileServiceTests`
   (`BuildObsidianOpenUri`, `EnsureDirectoryExists` on an invalid path, `AppendToFile`) were written
   on Linux. The
   escaping and URI logic was checked in a throwaway .NET 10 harness, but the tests themselves need a
   run under VSTest.
+  On 2026-11-16 the whole SlingMD.Tests suite was compiled against the add-in sources (minus
+  `ThisAddIn` and the ribbon) as net472 and run under Mono's xunit console on Linux: 721 tests, 43
+  failures, the same 43 that fail on `main` there, all from `C:\` paths or WinForms under Mono
+  (`BuildObsidianOpenUri_AbsolutePathInsideVault_IsMadeVaultRelative` is one of them). The other
+  2026-11-09 tests passed. That is evidence, not a substitute for the VSTest run.

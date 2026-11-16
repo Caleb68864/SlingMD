@@ -35,12 +35,16 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error "Release build failed. Fix build errors before packaging."
     exit 1
 }
-$builtDll = ".\SlingMD.Outlook\bin\Release\SlingMD.Outlook.dll"
-if (-not (Test-Path $builtDll)) {
-    Write-Error "Expected built DLL not found: $builtDll"
-    exit 1
+# SlingMD.Core.dll (the pure helpers, a project reference) is copied next to the add-in DLL
+# and ships in the same payload, so it is checked the same way.
+$guardedDlls = @("SlingMD.Outlook.dll", "SlingMD.Core.dll")
+foreach ($dllName in $guardedDlls) {
+    $builtDll = ".\SlingMD.Outlook\bin\Release\$dllName"
+    if (-not (Test-Path $builtDll)) {
+        Write-Error "Expected built DLL not found: $builtDll"
+        exit 1
+    }
 }
-$builtHash = (Get-FileHash $builtDll -Algorithm SHA256).Hash
 
 # --- 2. Select newest publish folder -----------------------------------------
 $appFilesPath = ".\SlingMD.Outlook\publish\Application Files"
@@ -57,22 +61,25 @@ if (-not $latestVersion) {
     exit 1
 }
 
-# --- 3. Staleness guard: published DLL must match freshly built DLL -----------
-$publishedDll = Join-Path $latestVersion.FullName "SlingMD.Outlook.dll.deploy"
-if (-not (Test-Path $publishedDll)) {
-    $publishedDll = Join-Path $latestVersion.FullName "SlingMD.Outlook.dll"
-}
-if (-not (Test-Path $publishedDll)) {
-    Write-Error "No published SlingMD.Outlook.dll(.deploy) found in $($latestVersion.Name)."
-    exit 1
-}
-$publishedHash = (Get-FileHash $publishedDll -Algorithm SHA256).Hash
+# --- 3. Staleness guard: published DLLs must match freshly built DLLs ---------
+foreach ($dllName in $guardedDlls) {
+    $builtHash = (Get-FileHash ".\SlingMD.Outlook\bin\Release\$dllName" -Algorithm SHA256).Hash
+    $publishedDll = Join-Path $latestVersion.FullName "$dllName.deploy"
+    if (-not (Test-Path $publishedDll)) {
+        $publishedDll = Join-Path $latestVersion.FullName $dllName
+    }
+    if (-not (Test-Path $publishedDll)) {
+        Write-Error "No published $dllName(.deploy) found in $($latestVersion.Name)."
+        exit 1
+    }
+    $publishedHash = (Get-FileHash $publishedDll -Algorithm SHA256).Hash
 
-if ($publishedHash -ne $builtHash) {
-    Write-Error @"
+    if ($publishedHash -ne $builtHash) {
+        Write-Error @"
 STALE PUBLISH DETECTED -- refusing to package (this is the issue #13 failure mode).
 
   Newest publish folder : $($latestVersion.Name)
+  DLL                    : $dllName
   Published DLL SHA256   : $publishedHash
   Freshly built SHA256   : $builtHash
 
@@ -81,7 +88,8 @@ pre-fix binaries. Re-publish first:
   Visual Studio > right-click SlingMD.Outlook > Publish (or Build > Publish SlingMD.Outlook),
 then rerun .\package-release.ps1.
 "@
-    exit 1
+        exit 1
+    }
 }
 
 # Extract version number

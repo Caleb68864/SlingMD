@@ -481,6 +481,43 @@ namespace SlingMD.Tests.Services
             }
         }
 
+        /// <summary>
+        /// A note name can end in a dot (a sender such as "Robert Smith Jr."; the ".md" follows). Windows
+        /// drops a trailing dot from a folder name, so the per-note folder must be named without it, or
+        /// the links SlingMD writes point at a folder that does not exist.
+        /// </summary>
+        [Fact]
+        public void GetAttachmentFolder_SubfolderPerNote_NoteNameEndingInDot_DropsTheDot()
+        {
+            AttachmentService service = BuildService(AttachmentStorageMode.SubfolderPerNote);
+
+            string folder = service.GetAttachmentFolder(@"C:\Vault\MyVault\Inbox\2026-03-12 Budget-Robert Smith Jr..md");
+
+            Assert.Equal(@"C:\Vault\MyVault\Inbox\2026-03-12 Budget-Robert Smith Jr", folder);
+        }
+
+        [Fact]
+        public void GroupNoteWithAttachments_NoteNameEndingInDot_MovesNoteIntoFolderWithoutTheDot()
+        {
+            string root = CreateTempRoot();
+            try
+            {
+                AttachmentService service = BuildGroupingService(root, group: true);
+                string note = WriteFile(root, Path.Combine("Inbox", "Budget-Robert Smith Jr..md"), "note");
+                string attachment = WriteFile(root, Path.Combine("Inbox", "Budget-Robert Smith Jr", "doc.pdf"), "pdf");
+
+                string grouped = service.GroupNoteWithAttachments(note);
+
+                Assert.Equal(Path.Combine(root, "Vault", "Inbox", "Budget-Robert Smith Jr", "Budget-Robert Smith Jr..md"), grouped);
+                Assert.True(File.Exists(grouped));
+                Assert.Equal("doc.pdf", service.BuildAttachmentLinkTarget(attachment, grouped));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
         [Fact]
         public void GroupNoteWithAttachments_NoAttachmentFolder_LeavesNoteInPlace()
         {
