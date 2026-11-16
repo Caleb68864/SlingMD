@@ -293,6 +293,7 @@ namespace SlingMD.Tests.Services
             public List<int> Countdowns { get; } = new List<int>();
             public void ShowError(string message) => Errors.Add(message);
             public void ShowLaunchCountdown(int seconds) => Countdowns.Add(seconds);
+            public TaskDateChoice PromptTaskOptions(int defaultDueDays, int defaultReminderDays, int defaultReminderHour, bool useRelativeReminder) => null;
         }
 
         [Fact]

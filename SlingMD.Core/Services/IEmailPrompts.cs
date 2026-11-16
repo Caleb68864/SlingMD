@@ -1,3 +1,5 @@
+using SlingMD.Outlook.Models;
+
 namespace SlingMD.Outlook.Services
 {
     /// <summary>
@@ -12,5 +14,11 @@ namespace SlingMD.Outlook.Services
 
         /// <summary>Shows the "opening Obsidian in N seconds" countdown and returns when it ends or is dismissed.</summary>
         void ShowLaunchCountdown(int seconds);
+
+        /// <summary>
+        /// Asks for the task due/reminder dates, starting from the given defaults. Returns the choice,
+        /// or <c>null</c> when the user cancels (the caller then creates no task).
+        /// </summary>
+        TaskDateChoice PromptTaskOptions(int defaultDueDays, int defaultReminderDays, int defaultReminderHour, bool useRelativeReminder);
     }
 }

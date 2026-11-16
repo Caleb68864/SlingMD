@@ -174,16 +174,14 @@ namespace SlingMD.Outlook.Services
             // otherwise pop one modal date dialog per email.
             if (!bulkMode && (_settings.CreateOutlookTask || _settings.CreateObsidianTask) && _settings.AskForDates)
             {
-                using (var form = new TaskOptionsForm(_settings.DefaultDueDays, _settings.DefaultReminderDays, _settings.DefaultReminderHour, _settings.UseRelativeReminder))
+                TaskDateChoice choice = _prompts.PromptTaskOptions(_settings.DefaultDueDays, _settings.DefaultReminderDays, _settings.DefaultReminderHour, _settings.UseRelativeReminder);
+                if (choice != null)
                 {
-                    if (form.ShowDialog() == DialogResult.OK)
-                    {
-                        _taskService.InitializeTaskSettings(form.DueDays, form.ReminderDays, form.ReminderHour, form.UseRelativeReminder);
-                    }
-                    else
-                    {
-                        _taskService.DisableTaskCreation();
-                    }
+                    _taskService.InitializeTaskSettings(choice.DueDays, choice.ReminderDays, choice.ReminderHour, choice.UseRelativeReminder);
+                }
+                else
+                {
+                    _taskService.DisableTaskCreation();
                 }
             }
             else
