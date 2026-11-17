@@ -2,7 +2,7 @@
 
 All notable changes to SlingMD are documented in this file.
 
-## [Unreleased]
+## [1.2.5.1] - 2026-11-17
 
 ### Added
 - **Calendar picker for Save Today and Save Date Range.** The Save Date Range window lists every
