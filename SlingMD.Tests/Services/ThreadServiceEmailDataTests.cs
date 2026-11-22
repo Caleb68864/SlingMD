@@ -118,6 +118,22 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
+        public void UpdateThreadNote_EmptyTopic_TitleFromSubject()
+        {
+            // The folder name already treats an empty topic like a missing one; the title used ??
+            // and came out empty ("title: \"\"", "# ").
+            string folder = Path.Combine(_testDir, "Vault", "Inbox", "T2");
+            Directory.CreateDirectory(folder);
+            string summary = Path.Combine(folder, "0-T2.md");
+
+            NewService().UpdateThreadNote(folder, summary, "ID2", "T2", Email("", "RE: Budget")).Wait();
+
+            string content = File.ReadAllText(summary).Replace("\r\n", "\n");
+            Assert.StartsWith("---\ntitle: \"Budget\"\n", content);
+            Assert.Contains("\n# Budget\n", content);
+        }
+
+        [Fact]
         public void FindExistingThread_ShowThreadDebug_ShowsTheMatchesThroughTheNotifier()
         {
             _settings.ShowThreadDebug = true;

@@ -189,9 +189,8 @@ Outlook class is cut down:
    `ThreadServiceTests` (whole file) is linked into SlingMD.Core.Tests, and
    `ThreadServiceEmailDataTests` (12) pin the names and summary note: their expected values were
    taken from the old `MailItem` methods under Mono with Moq doubles of the same input.
-   Found while doing it (fixed in a later commit): an email whose conversation topic is empty
-   (not null) gets an empty summary title, because `UpdateThreadNote` uses `??` while the folder
-   name uses `IsNullOrEmpty`.
+   Found while doing it (fixed later, see the bug hunt below): an email whose conversation topic
+   is empty (not null) got an empty summary title.
    Windows CI (run 44972012621) failed
    `UpdateThreadNote_NoTopic_TitleFromSubjectAndVaultRelativeFolder`: the built-in thread template
    is a C# verbatim string, so the summary note's line endings are those of the checked-out source
@@ -252,8 +251,8 @@ date and time-zone handling. Each fix has a test that fails on the old code.
   `{FirstInitial}`/`{LastInitial}` and `ContactService.GetFilenameSafeShortName` cut by UTF-16
   unit, so an emoji at the limit left a lone surrogate in the name, which the UTF-8 note text then
   wrote as U+FFFD. New `SurrogateSafe.Truncate` (Core) steps back one unit instead.
-  `SurrogatePairTruncationTests` (5, Linux; 4 fail on the old code) and
-  `ContactServiceTests.GetFilenameSafeShortName_EmojiAtTheCuts_*` (Mono) fail on the old code.
+  `SurrogatePairTruncationTests` (5, Linux; the 4 at a cut fail on the old code) and
+  `ContactServiceTests.GetFilenameSafeShortName_EmojiAtTheCuts_*` (Mono, fails on the old code).
   Not changed: other `Substring` calls cut at found indexes (separators, `@`, front-matter
   markers), which cannot split a pair.
 - ~~**Front-matter escaping let non-printable characters through.**~~ Fixed:
@@ -265,6 +264,19 @@ date and time-zone handling. Each fix has a test that fails on the old code.
   Left: `ClipboardEmailService.EscapeYaml` (copied text for AI sessions, not parsed by Obsidian)
   and `ContactAliasWriter.FormatYamlValue` (aliases from contact names) have their own simpler
   escaping; worth sharing the one escaper if either is ever parsed as YAML.
+- ~~**Recurring-series summary never listed anything.**~~ Fixed: `WriteRecurringThreadSummary`
+  passed the absolute folder path to the thread template's `dv.pages('"{{folderPath}}"')`
+  (Dataview wants it vault-relative; the email path already converts), the instance notes had no
+  `threadId` for the query's filter, and the summary was rewritten on every instance, wiping user
+  edits. Now: `AppointmentNoteEngine.BuildRecurringSummaryContent` makes the folder vault-relative,
+  grouped instances get `threadId` (folder name, last key), and an existing summary is kept.
+  `AppointmentProcessorExportTests` (summary path, second occurrence keeps edits, exact recurring
+  note) fail on the old code. Left: the summary still uses the email thread template ("Email
+  Timeline", `type: email-thread`, sorted by `date`, which appointment notes don't have); an
+  appointment-specific summary template would read better. Old summaries are not migrated.
+- ~~**Empty conversation topic gave a blank thread summary title.**~~ Fixed: `UpdateThreadNote`
+  used `??`, so `""` won over the subject (the folder name used `IsNullOrEmpty`).
+  `ThreadServiceEmailDataTests.UpdateThreadNote_EmptyTopic_TitleFromSubject` fails on the old code.
 
 ## Correctness
 

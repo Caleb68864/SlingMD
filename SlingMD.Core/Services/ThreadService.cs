@@ -178,7 +178,8 @@ namespace SlingMD.Outlook.Services
                 return Task.CompletedTask;
             }
 
-            string threadTitle = email.ConversationTopic ?? email.Subject;
+            // Empty counts as missing, as in GetThreadFolderName.
+            string threadTitle = !string.IsNullOrEmpty(email.ConversationTopic) ? email.ConversationTopic : email.Subject;
             threadTitle = _fileService.CleanFileName(threadTitle);
 
             string vaultRoot = Path.Combine(_settings.VaultBasePath, _settings.VaultName);

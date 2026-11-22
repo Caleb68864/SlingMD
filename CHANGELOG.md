@@ -36,6 +36,14 @@ All notable changes to SlingMD are documented in this file.
   can't hold (the C1 control characters a mis-decoded subject often contains, such as `\u0093` for a
   curly quote, plus U+FFFE/U+FFFF and half an emoji) made Obsidian reject the note's whole
   properties block. They are now written as escapes (`\x93`), which Obsidian reads.
+- **The summary note of a recurring meeting's folder now lists its meetings.** Its Dataview query
+  pointed at the folder's full Windows path instead of the vault-relative one, and the meeting
+  notes had no `threadId` for it to match, so it always came up empty. Meeting notes saved into a
+  series folder now carry `threadId` (the folder name), and the summary is no longer rewritten for
+  every meeting saved, which wiped anything you had added to it. Existing summaries are left as
+  they are; delete one to have it rebuilt on the next save.
+- **An email thread's summary note gets a title when Outlook reports an empty conversation topic**
+  (it fell back to the subject only when the topic was missing, so the title was blank).
 
 ### Internal
 - **The "could not launch Obsidian" warning has tests** (`FileServiceLaunchTests`): `FileService`

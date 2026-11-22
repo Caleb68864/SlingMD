@@ -287,7 +287,7 @@ namespace SlingMD.Outlook.Services
             }
 
             // --- Build frontmatter ---
-            Dictionary<string, object> metadata = _noteEngine.BuildMetadata(noteTitle, data, fileNameNoExt);
+            Dictionary<string, object> metadata = _noteEngine.BuildMetadata(noteTitle, data, fileNameNoExt, isRecurring ? recurringThreadFolderName : null);
 
             // --- Generate Obsidian task block ---
             string taskBlock = string.Empty;
@@ -663,6 +663,13 @@ namespace SlingMD.Outlook.Services
         {
             try
             {
+                // Rendered live by Dataview, so an existing summary is left alone: rewriting it for
+                // every instance wiped whatever the user had added (the email thread summary does the same).
+                if (File.Exists(threadNotePath))
+                {
+                    return;
+                }
+
                 string threadContent = _noteEngine.BuildRecurringSummaryContent(threadFolderPath, threadFolderName, title);
                 _fileService.WriteUtf8File(threadNotePath, threadContent);
             }

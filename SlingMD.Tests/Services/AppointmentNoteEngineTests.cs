@@ -401,6 +401,33 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
+        public void BuildMetadata_RecurringThreadId_IsTheLastKey()
+        {
+            // The series summary's Dataview query matches instances on threadId.
+            Dictionary<string, object> metadata = NewEngine(NewSettings()).BuildMetadata("t", SampleAppointment(), "t", "Weekly standup");
+
+            Assert.Equal("threadId", metadata.Keys.Last());
+            Assert.Equal("Weekly standup", metadata["threadId"]);
+        }
+
+        [Fact]
+        public void BuildMetadata_NotRecurring_HasNoThreadId()
+        {
+            Assert.False(NewEngine(NewSettings()).BuildMetadata("t", SampleAppointment(), "t").ContainsKey("threadId"));
+        }
+
+        [Fact]
+        public void BuildRecurringSummaryContent_AbsoluteFolder_QueriesTheVaultRelativePath()
+        {
+            ObsidianSettings settings = NewSettings();
+            string folder = Path.Combine(settings.GetFullVaultPath(), "Appointments", "Weekly standup");
+
+            string content = NewEngine(settings).BuildRecurringSummaryContent(folder, "Weekly standup", "Weekly standup");
+
+            Assert.Contains("dv.pages('\"Appointments/Weekly standup\"')", content);
+        }
+
+        [Fact]
         public void BuildRecurringSummaryContent_UsesTheThreadTemplate()
         {
             AppointmentNoteEngine engine = NewEngine(NewSettings());
