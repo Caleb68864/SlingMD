@@ -117,6 +117,34 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
+        public async Task ProcessAppointment_RecurringOccurrence_DoesNotReadTheRecurrencePattern()
+        {
+            // The series folder is named from the subject alone; the pattern used to be fetched and
+            // thrown away (one COM round trip per instance).
+            AppointmentProcessor processor = new AppointmentProcessor(_settings);
+            Mock<AppointmentItem> appointment = Appointment("Weekly standup", OlRecurrenceState.olApptOccurrence, "GID-export-pattern");
+
+            await processor.ProcessAppointment(appointment.Object, bulkMode: true);
+
+            appointment.Verify(a => a.GetRecurrencePattern(), Times.Never());
+        }
+
+        [Fact]
+        public async Task ProcessAppointment_RecurringSubjectEndingInDot_FolderHasNoTrailingDot()
+        {
+            AppointmentProcessor processor = new AppointmentProcessor(_settings);
+            Mock<AppointmentItem> appointment = Appointment("Sync w/ Smith Jr.", OlRecurrenceState.olApptException, "GID-export-dot");
+
+            AppointmentProcessingResult result = await processor.ProcessAppointment(appointment.Object, bulkMode: true);
+
+            Assert.Equal(AppointmentProcessingResult.Success, result);
+            string[] folders = Directory.GetDirectories(AppointmentsPath());
+            Assert.Single(folders);
+            Assert.False(Path.GetFileName(folders[0]).EndsWith("."), folders[0]);
+            Assert.True(File.Exists(Path.Combine(folders[0], "0-" + Path.GetFileName(folders[0]) + ".md")));
+        }
+
+        [Fact]
         public async Task ProcessAppointment_SameGlobalIdTwice_SkipsTheSecond()
         {
             AppointmentProcessor processor = new AppointmentProcessor(_settings);

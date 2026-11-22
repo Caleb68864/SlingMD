@@ -315,5 +315,69 @@ namespace SlingMD.Outlook.Services
 
             return content.ToString();
         }
+        /// <summary>File name of the companion meeting note for an appointment note.</summary>
+        public static string MeetingNoteFileName(string appointmentFileNameNoExt)
+        {
+            return appointmentFileNameNoExt + " - Meeting Notes.md";
+        }
+
+        /// <summary>
+        /// The companion meeting note (<see cref="ObsidianSettings.CreateMeetingNotes"/>): front matter
+        /// linking back to the appointment note, rendered through the meeting-note template.
+        /// </summary>
+        public string BuildMeetingNoteContent(
+            string appointmentFileNameNoExt,
+            string appointmentNoteTitle,
+            string organizer,
+            string attendees,
+            string date,
+            string location)
+        {
+            string meetingNoteTitleNoExt = appointmentFileNameNoExt + " - Meeting Notes";
+            string appointmentLink = $"[[{appointmentFileNameNoExt}]]";
+
+            Dictionary<string, object> meetingMetadata = new Dictionary<string, object>
+            {
+                { "title", meetingNoteTitleNoExt },
+                { "type", "Meeting Notes" },
+                { "appointment", appointmentLink },
+                { "date", date }
+            };
+
+            List<string> noteTags = TagNormalizer.Normalize(_settings.AppointmentDefaultNoteTags);
+            if (noteTags.Count > 0)
+            {
+                meetingMetadata.Add("tags", noteTags);
+            }
+
+            MeetingNoteTemplateContext context = new MeetingNoteTemplateContext
+            {
+                Metadata = meetingMetadata,
+                AppointmentTitle = appointmentNoteTitle,
+                AppointmentLink = appointmentLink,
+                Organizer = organizer ?? string.Empty,
+                Attendees = attendees ?? string.Empty,
+                Date = date ?? string.Empty,
+                Location = location ?? string.Empty
+            };
+
+            return _templateService.RenderMeetingNoteContent(context);
+        }
+
+        /// <summary>
+        /// The <c>0-{folder}.md</c> summary note of a recurring series folder, rendered through the
+        /// thread template.
+        /// </summary>
+        public string BuildRecurringSummaryContent(string threadFolderPath, string threadFolderName, string title)
+        {
+            ThreadTemplateContext threadContext = new ThreadTemplateContext
+            {
+                Title = title,
+                ThreadId = threadFolderName,
+                FolderPath = threadFolderPath
+            };
+
+            return _templateService.RenderThreadContent(threadContext);
+        }
     }
 }

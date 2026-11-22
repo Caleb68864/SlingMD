@@ -264,7 +264,7 @@ namespace SlingMD.Outlook.Services
 
             if (isRecurring)
             {
-                recurringThreadFolderName = GetRecurringThreadFolderName(appointment, subjectClean);
+                recurringThreadFolderName = GetRecurringThreadFolderName(subjectClean);
                 recurringThreadFolderPath = Path.Combine(appointmentsPath, recurringThreadFolderName);
 
                 string dateStamp = startTime.ToString("yyyy-MM-dd");
@@ -649,25 +649,8 @@ namespace SlingMD.Outlook.Services
 
         // --- Recurring meeting helpers ---
 
-        private string GetRecurringThreadFolderName(AppointmentItem appointment, string cleanedSubject)
+        private string GetRecurringThreadFolderName(string cleanedSubject)
         {
-            RecurrencePattern pattern = null;
-            try
-            {
-                pattern = appointment.GetRecurrencePattern();
-            }
-            catch (System.Runtime.InteropServices.COMException)
-            {
-                // Fall through to use cleaned subject only
-            }
-            finally
-            {
-                if (pattern != null)
-                {
-                    Marshal.ReleaseComObject(pattern);
-                }
-            }
-
             // Used as a folder name: drop the trailing dot/space CleanFileName keeps and Windows drops.
             return FolderNameSanitizer.Sanitize(_fileService.CleanFileName(cleanedSubject));
         }
@@ -680,14 +663,7 @@ namespace SlingMD.Outlook.Services
         {
             try
             {
-                ThreadTemplateContext threadContext = new ThreadTemplateContext
-                {
-                    Title = title,
-                    ThreadId = threadFolderName,
-                    FolderPath = threadFolderPath
-                };
-
-                string threadContent = _templateService.RenderThreadContent(threadContext);
+                string threadContent = _noteEngine.BuildRecurringSummaryContent(threadFolderPath, threadFolderName, title);
                 _fileService.WriteUtf8File(threadNotePath, threadContent);
             }
             catch (System.Exception ex)
@@ -713,43 +689,15 @@ namespace SlingMD.Outlook.Services
             try
             {
                 string appointmentFileNameNoExt = Path.GetFileNameWithoutExtension(appointmentNotePath);
-                string meetingNoteFileName = appointmentFileNameNoExt + " - Meeting Notes.md";
-                string meetingNotePath = Path.Combine(outputFolder, meetingNoteFileName);
+                string meetingNotePath = Path.Combine(outputFolder, AppointmentNoteEngine.MeetingNoteFileName(appointmentFileNameNoExt));
 
                 if (File.Exists(meetingNotePath))
                 {
                     return;
                 }
 
-                string meetingNoteTitleNoExt = appointmentFileNameNoExt + " - Meeting Notes";
-                string appointmentLink = $"[[{appointmentFileNameNoExt}]]";
-
-                Dictionary<string, object> meetingMetadata = new Dictionary<string, object>
-                {
-                    { "title", meetingNoteTitleNoExt },
-                    { "type", "Meeting Notes" },
-                    { "appointment", appointmentLink },
-                    { "date", date }
-                };
-
-                List<string> noteTags = TagNormalizer.Normalize(_settings.AppointmentDefaultNoteTags);
-                if (noteTags.Count > 0)
-                {
-                    meetingMetadata.Add("tags", noteTags);
-                }
-
-                MeetingNoteTemplateContext context = new MeetingNoteTemplateContext
-                {
-                    Metadata = meetingMetadata,
-                    AppointmentTitle = appointmentNoteTitle,
-                    AppointmentLink = appointmentLink,
-                    Organizer = organizer ?? string.Empty,
-                    Attendees = attendees ?? string.Empty,
-                    Date = date ?? string.Empty,
-                    Location = location ?? string.Empty
-                };
-
-                string meetingNoteContent = _templateService.RenderMeetingNoteContent(context);
+                string meetingNoteContent = _noteEngine.BuildMeetingNoteContent(
+                    appointmentFileNameNoExt, appointmentNoteTitle, organizer, attendees, date, location);
                 _fileService.WriteUtf8File(meetingNotePath, meetingNoteContent);
             }
             catch (System.Exception ex)

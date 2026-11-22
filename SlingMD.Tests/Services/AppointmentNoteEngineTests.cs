@@ -339,5 +339,76 @@ namespace SlingMD.Tests.Services
                 "T|Budget sync|[[Sara Adams]]|sara@example.com|[[Caleb Bennett]], [[Dana Cole]]|[[Eli Ford]]|[[Room 4]]|Room 4|2026-10-05T09:30|2026-10-05T10:15|Occurrence|2026-10-05|Agenda below.\nJoin: https://teams.microsoft.com/l/meetup-join/abc123|TASK|F.md|F",
                 Lf(content));
         }
+        // --- Companion meeting note and recurring summary ---
+
+        [Fact]
+        public void MeetingNoteFileName_AppendsMeetingNotes()
+        {
+            Assert.Equal("2026-10-05 - Budget sync - Meeting Notes.md", AppointmentNoteEngine.MeetingNoteFileName("2026-10-05 - Budget sync"));
+        }
+
+        [Fact]
+        public void BuildMeetingNoteContent_DefaultTemplate_ExactText()
+        {
+            AppointmentNoteEngine engine = NewEngine(NewSettings());
+
+            string content = engine.BuildMeetingNoteContent(
+                "2026-10-05 - Budget sync", "2026-10-05 - Budget sync", "Sara Adams", "Caleb Bennett, Dana Cole", "2026-10-05", "Room 4");
+
+            Assert.Equal(""
+                + "---\n"
+                + "title: \"2026-10-05 - Budget sync - Meeting Notes\"\n"
+                + "type: \"Meeting Notes\"\n"
+                + "appointment: \"[[2026-10-05 - Budget sync]]\"\n"
+                + "date: \"2026-10-05\"\n"
+                + "tags: \n"
+                + "  - \"Meeting\"\n"
+                + "---\n"
+                + "\n"
+                + "\n"
+                + "## Meeting Notes\n"
+                + "\n"
+                + "**Appointment:** [[2026-10-05 - Budget sync]]\n"
+                + "**Organizer:** Sara Adams\n"
+                + "**Attendees:** Caleb Bennett, Dana Cole\n"
+                + "**Date:** 2026-10-05\n"
+                + "**Location:** Room 4\n"
+                + "\n"
+                + "## Agenda\n"
+                + "\n"
+                + "-\n"
+                + "\n"
+                + "## Notes\n"
+                + "\n"
+                + "-\n"
+                + "\n"
+                + "## Action Items\n"
+                + "\n"
+                + "- [ ]",
+                Lf(content));
+        }
+
+        [Fact]
+        public void BuildMeetingNoteContent_NoTags_LeavesTagsOut()
+        {
+            ObsidianSettings settings = NewSettings();
+            settings.AppointmentDefaultNoteTags = new List<string>();
+
+            string content = NewEngine(settings).BuildMeetingNoteContent("A", "A", null, null, "2026-10-05", null);
+
+            Assert.DoesNotContain("tags:", content);
+            Assert.Contains("**Date:** 2026-10-05", content);
+        }
+
+        [Fact]
+        public void BuildRecurringSummaryContent_UsesTheThreadTemplate()
+        {
+            AppointmentNoteEngine engine = NewEngine(NewSettings());
+
+            string content = Lf(engine.BuildRecurringSummaryContent("Appointments/Weekly standup", "Weekly standup", "Weekly standup"));
+
+            Assert.StartsWith("---\ntitle: \"Weekly standup\"\ntype: email-thread\nthreadId: \"Weekly standup\"\n", content);
+            Assert.Contains("const threadId = \"Weekly standup\";", content);
+        }
     }
 }

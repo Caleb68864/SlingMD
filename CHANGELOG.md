@@ -11,7 +11,8 @@ All notable changes to SlingMD are documented in this file.
   from `AppointmentProcessor` unchanged, and `AppointmentProcessor` now reads the appointment once
   and calls it. `AppointmentNoteEngineTests` pin the exact output on Linux (625 tests, up from 606);
   `AppointmentProcessorExportTests` pin the files `ProcessAppointment` writes, with a Moq
-  `AppointmentItem`.
+  `AppointmentItem`. The companion meeting note and the recurring-series summary are built there
+  too, and saving a recurring occurrence no longer fetches its recurrence pattern only to discard it.
 
 ## [1.2.5.1] - 2026-11-17
 

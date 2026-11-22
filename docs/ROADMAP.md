@@ -140,10 +140,15 @@ exact note and meeting-note files; they passed on the old code and pass on the n
 no organizer or recipients, because the reader releases those with `Marshal.ReleaseComObject`,
 which throws on a non-COM object.
 Left for AppointmentProcessor:
-  - The companion meeting note and recurring-folder summary are still built in the processor
-    (`CreateCompanionMeetingNote`, `WriteRecurringThreadSummary`), as are the contact list and the
-    Outlook task.
-  - `GetRecurringThreadFolderName` still calls `GetRecurrencePattern()` and ignores the result.
+  - ~~The companion meeting note and recurring-folder summary are still built in the processor.~~
+    Done on `refactor/thread-core-and-fixes`: `AppointmentNoteEngine.BuildMeetingNoteContent`,
+    `MeetingNoteFileName` and `BuildRecurringSummaryContent` (code moved unchanged); the processor
+    keeps the exists check and the write. Pinned by four more `AppointmentNoteEngineTests` (exact
+    meeting-note text). The contact list and the Outlook task are still in the processor.
+  - ~~`GetRecurringThreadFolderName` still calls `GetRecurrencePattern()` and ignores the result.~~
+    Done: the read is gone (the folder name is the cleaned subject, as before).
+    `AppointmentProcessorExportTests.ProcessAppointment_RecurringOccurrence_DoesNotReadTheRecurrencePattern`
+    fails on the old code; `..._RecurringSubjectEndingInDot_FolderHasNoTrailingDot` pins the name.
   - The master-note Yes/No and warning `MessageBox`es, the contacts error box and `CountdownForm`
     (see the prompts item above), and the early `MeetingStatus`/`RecurrenceState` reads before the
     series-master guard.
