@@ -118,13 +118,10 @@ namespace SlingMD.Outlook.Services
             }
         }
 
+        // The same double-quoted escaping as the notes' front matter.
         private static string EscapeYaml(string value)
         {
-            return (value ?? string.Empty)
-                .Replace("\\", "\\\\")
-                .Replace("\"", "\\\"")
-                .Replace("\r", "\\r")
-                .Replace("\n", "\\n");
+            return TemplateService.EscapeYamlDoubleQuotedScalar(value ?? string.Empty);
         }
     }
 }

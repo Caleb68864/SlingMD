@@ -36,6 +36,9 @@ All notable changes to SlingMD are documented in this file.
   can't hold (the C1 control characters a mis-decoded subject often contains, such as `\u0093` for a
   curly quote, plus U+FFFE/U+FFFF and half an emoji) made Obsidian reject the note's whole
   properties block. They are now written as escapes (`\x93`), which Obsidian reads.
+  Contact aliases and the properties of copied emails now use the same escaping. Aliases that
+  YAML would read as something other than text (`Null`, `No`, `true`, `1234`, `{Bob}`, `!Bob`) or
+  that contain a comma are now quoted, so they stay the name that was added.
 - **The summary note of a recurring meeting's folder now lists its meetings.** Its Dataview query
   pointed at the folder's full Windows path instead of the vault-relative one, and the meeting
   notes had no `threadId` for it to match, so it always came up empty. Meeting notes saved into a

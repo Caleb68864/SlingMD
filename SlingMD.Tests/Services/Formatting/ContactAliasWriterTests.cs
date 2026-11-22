@@ -237,6 +237,36 @@ namespace SlingMD.Tests.Services.Formatting
             Assert.EndsWith("\"", result);
         }
 
+        [Theory]
+        [InlineData("Line\nbreak", "\"Line\\nbreak\"")]
+        [InlineData("Tab\u0001x", "\"Tab\\x01x\"")]
+        [InlineData("Caf\u0093e", "\"Caf\\x93e\"")]
+        [InlineData("odd\uFFFE", "\"odd\\uFFFE\"")]
+        public void FormatYamlValue_CharactersYamlCannotHold_AreEscapedInQuotes(string value, string expected)
+        {
+            // These used to be written raw (control characters inside the quotes) or, for C1 and
+            // U+FFFE, unquoted; either way Obsidian could not read the contact's properties.
+            Assert.Equal(expected, ContactAliasWriter.FormatYamlValue(value));
+        }
+
+        [Theory]
+        [InlineData("{Bob}")]
+        [InlineData("!Bob")]
+        [InlineData("?Bob")]
+        [InlineData("Smith, Bob")]
+        [InlineData("Null")]
+        [InlineData("true")]
+        [InlineData("No")]
+        [InlineData("~")]
+        [InlineData("1234")]
+        [InlineData("1e3")]
+        public void FormatYamlValue_ValuesYamlWouldReadAsSomethingElse_AreQuoted(string value)
+        {
+            // Unquoted, "{Bob}" is a flow mapping, "!Bob" a tag, "Null"/"true"/"No"/"~" are null or
+            // booleans and "1234" a number, so the alias would not be the text that was added.
+            Assert.Equal("\"" + value + "\"", ContactAliasWriter.FormatYamlValue(value));
+        }
+
         [Fact]
         public void FormatYamlValue_PlainValue_NoQuotes()
         {

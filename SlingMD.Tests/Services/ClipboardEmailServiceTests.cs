@@ -19,6 +19,22 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
+        public void Format_WithFrontmatter_EscapesLikeNoteProperties()
+        {
+            // Same escaping as the note's own front matter: control and C1 characters become
+            // escapes, and a CRLF is one \n (it used to be \r\n, with controls left raw).
+            ClipboardEmailService service = new ClipboardEmailService();
+            ClipboardEmail email = Email("Message", 1);
+            email.Subject = "Line one\r\nline two\u0007 caf\u0093";
+            email.To.Add("Bell\u0007 <b@example.com>");
+
+            string result = service.Format(new[] { email }, includeFrontmatter: true);
+
+            Assert.Contains("title: \"Line one\\nline two\\x07 caf\\x93\"", result);
+            Assert.Contains("  - \"Bell\\x07 <b@example.com>\"", result);
+        }
+
+        [Fact]
         public void Format_WithFrontmatter_IncludesUsefulEmailMetadata()
         {
             ClipboardEmailService service = new ClipboardEmailService();

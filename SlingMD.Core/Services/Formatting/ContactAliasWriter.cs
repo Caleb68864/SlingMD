@@ -21,10 +21,16 @@ namespace SlingMD.Outlook.Services.Formatting
             @"aliases:\s*\[([^\]]*)\]",
             RegexOptions.Compiled);
 
-        // Characters requiring YAML quoting
+        // Characters requiring YAML quoting: indicators (also "," "{" "}" because aliases can sit in an
+        // inline [a, b] list), edge whitespace, and anything the escaper turns into \x / \u escapes.
         private static readonly Regex NeedsQuotingRegex = new Regex(
-            @"[:\-\[\]""'#&*|>%@`]|^\s|\s$|[\x00-\x1f]",
+            @"[:\-\[\]{}""'#&*|>%@`!?,]|^\s|\s$|[\x00-\x1f\x7f-\x9f\uFFFE\uFFFF\uD800-\uDFFF]",
             RegexOptions.Compiled);
+
+        // Plain scalars YAML reads as null, a boolean or a number rather than text.
+        private static readonly Regex NonStringScalarRegex = new Regex(
+            @"^(?:~|null|true|false|yes|no|on|off|y|n|[-+]?\.?(?:inf|nan)|[-+]?(?:\d[\d_]*(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?|0x[0-9a-f]+|0o?[0-7]+)$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         public bool TryAppendAlias(string filePath, string aliasToAdd)
         {
@@ -168,13 +174,10 @@ namespace SlingMD.Outlook.Services.Formatting
 
         internal static string FormatYamlValue(string value)
         {
-            if (NeedsQuotingRegex.IsMatch(value))
+            if (NeedsQuotingRegex.IsMatch(value) || NonStringScalarRegex.IsMatch(value))
             {
-                // Double-quoted with backslash-escaping for " and \
-                string escaped = value
-                    .Replace("\\", "\\\\")
-                    .Replace("\"", "\\\"");
-                return "\"" + escaped + "\"";
+                // The same double-quoted escaping as every other front-matter value.
+                return "\"" + TemplateService.EscapeYamlDoubleQuotedScalar(value) + "\"";
             }
             return value;
         }

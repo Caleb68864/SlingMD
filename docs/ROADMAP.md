@@ -261,9 +261,14 @@ date and time-zone handling. Each fix has a test that fails on the old code.
   js-yaml (Obsidian) then rejects the whole front matter. They are now `\xNN`/`\uNNNN` escapes.
   `TemplateServiceTests.EscapeYamlDoubleQuotedScalar_EscapesCharactersYamlCannotHold` fails on the
   old code; `..._KeepsPrintableUnicode` pins that accents, CJK, emoji, NBSP and U+FEFF pass through.
-  Left: `ClipboardEmailService.EscapeYaml` (copied text for AI sessions, not parsed by Obsidian)
-  and `ContactAliasWriter.FormatYamlValue` (aliases from contact names) have their own simpler
-  escaping; worth sharing the one escaper if either is ever parsed as YAML.
+  ~~Left: `ClipboardEmailService.EscapeYaml` and `ContactAliasWriter.FormatYamlValue` have their
+  own simpler escaping.~~ Done on `refactor/contacts-core-and-escaping`: both call
+  `EscapeYamlDoubleQuotedScalar`. The clipboard now writes a CRLF as one `\n` (was `\r\n`) and
+  escapes control characters. `FormatYamlValue` also quotes `{ } ! ? ,` (aliases can sit in an
+  inline `[a, b]` list), C1/U+FFFE/surrogates, and plain scalars YAML reads as null, booleans or
+  numbers (`Null`, `No`, `~`, `1234`, `1e3`). New `ContactAliasWriterTests` (14 cases) and
+  `ClipboardEmailServiceTests.Format_WithFrontmatter_EscapesLikeNoteProperties` fail on the old
+  code. Existing aliases are not rewritten.
 - ~~**Recurring-series summary never listed anything.**~~ Fixed: `WriteRecurringThreadSummary`
   passed the absolute folder path to the thread template's `dv.pages('"{{folderPath}}"')`
   (Dataview wants it vault-relative; the email path already converts), the instance notes had no
