@@ -65,7 +65,7 @@ namespace SlingMD.Outlook.Services
             threadSubject = _fileService.CleanFileName(threadSubject);
             if (threadSubject.Length > 50)
             {
-                threadSubject = threadSubject.Substring(0, 47) + "...";
+                threadSubject = SurrogateSafe.Truncate(threadSubject, 47) + "...";
             }
             firstSender = _fileService.CleanFileName(firstSender);
             firstRecipient = _fileService.CleanFileName(firstRecipient);
@@ -91,7 +91,7 @@ namespace SlingMD.Outlook.Services
             threadSubject = _fileService.CleanFileName(threadSubject);
             if (threadSubject.Length > 50)
             {
-                threadSubject = threadSubject.Substring(0, 47) + "...";
+                threadSubject = SurrogateSafe.Truncate(threadSubject, 47) + "...";
             }
             firstSender = _fileService.CleanFileName(firstSender);
             firstRecipient = _fileService.CleanFileName(firstRecipient);

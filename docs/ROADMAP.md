@@ -247,6 +247,15 @@ date and time-zone handling. Each fix has a test that fails on the old code.
   folder got the same change without a test of their own (they need a `MailItem` or `ContactItem`).
   Left alone: UI text (`ThreadCompletionDialog`, the batch summary, the Outlook task body), log file
   names, and the diagnostics export file name.
+- ~~**Truncation through a surrogate pair.**~~ Fixed: `PathLengthBudget.Fit`,
+  `NoteTitleBuilder.Build`, `ThreadService`'s 47-character subject cut, `ContactLinkFormatter`'s
+  `{FirstInitial}`/`{LastInitial}` and `ContactService.GetFilenameSafeShortName` cut by UTF-16
+  unit, so an emoji at the limit left a lone surrogate in the name, which the UTF-8 note text then
+  wrote as U+FFFD. New `SurrogateSafe.Truncate` (Core) steps back one unit instead.
+  `SurrogatePairTruncationTests` (5, Linux; 4 fail on the old code) and
+  `ContactServiceTests.GetFilenameSafeShortName_EmojiAtTheCuts_*` (Mono) fail on the old code.
+  Not changed: other `Substring` calls cut at found indexes (separators, `@`, front-matter
+  markers), which cannot split a pair.
 
 ## Correctness
 

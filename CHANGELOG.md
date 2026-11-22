@@ -27,6 +27,11 @@ All notable changes to SlingMD are documented in this file.
   recurring-instance file names, attachment month folders, contact birthdays, task dates and the
   timestamp in copied emails now always use the Gregorian calendar and `:` between hours and minutes.
   Nothing changes for other regional settings.
+- **Shortened names no longer cut an emoji in half.** When a long subject, a note title or a
+  contact's short name was cut at the length limit right inside an emoji (or another character
+  outside the Basic Multilingual Plane), the file or folder name kept half of it, and the note's
+  own title and links showed `�` instead, so they no longer matched the file. The cut now moves
+  before the whole character.
 
 ### Internal
 - **The "could not launch Obsidian" warning has tests** (`FileServiceLaunchTests`): `FileService`

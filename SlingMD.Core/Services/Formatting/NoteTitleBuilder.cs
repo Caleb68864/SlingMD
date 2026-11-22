@@ -64,7 +64,7 @@ namespace SlingMD.Outlook.Services.Formatting
                     // maxLen is very small, just return truncated ellipsis
                     return Ellipsis.Substring(0, Math.Min(Ellipsis.Length, maxLen));
                 }
-                result = result.Substring(0, truncateAt) + Ellipsis;
+                result = SurrogateSafe.Truncate(result, truncateAt) + Ellipsis;
             }
 
             return result;

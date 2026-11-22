@@ -74,6 +74,7 @@
     <Compile Include="..\SlingMD.Tests\Services\EmailNoteEngineFilenameAndPropertiesTests.cs" Link="Linked\Services\EmailNoteEngineFilenameAndPropertiesTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\FileServiceLaunchTests.cs" Link="Linked\Services\FileServiceLaunchTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\CultureInvariantDatesTests.cs" Link="Linked\Services\CultureInvariantDatesTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\Formatting\SurrogatePairTruncationTests.cs" Link="Linked\SurrogatePairTruncationTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\ProcessedEmailCacheTests.cs" Link="Linked\Services\ProcessedEmailCacheTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\FileAvailabilityWaiterTests.cs" Link="Linked\Services\FileAvailabilityWaiterTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\StatusServiceTests.cs" Link="Linked\Services\StatusServiceTests.cs" />
