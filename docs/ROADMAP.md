@@ -39,7 +39,7 @@ Core, COM/UI part stays; stays = front end):
 | `Services/SupportService.cs` | stays (MessageBox); the engine calls the front end through `IUserNotifier` and `IToastNotifier` (Core, implemented by `MessageBoxUserNotifier` and `ToastFormNotifier`) |
 | `Services/EmailProcessor.cs` | split (first of the big four, see below) |
 | `Services/AppointmentProcessor.cs` | split (second) |
-| `Services/ThreadService.cs` | split (third): thread folder/note naming, `FindExistingThread`, summary note, resuffixing are file work; `GetConversationId` and the `MailItem` overloads stay as a reader |
+| `Services/ThreadService.cs` | done: moved to Core on `EmailData`; `GetConversationId` stays in Outlook as `ConversationIdReader` |
 | `Services/ContactService.cs` | split (fourth): contact notes, links and the contact index are file work; `GetSenderEmail`/`BuildEmailList` (COM recipients) stay as a reader |
 | `Services/ContactProcessor.cs` | split: `ContactItem` reader stays, note writing moves |
 | `Services/TaskService.cs` | split: Obsidian task text moves; Outlook `TaskItem` creation stays |
@@ -122,6 +122,46 @@ Left for EmailProcessor:
     harness compiles the same sources minus `ThisAddIn` and the ribbon), and a real sling should be
     checked in Outlook, since `ProcessEmailWithResult` itself has no automated test.
 
+**AppointmentProcessor, first cut** (`refactor/appointment-note-engine`, done). `AppointmentData`
+(Core, `Models/`) holds what the note is built from: subject, body, location, start/end, organizer
+name and address, GlobalAppointmentID, recurrence (new Core enum `AppointmentRecurrence`, mapped
+from `OlRecurrenceState`), calendar name, and required/optional/resource attendee names.
+`OutlookAppointmentReader` (Outlook) fills it, with the COM reads and releases moved there unchanged
+(the per-property reads, `GetCalendarName`, the organizer `AddressEntry` and the recipient loop).
+`AppointmentNoteEngine` (Core) holds the note-building code moved out of `AppointmentProcessor`
+unchanged: person links, title, `ShouldGroupAsRecurring`, `DescribeRecurrence`, front matter
+(the meeting-URL property folded in, still the last key), custom-template check and note rendering.
+`AppointmentProcessor` reads once and calls the engine; its `internal DescribeRecurrence` delegates,
+so `AppointmentProcessorTests` are unchanged. Pinned by `AppointmentNoteEngineTests` (19, Linux):
+title, recurrence mapping and grouping, front-matter keys and order, contact link formats, the exact
+built-in note text, and every custom-template token. `AppointmentProcessorExportTests` (3, Mono;
+VSTest) drive `ProcessAppointment` end to end in bulk mode with a Moq `AppointmentItem` and pin the
+exact note and meeting-note files; they passed on the old code and pass on the new. The double has
+no organizer or recipients, because the reader releases those with `Marshal.ReleaseComObject`,
+which throws on a non-COM object.
+Windows CI on PR #26 (`979fc52`) failed
+`ProcessAppointment_RecurringOccurrence_WritesIntoSeriesFolder` with `MissingMethodException` for
+`_AppointmentItem.GetRecurrencePattern()`: the test assembly's embedded interop type lacked that
+member, so the Moq proxy did not implement it (Mono tolerated it). `b5f1d9c` removed the call; the
+test double now also sets up `Parent`, so every member the processor reads is referenced. Not yet
+re-run on Windows.
+Left for AppointmentProcessor:
+  - ~~The companion meeting note and recurring-folder summary are still built in the processor.~~
+    Done on `refactor/thread-core-and-fixes`: `AppointmentNoteEngine.BuildMeetingNoteContent`,
+    `MeetingNoteFileName` and `BuildRecurringSummaryContent` (code moved unchanged); the processor
+    keeps the exists check and the write. Pinned by four more `AppointmentNoteEngineTests` (exact
+    meeting-note text). The contact list and the Outlook task are still in the processor.
+  - ~~`GetRecurringThreadFolderName` still calls `GetRecurrencePattern()` and ignores the result.~~
+    Done: the read is gone (the folder name is the cleaned subject, as before).
+    `AppointmentProcessorExportTests.ProcessAppointment_RecurringOccurrence_DoesNotReadTheRecurrencePattern`
+    fails on the old code; `..._RecurringSubjectEndingInDot_FolderHasNoTrailingDot` pins the name.
+  - The master-note Yes/No and warning `MessageBox`es, the contacts error box and `CountdownForm`
+    (see the prompts item above), and the early `MeetingStatus`/`RecurrenceState` reads before the
+    series-master guard.
+  - Needs Windows: the VS build (`OutlookAppointmentReader.cs` added to `SlingMD.Outlook.csproj`,
+    two new test files in `SlingMD.Tests.csproj`) and saving a real appointment, a recurring
+    occurrence and one with attendees in Outlook.
+
 **Order for the big four**, each pinned by Linux characterization tests of the engine before the
 Outlook class is cut down:
 
@@ -129,10 +169,34 @@ Outlook class is cut down:
    `OutlookEmailReader` in Outlook, and the note-building pipeline as a Core engine. This is the
    pattern for the others. Its ThreadService/ContactService/TaskService calls are passed in as
    interfaces until those are split.
-2. **AppointmentProcessor**: same shape with `AppointmentData`; it shares the template, file and
-   contact pieces, so it goes once EmailProcessor shows the pattern works.
-3. **ThreadService**: its file-system half (folders, summary note, resuffixing, `FindExistingThread`)
-   is already COM-free apart from the `MailItem` parameters; switch those to `EmailData`.
+2. ~~**AppointmentProcessor**: same shape with `AppointmentData`; it shares the template, file and
+   contact pieces, so it goes once EmailProcessor shows the pattern works.~~ First cut done (see
+   above); the leftovers listed there remain.
+3. ~~**ThreadService**: its file-system half (folders, summary note, resuffixing, `FindExistingThread`)
+   is already COM-free apart from the `MailItem` parameters; switch those to `EmailData`.~~ Done on
+   `refactor/thread-core-and-fixes`: `ThreadService` is in SlingMD.Core (same name and namespace,
+   `git mv` so history follows). `GetThreadFolderName`, `GetThreadNoteName` and `UpdateThreadNote`
+   take `EmailData`, which gained `ConversationTopic` (read by `OutlookEmailReader`). The two
+   `FindExistingThread` message boxes (thread-debug details, search error) go through
+   `IUserNotifier`, which gained `ShowInformation`; the constructor takes an optional notifier and
+   all three add-in call sites pass `MessageBoxUserNotifier`, so the same boxes show.
+   `GetConversationId` and its PropertyAccessor reads moved unchanged to `ConversationIdReader`
+   (Outlook); `ThreadServiceConversationIdTests` now construct that (call sites only).
+   `ThreadServiceTests` (whole file) is linked into SlingMD.Core.Tests, and
+   `ThreadServiceEmailDataTests` (12) pin the names and summary note: their expected values were
+   taken from the old `MailItem` methods under Mono with Moq doubles of the same input.
+   Found while doing it (fixed in a later commit): an email whose conversation topic is empty
+   (not null) gets an empty summary title, because `UpdateThreadNote` uses `??` while the folder
+   name uses `IsNullOrEmpty`.
+   Windows CI (run 44972012621) failed
+   `UpdateThreadNote_NoTopic_TitleFromSubjectAndVaultRelativeFolder`: the built-in thread template
+   is a C# verbatim string, so the summary note's line endings are those of the checked-out source
+   (CRLF on Windows under `* text=auto`). The test now compares with `\n` only, as the other
+   note-text tests do. Left as is in the product: Obsidian reads either, but the line endings of
+   SlingMD's notes depend on how the build machine checked out the source, and email notes mix
+   CRLF front matter (`AppendLine`) with an LF body (the HTML converter emits `\n`).
+   Needs Windows: the VS build (`ThreadService.cs` removed from and `ConversationIdReader.cs`
+   added to `SlingMD.Outlook.csproj`), and a sling into an existing thread.
 4. **ContactService**: last, because both processors call it; the COM recipient reads move into the
    readers and the rest goes to Core.
 

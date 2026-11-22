@@ -99,6 +99,8 @@
     <Compile Include="Services\StatusServiceTests.cs" />
     <Compile Include="Services\NotificationServiceTests.cs" />
     <Compile Include="Services\AppointmentProcessorTests.cs" />
+    <Compile Include="Services\AppointmentProcessorExportTests.cs" />
+    <Compile Include="Services\AppointmentNoteEngineTests.cs" />
     <Compile Include="Services\CalendarFolderServiceTests.cs" />
     <Compile Include="Services\ContactProcessorTests.cs" />
     <Compile Include="Services\TaskServiceTests.cs" />
@@ -106,6 +108,7 @@
     <Compile Include="Services\TemplateServiceAppointmentTests.cs" />
     <Compile Include="Services\ThreadServiceTests.cs" />
     <Compile Include="Services\ThreadServiceConversationIdTests.cs" />
+    <Compile Include="Services\ThreadServiceEmailDataTests.cs" />
     <Compile Include="Services\BatchSlingReportTests.cs" />
     <Compile Include="Services\DottedFolderLinkRepairServiceTests.cs" />
     <Compile Include="Services\FolderMonitorServiceTests.cs" />

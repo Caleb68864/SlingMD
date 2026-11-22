@@ -30,11 +30,11 @@ namespace SlingMD.Outlook.Services
         /// Searches the provided folder and the Sent Items folder for all emails matching
         /// the given conversationId, then filters out those already in the vault.
         /// </summary>
-        /// <param name="conversationId">The conversation ID computed by ThreadService.GetConversationId.</param>
+        /// <param name="conversationId">The conversation ID computed by ConversationIdReader.GetConversationId.</param>
         /// <param name="searchFolder">The folder to search (typically Inbox).</param>
         /// <param name="getConversationId">Delegate that returns the conversation ID for a given mail item.
         /// Must produce IDs comparable to <paramref name="conversationId"/> — normally
-        /// <c>ThreadService.GetConversationId</c>.</param>
+        /// <c>ConversationIdReader.GetConversationId</c>.</param>
         /// <returns>List of MailItems in the same thread that are not yet present in the vault.</returns>
         public List<MailItem> FindMissingEmails(
             string conversationId,

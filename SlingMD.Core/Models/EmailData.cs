@@ -24,6 +24,10 @@ namespace SlingMD.Outlook.Models
     public class EmailData
     {
         public string Subject { get; set; }
+
+        /// <summary>The <c>MailItem.ConversationTopic</c>, as Outlook returned it (thread folder and summary names).</summary>
+        public string ConversationTopic { get; set; }
+
         public string SenderName { get; set; }
 
         /// <summary>SMTP address of the sender, as <c>SmtpAddressResolver.ForSender</c> resolved it.</summary>

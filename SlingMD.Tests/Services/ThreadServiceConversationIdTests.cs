@@ -11,7 +11,7 @@ using Xunit;
 namespace SlingMD.Tests.Services
 {
     /// <summary>
-    /// Tests for <see cref="ThreadService.GetConversationId"/> against Moq doubles of the Outlook
+    /// Tests for <see cref="ConversationIdReader.GetConversationId"/> against Moq doubles of the Outlook
     /// <see cref="MailItem"/> and <see cref="PropertyAccessor"/> interfaces. Moq can proxy these
     /// even though SlingMD.Tests embeds the interop types (checked under .NET 10 and Mono; the
     /// VSTest run on Windows is what confirms it for .NET Framework).
@@ -22,13 +22,13 @@ namespace SlingMD.Tests.Services
         private const string EntryId = "00000000ABCDEF0123456789";
 
         private readonly ObsidianSettings _settings;
-        private readonly ThreadService _threadService;
+        private readonly ConversationIdReader _threadService;
         private readonly ThreadIdHasher _hasher;
 
         public ThreadServiceConversationIdTests()
         {
             _settings = new ObsidianSettings();
-            _threadService = new ThreadService(null, null, _settings);
+            _threadService = new ConversationIdReader(_settings);
             _hasher = new ThreadIdHasher(new SubjectCleanerService(_settings));
         }
 

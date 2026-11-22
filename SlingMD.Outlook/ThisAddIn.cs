@@ -1470,8 +1470,9 @@ namespace SlingMD.Outlook
                 }
 
                 TemplateService templateService = new TemplateService(_fileService);
-                ThreadService threadService = new ThreadService(_fileService, templateService, _settings);
-                string conversationId = threadService.GetConversationId(mail);
+                ThreadService threadService = new ThreadService(_fileService, templateService, _settings, new MessageBoxUserNotifier());
+                ConversationIdReader conversationIds = new ConversationIdReader(_settings);
+                string conversationId = conversationIds.GetConversationId(mail);
 
                 ThreadCompletionService completionService = new ThreadCompletionService(_fileService, _settings);
                 MAPIFolder inbox = null;
@@ -1480,7 +1481,7 @@ namespace SlingMD.Outlook
                 {
                     session = Application.Session;
                     inbox = session.GetDefaultFolder(OlDefaultFolders.olFolderInbox);
-                    missingEmails = completionService.FindMissingEmails(conversationId, inbox, threadService.GetConversationId);
+                    missingEmails = completionService.FindMissingEmails(conversationId, inbox, conversationIds.GetConversationId);
                 }
                 finally
                 {

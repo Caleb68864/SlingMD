@@ -33,6 +33,7 @@ namespace SlingMD.Outlook.Services
         private readonly FileService _fileService;
         private readonly TemplateService _templateService;
         private readonly ThreadService _threadService;
+        private readonly ConversationIdReader _conversationIds;
         private readonly TaskService _taskService;
         private readonly ContactService _contactService;
         private readonly AttachmentService _attachmentService;
@@ -97,7 +98,8 @@ namespace SlingMD.Outlook.Services
             _clock = clock ?? new SystemClock();
             _fileService = fileService ?? new FileService(settings, new MessageBoxUserNotifier());
             _templateService = templateService ?? new TemplateService(_fileService);
-            _threadService = threadService ?? new ThreadService(_fileService, _templateService, settings);
+            _threadService = threadService ?? new ThreadService(_fileService, _templateService, settings, new MessageBoxUserNotifier());
+            _conversationIds = new ConversationIdReader(settings);
             _taskService = taskService ?? new TaskService(settings, _templateService, _clock);
             _contactService = contactService ?? new ContactService(_fileService, _templateService, _clock);
             _attachmentService = attachmentService ?? new AttachmentService(settings, _fileService, _clock);
@@ -441,7 +443,7 @@ namespace SlingMD.Outlook.Services
                             }
 
                             // Create or update the thread summary note
-                            await _threadService.UpdateThreadNote(threadFolderPath, threadNotePath, conversationId, threadNoteName, mail);
+                            await _threadService.UpdateThreadNote(threadFolderPath, threadNotePath, conversationId, threadNoteName, email);
 
                             // Process attachments if enabled (inside semaphore to prevent race condition with file resuffixing)
                             if (ShouldProcessAttachments(_settings))
@@ -750,10 +752,10 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         private (string conversationId, string threadNoteName, string threadFolderPath, string threadNotePath, bool shouldGroupThread, string obsidianLinkPath, string fileName, string filePath, string fileNameNoExt) GetThreadingInfo(MailItem mail, EmailData email, string subjectClean, string senderClean, string fileDateTime, string fileNameNoExt)
         {
-            string conversationId = _threadService.GetConversationId(mail);
+            string conversationId = _conversationIds.GetConversationId(mail);
             string firstRecipient = _contactService.GetFilenameSafeShortName(email.FirstToRecipientName);
-            string threadFolderName = _threadService.GetThreadFolderName(mail, subjectClean, senderClean, firstRecipient);
-            string threadNoteName = _threadService.GetThreadNoteName(mail, subjectClean, senderClean, firstRecipient);
+            string threadFolderName = _threadService.GetThreadFolderName(email, subjectClean, senderClean, firstRecipient);
+            string threadNoteName = _threadService.GetThreadNoteName(email, subjectClean, senderClean, firstRecipient);
             string threadFolderPath = Path.Combine(_settings.GetInboxPath(), threadFolderName);
             string threadNotePath = Path.Combine(threadFolderPath, $"0-{threadNoteName}.md");
             var threadInfo = _threadService.FindExistingThread(conversationId, _settings.GetInboxPath());
