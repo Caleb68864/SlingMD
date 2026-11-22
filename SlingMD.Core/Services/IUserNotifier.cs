@@ -9,5 +9,8 @@ namespace SlingMD.Outlook.Services
     {
         /// <summary>Shows a warning the user has to dismiss (the add-in uses a MessageBox).</summary>
         void ShowWarning(string message, string title);
+
+        /// <summary>Shows information the user has to dismiss (the add-in uses a MessageBox).</summary>
+        void ShowInformation(string message, string title);
     }
 }

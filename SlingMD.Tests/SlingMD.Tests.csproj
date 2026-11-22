@@ -108,6 +108,7 @@
     <Compile Include="Services\TemplateServiceAppointmentTests.cs" />
     <Compile Include="Services\ThreadServiceTests.cs" />
     <Compile Include="Services\ThreadServiceConversationIdTests.cs" />
+    <Compile Include="Services\ThreadServiceEmailDataTests.cs" />
     <Compile Include="Services\BatchSlingReportTests.cs" />
     <Compile Include="Services\DottedFolderLinkRepairServiceTests.cs" />
     <Compile Include="Services\FolderMonitorServiceTests.cs" />

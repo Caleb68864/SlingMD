@@ -357,7 +357,7 @@
     <Compile Include="Services\DialogEmailPrompts.cs" />
     <Compile Include="Services\SupportService.cs" />
     <Compile Include="Services\TaskService.cs" />
-    <Compile Include="Services\ThreadService.cs" />
+    <Compile Include="Services\ConversationIdReader.cs" />
     <Compile Include="Services\ThreadCompletionService.cs" />
     <Compile Include="ThisAddIn.cs">
       <SubType>Code</SubType>

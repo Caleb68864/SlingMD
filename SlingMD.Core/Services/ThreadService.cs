@@ -3,27 +3,27 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Security.Cryptography;
-using Microsoft.Office.Interop.Outlook;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using SlingMD.Outlook.Infrastructure;
 using SlingMD.Outlook.Models;
 using SlingMD.Outlook.Services.Formatting;
 
 namespace SlingMD.Outlook.Services
 {
     /// <summary>
-    /// Provides helper routines for detecting email conversation threads, generating folder/note names,
-    /// manipulating files that belong to a thread and updating the thread summary note.
-    /// All publicly exposed members are safe for unit-testing and are free of any Outlook UI dependencies.
+    /// Thread folders on disk: folder and note names, finding the thread an id already lives in,
+    /// moving notes into a thread folder, renaming them in date order and writing the summary note.
+    /// No COM or UI: the email is passed as <see cref="EmailData"/>, and the conversation id comes
+    /// from the add-in's <c>ConversationIdReader</c>. Moved here from SlingMD.Outlook unchanged apart
+    /// from those two seams and the message boxes, which go through <see cref="IUserNotifier"/>.
     /// </summary>
     public class ThreadService
     {
         private readonly FileService _fileService;
         private readonly TemplateService _templateService;
         private readonly ObsidianSettings _settings;
-        private readonly ThreadIdHasher _threadIdHasher;
+        private readonly IUserNotifier _notifier;
         private readonly FrontmatterReader _frontmatter;
         private readonly LegacyFilenameStripper _legacyFilenameStripper;
         private readonly UniqueFilenameResolver _uniqueFilenameResolver = new UniqueFilenameResolver();
@@ -35,146 +35,33 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         private const int ThreadNoteNameReserve = 80;
 
-        public ThreadService(FileService fileService, TemplateService templateService, ObsidianSettings settings)
+        /// <param name="notifier">
+        /// Shows the thread-match debug details (<see cref="ObsidianSettings.ShowThreadDebug"/>) and a
+        /// failed thread search; the add-in passes <c>MessageBoxUserNotifier</c>. Null shows nothing.
+        /// </param>
+        public ThreadService(FileService fileService, TemplateService templateService, ObsidianSettings settings, IUserNotifier notifier = null)
         {
             _fileService = fileService;
             _templateService = templateService;
             _settings = settings;
-            // Use a fallback settings instance when null so "store-only" constructor pattern
-            // is preserved (exceptions only surface when methods are actually called).
-            _threadIdHasher = new ThreadIdHasher(new SubjectCleanerService(settings ?? new ObsidianSettings()));
+            _notifier = notifier;
             _frontmatter = new FrontmatterReader();
             _legacyFilenameStripper = new LegacyFilenameStripper();
         }
 
         /// <summary>
-        /// Derives a stable 20-character hash that uniquely identifies an Outlook conversation.
-        /// The method tries several strategies (ConversationTopic, PR_CONVERSATION_INDEX, normalised subject)
-        /// and falls back to a random GUID segment if everything else fails. Using 20 characters instead of 16
-        /// significantly reduces the probability of hash collisions while remaining compact.
-        /// </summary>
-        /// <param name="mail">The <see cref="MailItem"/> for which to obtain the conversation id.</param>
-        /// <returns>A 20-character hexadecimal string suitable for use as an identifier inside vault front-matter.</returns>
-        public string GetConversationId(MailItem mail)
-        {
-            try
-            {
-                // Strategy 1: Hash the conversation topic (most reliable for threading).
-                if (!string.IsNullOrEmpty(mail.ConversationTopic))
-                {
-                    return _threadIdHasher.Hash(mail.ConversationTopic);
-                }
-
-                // Strategy 2: PR_CONVERSATION_INDEX — Exchange-native thread bytes. Different hash shape
-                // than ThreadIdHasher; preserved as a separate strategy because its ID is not derived
-                // from the subject line.
-                // A failure here (property missing, store offline, item type without it) must fall
-                // through to the subject hash, not to the random id below, which would put every such
-                // email in a thread folder of its own.
-                byte[] conversationIndex = null;
-                try
-                {
-                    conversationIndex = ReadConversationIndex(mail);
-                }
-                catch (System.Runtime.InteropServices.COMException ex)
-                {
-                    Helpers.Logger.Instance.Warning($"ThreadService.GetConversationId: PR_CONVERSATION_INDEX unavailable, using the subject: {ex.Message}");
-                }
-
-                if (conversationIndex != null && conversationIndex.Length >= 22)
-                {
-                    return BitConverter.ToString(conversationIndex.Take(22).ToArray())
-                        .Replace("-", "").Substring(0, 20);
-                }
-
-                // Strategy 3: Fall back to hashing the subject line.
-                return _threadIdHasher.Hash(mail.Subject ?? string.Empty);
-            }
-            catch (System.Exception ex)
-            {
-                // Last resort, kept deliberately broad: a sling must not fail over a thread id. The id is
-                // then taken from the email's own identity, so slinging it again gives the same id and
-                // finds the note written the first time. Logged because the email will not be grouped
-                // with the rest of its conversation.
-                string fallbackId = FallbackThreadId.FromIdentity(
-                    () => ReadInternetMessageId(mail),
-                    () => mail.EntryID,
-                    message => Helpers.Logger.Instance.Warning($"ThreadService.GetConversationId: {message}"));
-                if (fallbackId != null)
-                {
-                    Helpers.Logger.Instance.Warning($"ThreadService.GetConversationId: no conversation id ({ex.GetType().Name}: {ex.Message}); using a hash of the email's message id or EntryID");
-                    return fallbackId;
-                }
-
-                // Nothing about the item can be read at all, so there is nothing stable to hash.
-                Helpers.Logger.Instance.Warning($"ThreadService.GetConversationId: falling back to a random thread id: {ex.GetType().Name}: {ex.Message}");
-                return Guid.NewGuid().ToString("N").Substring(0, FallbackThreadId.Length).ToUpperInvariant();
-            }
-        }
-
-        /// <summary>
-        /// Reads PR_CONVERSATION_INDEX (PT_BINARY) through the item's PropertyAccessor, releasing the
-        /// accessor. Returns null when the property is not a byte array. Throws whatever the COM calls
-        /// throw; the caller falls back to the subject on a <see cref="System.Runtime.InteropServices.COMException"/>.
-        /// </summary>
-        private static byte[] ReadConversationIndex(MailItem mail)
-        {
-            PropertyAccessor accessor = null;
-            try
-            {
-                accessor = mail.PropertyAccessor;
-                return accessor.GetProperty(MapiPropertyTags.PrConversationIndex) as byte[];
-            }
-            finally
-            {
-                ReleaseAccessor(accessor);
-            }
-        }
-
-        /// <summary>
-        /// Releases a PropertyAccessor obtained from an Outlook item.
-        /// </summary>
-        private static void ReleaseAccessor(PropertyAccessor accessor)
-        {
-            // IsComObject: only a real COM accessor has a reference to release (a test double is a
-            // plain object, and ReleaseComObject would throw ArgumentException on it).
-            if (accessor != null && System.Runtime.InteropServices.Marshal.IsComObject(accessor))
-            {
-                System.Runtime.InteropServices.Marshal.ReleaseComObject(accessor);
-            }
-        }
-
-        /// <summary>
-        /// Reads PR_INTERNET_MESSAGE_ID through the item's PropertyAccessor, releasing the accessor.
-        /// Throws whatever the COM calls throw; <see cref="FallbackThreadId"/> catches it.
-        /// </summary>
-        private static string ReadInternetMessageId(MailItem mail)
-        {
-            PropertyAccessor accessor = null;
-            try
-            {
-                accessor = mail.PropertyAccessor;
-                return accessor.GetProperty(MapiPropertyTags.PrInternetMessageId) as string;
-            }
-            finally
-            {
-                ReleaseAccessor(accessor);
-            }
-        }
-
-        /// <summary>
         /// Returns a folder-friendly thread name (no timestamp)
         /// </summary>
-        /// <param name="mail">The email that belongs to the thread.</param>
+        /// <param name="email">The email that belongs to the thread (its conversation topic, subject and received time).</param>
         /// <param name="cleanSubject">A sanitised subject line, typically produced by <see cref="FileService.CleanFileName(string)"/>.</param>
         /// <param name="firstSender">Short name of the first sender in the thread.</param>
         /// <param name="firstRecipient">Short name of the first recipient ("To") in the thread.</param>
         /// <returns>The folder-friendly name without any leading "0-" prefix.</returns>
-        public string GetThreadFolderName(MailItem mail, string cleanSubject, string firstSender, string firstRecipient)
+        public string GetThreadFolderName(EmailData email, string cleanSubject, string firstSender, string firstRecipient)
         {
-            string threadSubject = !string.IsNullOrEmpty(mail.ConversationTopic)
-                ? mail.ConversationTopic
-                : mail.Subject;
+            string threadSubject = !string.IsNullOrEmpty(email.ConversationTopic)
+                ? email.ConversationTopic
+                : email.Subject;
             threadSubject = _fileService.CleanFileName(threadSubject);
             if (threadSubject.Length > 50)
             {
@@ -191,16 +78,16 @@ namespace SlingMD.Outlook.Services
         /// <summary>
         /// Returns a note-friendly thread name (with timestamp)
         /// </summary>
-        /// <param name="mail">The email that belongs to the thread.</param>
+        /// <param name="email">The email that belongs to the thread (its conversation topic, subject and received time).</param>
         /// <param name="cleanSubject">A sanitised subject line, typically produced by <see cref="FileService.CleanFileName(string)"/>.</param>
         /// <param name="firstSender">Short name of the first sender in the thread.</param>
         /// <param name="firstRecipient">Short name of the first recipient ("To") in the thread.</param>
         /// <returns>The folder-friendly name without any leading "0-" prefix.</returns>
-        public string GetThreadNoteName(MailItem mail, string cleanSubject, string firstSender, string firstRecipient)
+        public string GetThreadNoteName(EmailData email, string cleanSubject, string firstSender, string firstRecipient)
         {
-            string threadSubject = !string.IsNullOrEmpty(mail.ConversationTopic)
-                ? mail.ConversationTopic
-                : mail.Subject;
+            string threadSubject = !string.IsNullOrEmpty(email.ConversationTopic)
+                ? email.ConversationTopic
+                : email.Subject;
             threadSubject = _fileService.CleanFileName(threadSubject);
             if (threadSubject.Length > 50)
             {
@@ -208,7 +95,7 @@ namespace SlingMD.Outlook.Services
             }
             firstSender = _fileService.CleanFileName(firstSender);
             firstRecipient = _fileService.CleanFileName(firstRecipient);
-            string timestamp = mail.ReceivedTime.ToString("yyyy-MM-dd HHmm", System.Globalization.CultureInfo.InvariantCulture);
+            string timestamp = email.ReceivedTime.ToString("yyyy-MM-dd HHmm", System.Globalization.CultureInfo.InvariantCulture);
             return FitThreadName($"{timestamp}-{threadSubject.Trim()}-{firstSender}-{firstRecipient}".Replace("--", "-"));
         }
 
@@ -281,17 +168,17 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         /// <param name="threadFolderPath">Full path to the thread folder inside the vault inbox.</param>
         /// <param name="threadNotePath">Full path to the summary note file.</param>
-        /// <param name="conversationId">Identifier created by <see cref="GetConversationId"/>.</param>
+        /// <param name="conversationId">Identifier created by <c>ConversationIdReader.GetConversationId</c>.</param>
         /// <param name="threadNoteName">Base name (without <c>0-</c> prefix) for the summary file.</param>
-        /// <param name="mail">The current email being processed – used only for the title.</param>
-        public Task UpdateThreadNote(string threadFolderPath, string threadNotePath, string conversationId, string threadNoteName, MailItem mail)
+        /// <param name="email">The current email being processed – used only for the title.</param>
+        public Task UpdateThreadNote(string threadFolderPath, string threadNotePath, string conversationId, string threadNoteName, EmailData email)
         {
             if (File.Exists(threadNotePath))
             {
                 return Task.CompletedTask;
             }
 
-            string threadTitle = mail.ConversationTopic ?? mail.Subject;
+            string threadTitle = email.ConversationTopic ?? email.Subject;
             threadTitle = _fileService.CleanFileName(threadTitle);
 
             string vaultRoot = Path.Combine(_settings.VaultBasePath, _settings.VaultName);
@@ -580,7 +467,7 @@ namespace SlingMD.Outlook.Services
         /// Returns information that helps the caller decide whether the current email should be grouped into 
         /// an existing thread.
         /// </summary>
-        /// <param name="conversationId">Identifier created by <see cref="GetConversationId"/>.</param>
+        /// <param name="conversationId">Identifier created by <c>ConversationIdReader.GetConversationId</c>.</param>
         /// <param name="inboxPath">Absolute path to the vault inbox folder.</param>
         /// <returns>Tuple containing: <c>hasExistingThread</c>, the name of the thread folder the conversation
         /// already lives in (<c>null</c> when it has none yet), the earliest email date in the thread and a
@@ -678,17 +565,14 @@ namespace SlingMD.Outlook.Services
                 if (emailCount > 0 && _settings.ShowThreadDebug)
                 {
                     string filesList = string.Join("\n", matchingFiles);
-                    System.Windows.Forms.MessageBox.Show(
+                    _notifier?.ShowInformation(
                         $"Found {emailCount} existing emails with thread ID: {conversationId}\n\nFiles:\n{filesList}",
-                        "Thread Match Details",
-                        System.Windows.Forms.MessageBoxButtons.OK,
-                        System.Windows.Forms.MessageBoxIcon.Information);
+                        "Thread Match Details");
                 }
             }
             catch (System.Exception ex)
             {
-                System.Windows.Forms.MessageBox.Show($"Error searching for thread: {ex.Message}", "Thread Search Error", 
-                    System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Warning);
+                _notifier?.ShowWarning($"Error searching for thread: {ex.Message}", "Thread Search Error");
             }
 
             return (hasExistingThread, earliestEmailThreadName, earliestEmailDate, emailCount);

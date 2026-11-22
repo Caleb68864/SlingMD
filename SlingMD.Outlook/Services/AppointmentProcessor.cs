@@ -80,7 +80,7 @@ namespace SlingMD.Outlook.Services
             _prompts = prompts ?? new DialogEmailPrompts();
             _fileService = new FileService(settings, new MessageBoxUserNotifier());
             _templateService = new TemplateService(_fileService);
-            _threadService = new ThreadService(_fileService, _templateService, settings);
+            _threadService = new ThreadService(_fileService, _templateService, settings, new MessageBoxUserNotifier());
             _clock = clock ?? new SystemClock();
             _taskService = new TaskService(settings, _templateService, _clock);
             _contactService = new ContactService(_fileService, _templateService);

@@ -39,7 +39,7 @@ Core, COM/UI part stays; stays = front end):
 | `Services/SupportService.cs` | stays (MessageBox); the engine calls the front end through `IUserNotifier` and `IToastNotifier` (Core, implemented by `MessageBoxUserNotifier` and `ToastFormNotifier`) |
 | `Services/EmailProcessor.cs` | split (first of the big four, see below) |
 | `Services/AppointmentProcessor.cs` | split (second) |
-| `Services/ThreadService.cs` | split (third): thread folder/note naming, `FindExistingThread`, summary note, resuffixing are file work; `GetConversationId` and the `MailItem` overloads stay as a reader |
+| `Services/ThreadService.cs` | done: moved to Core on `EmailData`; `GetConversationId` stays in Outlook as `ConversationIdReader` |
 | `Services/ContactService.cs` | split (fourth): contact notes, links and the contact index are file work; `GetSenderEmail`/`BuildEmailList` (COM recipients) stay as a reader |
 | `Services/ContactProcessor.cs` | split: `ContactItem` reader stays, note writing moves |
 | `Services/TaskService.cs` | split: Obsidian task text moves; Outlook `TaskItem` creation stays |
@@ -166,8 +166,24 @@ Outlook class is cut down:
 2. ~~**AppointmentProcessor**: same shape with `AppointmentData`; it shares the template, file and
    contact pieces, so it goes once EmailProcessor shows the pattern works.~~ First cut done (see
    above); the leftovers listed there remain.
-3. **ThreadService**: its file-system half (folders, summary note, resuffixing, `FindExistingThread`)
-   is already COM-free apart from the `MailItem` parameters; switch those to `EmailData`.
+3. ~~**ThreadService**: its file-system half (folders, summary note, resuffixing, `FindExistingThread`)
+   is already COM-free apart from the `MailItem` parameters; switch those to `EmailData`.~~ Done on
+   `refactor/thread-core-and-fixes`: `ThreadService` is in SlingMD.Core (same name and namespace,
+   `git mv` so history follows). `GetThreadFolderName`, `GetThreadNoteName` and `UpdateThreadNote`
+   take `EmailData`, which gained `ConversationTopic` (read by `OutlookEmailReader`). The two
+   `FindExistingThread` message boxes (thread-debug details, search error) go through
+   `IUserNotifier`, which gained `ShowInformation`; the constructor takes an optional notifier and
+   all three add-in call sites pass `MessageBoxUserNotifier`, so the same boxes show.
+   `GetConversationId` and its PropertyAccessor reads moved unchanged to `ConversationIdReader`
+   (Outlook); `ThreadServiceConversationIdTests` now construct that (call sites only).
+   `ThreadServiceTests` (whole file) is linked into SlingMD.Core.Tests, and
+   `ThreadServiceEmailDataTests` (11) pin the names and summary note: their expected values were
+   taken from the old `MailItem` methods under Mono with Moq doubles of the same input.
+   Found while doing it (fixed in a later commit): an email whose conversation topic is empty
+   (not null) gets an empty summary title, because `UpdateThreadNote` uses `??` while the folder
+   name uses `IsNullOrEmpty`.
+   Needs Windows: the VS build (`ThreadService.cs` removed from and `ConversationIdReader.cs`
+   added to `SlingMD.Outlook.csproj`), and a sling into an existing thread.
 4. **ContactService**: last, because both processors call it; the COM recipient reads move into the
    readers and the rest goes to Core.
 

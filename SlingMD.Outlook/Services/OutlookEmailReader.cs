@@ -23,6 +23,7 @@ namespace SlingMD.Outlook.Services
             EmailData email = new EmailData
             {
                 Subject = mail.Subject,
+                ConversationTopic = mail.ConversationTopic,
                 SenderName = mail.SenderName,
                 SenderEmail = contactService.GetSenderEmail(mail),
                 ReceivedTime = mail.ReceivedTime,
