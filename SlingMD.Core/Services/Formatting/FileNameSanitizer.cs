@@ -48,6 +48,23 @@ namespace SlingMD.Outlook.Services.Formatting
         };
 
         /// <summary>
+        /// Whether Windows treats <paramref name="name"/> as a device: a reserved name on its own or
+        /// followed by an extension ("NUL.txt", "Con.Ed bill"). Windows looks at the part before the
+        /// first dot with trailing spaces dropped.
+        /// </summary>
+        internal static bool IsReservedDeviceName(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                return false;
+            }
+
+            int dot = name.IndexOf('.');
+            string stem = (dot >= 0 ? name.Substring(0, dot) : name).TrimEnd(' ');
+            return ReservedNames.Contains(stem);
+        }
+
+        /// <summary>
         /// Sanitizes <paramref name="input"/> for use as a filename: replaces invalid filename
         /// characters with underscores, strips quotes/colons/semicolons, removes a leading
         /// Re_/Fwd_ prefix, and collapses repeated separators.
@@ -83,8 +100,8 @@ namespace SlingMD.Outlook.Services.Formatting
             // display/contact name, so stripping it would corrupt name matching.
             cleaned = cleaned.Trim('-', '_');
 
-            // Guard against reserved device names (compared without any extension).
-            if (ReservedNames.Contains(cleaned))
+            // Guard against reserved device names, with or without an extension.
+            if (IsReservedDeviceName(cleaned))
             {
                 cleaned = "_" + cleaned;
             }

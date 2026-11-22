@@ -277,6 +277,12 @@ date and time-zone handling. Each fix has a test that fails on the old code.
 - ~~**Empty conversation topic gave a blank thread summary title.**~~ Fixed: `UpdateThreadNote`
   used `??`, so `""` won over the subject (the folder name used `IsNullOrEmpty`).
   `ThreadServiceEmailDataTests.UpdateThreadNote_EmptyTopic_TitleFromSubject` fails on the old code.
+- ~~**Reserved device names with an extension.**~~ Fixed: `FileNameSanitizer` and
+  `FolderNameSanitizer` caught only exact names ("CON"), but Windows also reserves them before an
+  extension ("NUL.txt", "Con.Ed bill.md": the part before the first dot, trailing spaces dropped).
+  Shared `FileNameSanitizer.IsReservedDeviceName`; six new sanitizer test cases fail on the old
+  code. Windows 11 relaxed some of these rules; the `_` prefix is harmless there. Not covered:
+  `COM0`/`LPT0` and the superscript-digit forms (`COM¹`), which Windows also reserves.
 
 ## Correctness
 

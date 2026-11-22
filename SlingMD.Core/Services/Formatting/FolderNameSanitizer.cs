@@ -20,14 +20,6 @@ namespace SlingMD.Outlook.Services.Formatting
     {
         private static readonly char[] TrailingCharsWindowsDrops = { '.', ' ' };
 
-        /// <summary>Same reserved device names <see cref="FileNameSanitizer"/> guards against.</summary>
-        private static readonly HashSet<string> ReservedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "CON", "PRN", "AUX", "NUL",
-            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
-        };
-
         /// <summary>Name used when nothing is left after trimming (e.g. a name made only of dots).</summary>
         public const string EmptyNameReplacement = "_";
 
@@ -50,7 +42,7 @@ namespace SlingMD.Outlook.Services.Formatting
                 return EmptyNameReplacement;
             }
 
-            if (ReservedNames.Contains(trimmed))
+            if (FileNameSanitizer.IsReservedDeviceName(trimmed))
             {
                 return "_" + trimmed;
             }

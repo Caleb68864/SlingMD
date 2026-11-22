@@ -44,6 +44,9 @@ All notable changes to SlingMD are documented in this file.
   they are; delete one to have it rebuilt on the next save.
 - **An email thread's summary note gets a title when Outlook reports an empty conversation topic**
   (it fell back to the subject only when the topic was missing, so the title was blank).
+- **Subjects such as "Con.Ed bill" or "NUL.txt" no longer produce a file Windows can't create.**
+  Windows reserves device names (CON, NUL, AUX, COM1...) followed by an extension as well, so such
+  a note or folder name is now prefixed with `_` like the bare names already were.
 
 ### Internal
 - **The "could not launch Obsidian" warning has tests** (`FileServiceLaunchTests`): `FileService`

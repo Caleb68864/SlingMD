@@ -77,6 +77,8 @@ namespace SlingMD.Core.Tests.Services.Formatting
         [InlineData("CON.", "_CON")]
         [InlineData("nul ", "_nul")]
         [InlineData("COM1..", "_COM1")]
+        [InlineData("Con.Ed bill", "_Con.Ed bill")]
+        [InlineData("AUX .x", "_AUX .x")]
         public void Sanitize_NameThatTrimsToReservedDevice_IsPrefixed(string input, string expected)
         {
             Assert.Equal(expected, FolderNameSanitizer.Sanitize(input));
