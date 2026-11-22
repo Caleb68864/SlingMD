@@ -101,7 +101,7 @@ namespace SlingMD.Outlook.Services
             _threadService = threadService ?? new ThreadService(_fileService, _templateService, settings, new MessageBoxUserNotifier());
             _conversationIds = new ConversationIdReader(settings);
             _taskService = taskService ?? new TaskService(settings, _templateService, _clock);
-            _contactService = contactService ?? new ContactService(_fileService, _templateService, _clock);
+            _contactService = contactService ?? new ContactService(_fileService, _templateService, _clock, new DialogContactMatchPrompt());
             _attachmentService = attachmentService ?? new AttachmentService(settings, _fileService, _clock);
             _subjectFilenameCleaner = new SubjectFilenameCleaner(settings, _fileService);
             _engine = new EmailNoteEngine(settings, _templateService, (name, email) => _contactService.FormatContactLink(name, email));

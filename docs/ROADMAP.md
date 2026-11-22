@@ -40,7 +40,7 @@ Core, COM/UI part stays; stays = front end):
 | `Services/EmailProcessor.cs` | split (first of the big four, see below) |
 | `Services/AppointmentProcessor.cs` | split (second) |
 | `Services/ThreadService.cs` | done: moved to Core on `EmailData`; `GetConversationId` stays in Outlook as `ConversationIdReader` |
-| `Services/ContactService.cs` | split (fourth): contact notes, links and the contact index are file work; `GetSenderEmail`/`BuildEmailList` (COM recipients) stay as a reader |
+| `Services/ContactService.cs` | done: moved to Core; the COM reads are `ContactServiceOutlookExtensions` (Outlook), the match prompt is `IContactMatchPrompt` |
 | `Services/ContactProcessor.cs` | split: `ContactItem` reader stays, note writing moves |
 | `Services/TaskService.cs` | split: Obsidian task text moves; Outlook `TaskItem` creation stays |
 | `Services/AttachmentService.cs` | split: naming, folders, inline/real decision (`ShouldSave` on `AttachmentSignals`) move; `Attachment.SaveAsFile` and the MAPI reads stay behind an attachment-saver interface |
@@ -200,8 +200,25 @@ Outlook class is cut down:
    CRLF front matter (`AppendLine`) with an LF body (the HTML converter emits `\n`).
    Needs Windows: the VS build (`ThreadService.cs` removed from and `ConversationIdReader.cs`
    added to `SlingMD.Outlook.csproj`), and a sling into an existing thread.
-4. **ContactService**: last, because both processors call it; the COM recipient reads move into the
-   readers and the rest goes to Core.
+4. ~~**ContactService**: last, because both processors call it; the COM recipient reads move into the
+   readers and the rest goes to Core.~~ Done on `refactor/contacts-core-and-escaping`:
+   `ContactService` is in SlingMD.Core (same name and namespace, `git mv`). Its COM members
+   (`GetSenderEmail`, both `BuildLinkedNames`/`BuildEmailList` overloads, `GetSMTPEmailAddress`,
+   `GetMeetingResourceData`, `ExtractContactData(ContactItem)`) moved unchanged to
+   `ContactServiceOutlookExtensions` (Outlook) as extension methods, so no call site changed.
+   `ExtractContactData` keeps the COM reads and hands the values to the new Core
+   `BuildContactTemplateContext` (the context-building half, unchanged). The ambiguous-match
+   `ContactMatchPromptForm` is behind the internal `IContactMatchPrompt`, implemented by
+   `DialogContactMatchPrompt`; the three add-in constructions pass it (new internal constructor
+   overload). With no prompt, an interactive ambiguous match is logged and skipped, the path the
+   form's automated-mode guard already took.
+   Tests: `ContactServiceTests`, `ContactServiceMeetingTests` and
+   `ContactMatcherToggleOffRegressionTests` (with its JSON fixtures) are linked into
+   SlingMD.Core.Tests; new `ContactServiceCoreTests` (7, Linux: prompt answers, refusal, no prompt,
+   automated never prompts, the context fields) and `ContactServiceOutlookExtensionsTests` (3, Mono:
+   Moq `ContactItem`, every member read set up), which passed on the old single-class code too.
+   Needs Windows: the VS build (`ContactService.cs` out of, two files into `SlingMD.Outlook.csproj`),
+   an ambiguous contact while slinging one email (the prompt should still appear), and Save Contact.
 
 ## Fork features
 
@@ -261,9 +278,14 @@ date and time-zone handling. Each fix has a test that fails on the old code.
   js-yaml (Obsidian) then rejects the whole front matter. They are now `\xNN`/`\uNNNN` escapes.
   `TemplateServiceTests.EscapeYamlDoubleQuotedScalar_EscapesCharactersYamlCannotHold` fails on the
   old code; `..._KeepsPrintableUnicode` pins that accents, CJK, emoji, NBSP and U+FEFF pass through.
-  Left: `ClipboardEmailService.EscapeYaml` (copied text for AI sessions, not parsed by Obsidian)
-  and `ContactAliasWriter.FormatYamlValue` (aliases from contact names) have their own simpler
-  escaping; worth sharing the one escaper if either is ever parsed as YAML.
+  ~~Left: `ClipboardEmailService.EscapeYaml` and `ContactAliasWriter.FormatYamlValue` have their
+  own simpler escaping.~~ Done on `refactor/contacts-core-and-escaping`: both call
+  `EscapeYamlDoubleQuotedScalar`. The clipboard now writes a CRLF as one `\n` (was `\r\n`) and
+  escapes control characters. `FormatYamlValue` also quotes `{ } ! ? ,` (aliases can sit in an
+  inline `[a, b]` list), C1/U+FFFE/surrogates, and plain scalars YAML reads as null, booleans or
+  numbers (`Null`, `No`, `~`, `1234`, `1e3`). New `ContactAliasWriterTests` (14 cases) and
+  `ClipboardEmailServiceTests.Format_WithFrontmatter_EscapesLikeNoteProperties` fail on the old
+  code. Existing aliases are not rewritten.
 - ~~**Recurring-series summary never listed anything.**~~ Fixed: `WriteRecurringThreadSummary`
   passed the absolute folder path to the thread template's `dv.pages('"{{folderPath}}"')`
   (Dataview wants it vault-relative; the email path already converts), the instance notes had no
@@ -281,8 +303,10 @@ date and time-zone handling. Each fix has a test that fails on the old code.
   `FolderNameSanitizer` caught only exact names ("CON"), but Windows also reserves them before an
   extension ("NUL.txt", "Con.Ed bill.md": the part before the first dot, trailing spaces dropped).
   Shared `FileNameSanitizer.IsReservedDeviceName`; six new sanitizer test cases fail on the old
-  code. Windows 11 relaxed some of these rules; the `_` prefix is harmless there. Not covered:
-  `COM0`/`LPT0` and the superscript-digit forms (`COM¹`), which Windows also reserves.
+  code. Windows 11 relaxed some of these rules; the `_` prefix is harmless there. ~~Not covered:
+  `COM0`/`LPT0` and the superscript-digit forms (`COM¹`), which Windows also reserves.~~ Covered on
+  `refactor/contacts-core-and-escaping`: `COM0`-`COM9`, `LPT0`-`LPT9` and `COM¹²³`/`LPT¹²³`;
+  `COM10` and `COM⁴` stay ordinary names. Eight new sanitizer cases fail on the old code.
 - ~~**Custom `EmailDateFormat` read back with the PC's culture.**~~ Fixed: notes are written with
   the invariant culture, but `ThreadService.TryParseNoteDate` fell back to `DateTime.TryParse` with
   the current culture (en-GB read `04/09/2026` as 4 September), and `FindExistingThread` only

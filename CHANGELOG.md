@@ -36,6 +36,9 @@ All notable changes to SlingMD are documented in this file.
   can't hold (the C1 control characters a mis-decoded subject often contains, such as `\u0093` for a
   curly quote, plus U+FFFE/U+FFFF and half an emoji) made Obsidian reject the note's whole
   properties block. They are now written as escapes (`\x93`), which Obsidian reads.
+  Contact aliases and the properties of copied emails now use the same escaping. Aliases that
+  YAML would read as something other than text (`Null`, `No`, `true`, `1234`, `{Bob}`, `!Bob`) or
+  that contain a comma are now quoted, so they stay the name that was added.
 - **The summary note of a recurring meeting's folder now lists its meetings.** Its Dataview query
   pointed at the folder's full Windows path instead of the vault-relative one, and the meeting
   notes had no `threadId` for it to match, so it always came up empty. Meeting notes saved into a
@@ -46,7 +49,8 @@ All notable changes to SlingMD are documented in this file.
   (it fell back to the subject only when the topic was missing, so the title was blank).
 - **Subjects such as "Con.Ed bill" or "NUL.txt" no longer produce a file Windows can't create.**
   Windows reserves device names (CON, NUL, AUX, COM1...) followed by an extension as well, so such
-  a note or folder name is now prefixed with `_` like the bare names already were.
+  a note or folder name is now prefixed with `_` like the bare names already were. The rarer
+  reserved names `COM0`, `LPT0` and `COM¹`-`COM³`/`LPT¹`-`LPT³` are handled too.
 - **Threads keep the right order with a custom Email Date Format.** With a format such as
   `MM/dd/yyyy h:mm tt`, notes in a thread folder were dated by reading the date back with the PC's
   regional settings (under UK settings 04/09 became 4 September), so they were renamed out of order,
@@ -54,6 +58,11 @@ All notable changes to SlingMD are documented in this file.
   was written in.
 
 ### Internal
+- **Contact notes are handled in `SlingMD.Core`.** `ContactService` (contact notes, links, the
+  contact index and fuzzy matching) moved there; reading senders, recipients and Outlook contacts
+  stays in the add-in (`ContactServiceOutlookExtensions`), and the "is this an existing contact?"
+  prompt goes through `IContactMatchPrompt`. Same notes, links and dialogs; its tests run on Linux
+  (783 tests).
 - **The "could not launch Obsidian" warning has tests** (`FileServiceLaunchTests`): `FileService`
   opens the `obsidian://` URI through a replaceable opener, by default the shell as before.
 - **The appointment note is built in `SlingMD.Core`.** `AppointmentNoteEngine` takes an

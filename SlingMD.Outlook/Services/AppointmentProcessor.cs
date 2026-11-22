@@ -83,7 +83,7 @@ namespace SlingMD.Outlook.Services
             _threadService = new ThreadService(_fileService, _templateService, settings, new MessageBoxUserNotifier());
             _clock = clock ?? new SystemClock();
             _taskService = new TaskService(settings, _templateService, _clock);
-            _contactService = new ContactService(_fileService, _templateService);
+            _contactService = new ContactService(_fileService, _templateService, null, new DialogContactMatchPrompt());
             _attachmentService = new AttachmentService(settings, _fileService);
             _noteEngine = new AppointmentNoteEngine(settings, _templateService, _contactService.NoteFileExists);
             _subjectFilenameCleaner = new SubjectFilenameCleaner(settings, _fileService);
