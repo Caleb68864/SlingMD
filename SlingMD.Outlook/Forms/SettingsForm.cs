@@ -49,6 +49,9 @@ namespace SlingMD.Outlook.Forms
         private Button btnBodyEdit;
         private Button btnBodyRemove;
         private TextBox txtEmailFilenameFormat;
+        private TextBox txtEmailFilenameDateFormat;
+        private CheckBox chkIncludeEmailIdProperties;
+        private CheckBox chkIncludeThreadIdProperty;
         private TextBox txtEmailTemplateFile;
 
         // Appointments tab controls
@@ -428,6 +431,22 @@ namespace SlingMD.Outlook.Forms
             this.txtEmailFilenameFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             emailTabLayout.Controls.Add(this.txtEmailFilenameFormat, 1, eRow++);
             BindHelp("Email.EmailFilenameFormat", lblEmailFilenameFormat, txtEmailFilenameFormat);
+
+            Label lblEmailFilenameDateFormat = new Label { Text = "Filename {Date} Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
+            emailTabLayout.Controls.Add(lblEmailFilenameDateFormat, 0, eRow);
+            this.txtEmailFilenameDateFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
+            emailTabLayout.Controls.Add(this.txtEmailFilenameDateFormat, 1, eRow++);
+            BindHelp("Email.EmailFilenameDateFormat", lblEmailFilenameDateFormat, txtEmailFilenameDateFormat);
+
+            emailTabLayout.Controls.Add(new Label(), 0, eRow);
+            this.chkIncludeEmailIdProperties = new CheckBox { Text = "Record Outlook ids (internetMessageId, entryId) in properties", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
+            emailTabLayout.Controls.Add(this.chkIncludeEmailIdProperties, 1, eRow++);
+            BindHelpInline("Email.IncludeEmailIdProperties", chkIncludeEmailIdProperties);
+
+            emailTabLayout.Controls.Add(new Label(), 0, eRow);
+            this.chkIncludeThreadIdProperty = new CheckBox { Text = "Record threadId in properties (always kept while threads are grouped)", Anchor = AnchorStyles.Left | AnchorStyles.Right, AutoSize = true };
+            emailTabLayout.Controls.Add(this.chkIncludeThreadIdProperty, 1, eRow++);
+            BindHelpInline("Email.IncludeThreadIdProperty", chkIncludeThreadIdProperty);
 
             Label lblEmailTemplateFile = new Label { Text = "Email Template File:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
             emailTabLayout.Controls.Add(lblEmailTemplateFile, 0, eRow);
@@ -1164,6 +1183,9 @@ namespace SlingMD.Outlook.Forms
                 lstBodyPatterns.Items.Add(pattern);
             }
             txtEmailFilenameFormat.Text = source.EmailFilenameFormat ?? string.Empty;
+            txtEmailFilenameDateFormat.Text = string.IsNullOrWhiteSpace(source.EmailFilenameDateFormat) ? ObsidianSettings.DefaultEmailFilenameDateFormat : source.EmailFilenameDateFormat;
+            chkIncludeEmailIdProperties.Checked = source.IncludeEmailIdProperties;
+            chkIncludeThreadIdProperty.Checked = source.IncludeThreadIdProperty;
             txtEmailTemplateFile.Text = source.EmailTemplateFile ?? "EmailTemplate.md";
 
             // Appointments tab
@@ -1460,6 +1482,9 @@ namespace SlingMD.Outlook.Forms
             }
             _settings.BodyCleanupPatterns = lstBodyPatterns.Items.Cast<string>().ToList();
             _settings.EmailFilenameFormat = txtEmailFilenameFormat.Text.Trim();
+            _settings.EmailFilenameDateFormat = txtEmailFilenameDateFormat.Text.Trim();
+            _settings.IncludeEmailIdProperties = chkIncludeEmailIdProperties.Checked;
+            _settings.IncludeThreadIdProperty = chkIncludeThreadIdProperty.Checked;
             _settings.EmailTemplateFile = txtEmailTemplateFile.Text.Trim();
 
             // Appointments tab

@@ -4,6 +4,21 @@ All notable changes to SlingMD are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Filename and property options from Steve O'Sullivan's fork** (steveosullivan/SlingMD,
+  "SteveO custom build"). All off or unchanged by default, so existing notes keep their names and
+  properties:
+  - `{SenderFull}` in **Email Filename Format**: the sender's display name ("Sara Adams") rather
+    than the short name.
+  - **Filename {Date} Format**: how `{Date}` is written in the filename (default `yyyy-MM-dd`). The
+    fork's naming is `{Subject} - {SenderFull} - {Date}` with `MM-dd-yyyy`.
+  - **Record Outlook ids** and **Record threadId** (Email tab): untick to leave `internetMessageId`/
+    `entryId` or `threadId` out of the note properties. `threadId` is kept while threads are grouped,
+    because grouping finds a conversation's notes by it; without the ids, SlingMD only recognises an
+    email it already slung within the same Outlook session.
+  The fork's HTML-to-Markdown email bodies were already in SlingMD (since 1.2.5.0, with more
+  handling than the fork's converter), so they were not brought again.
+
 ### Internal
 - **The appointment note is built in `SlingMD.Core`.** `AppointmentNoteEngine` takes an
   `AppointmentData` (plain values read from the `AppointmentItem` by the add-in's new

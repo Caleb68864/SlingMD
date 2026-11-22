@@ -200,6 +200,33 @@ Outlook class is cut down:
 4. **ContactService**: last, because both processors call it; the COM recipient reads move into the
    readers and the rest goes to Core.
 
+## Fork features
+
+- ~~**steveosullivan/main `4b4026e` ("SteveO custom build")**~~ Brought in on
+  `refactor/thread-core-and-fixes` (owner-approved), re-implemented in SlingMD.Core rather than
+  cherry-picked (the fork is based on `702110a`, before the Core split):
+  - Custom note filename (`{Subject} - {SenderFull} - MM-dd-yyyy`, hard-coded in the fork): now the
+    existing **Email Filename Format** with a new `{SenderFull}` token and a new
+    `EmailFilenameDateFormat` setting ("Filename {Date} Format", default `yyyy-MM-dd`) for `{Date}`.
+    `EmailNoteEngine.BuildBaseFileName` takes the display name (`EmailData.SenderName`). The fork
+    cleaned each part separately because it thought cleanup would strip " - "; it does not
+    (`BuildBaseFileName_SenderFullToken_UsesTheDisplayName`).
+  - Trimmed front matter (fork removed `threadId`, `internetMessageId`, `entryId` outright):
+    `IncludeEmailIdProperties` and `IncludeThreadIdProperty`, both default on. `threadId` is kept
+    while `GroupEmailThreads` is on, since `FindExistingThread` matches on it (the fork's build broke
+    thread grouping). Without the ids, `ProcessedEmailCache`'s scan of the inbox can't recognise an
+    email slung before a restart, and `MoveToThreadFolder` adds no id suffix; both are in the help
+    text. Keys are added conditionally rather than removed, because a `Dictionary` reuses a removed
+    slot and would move later keys up (pinned by `BuildMetadata_AllTrimmed_LaterKeysStayInOrder`).
+  - HTML email bodies as Markdown: already on `main` since `58fc88d` (1.2.5.0) in
+    `HtmlToMarkdownConverter`, which also unwraps Safe Links, handles quoted replies and skips the
+    same tracking pixels as the fork; nothing taken.
+  - Not taken: the fork's build tweaks (its own ClickOnce certificate thumbprint, and taking
+    SlingMD.Tests out of the solution build). Machine-specific, and would stop CI running the tests.
+  - Tests: `EmailNoteEngineFilenameAndPropertiesTests` (17, Linux). Settings UI (`SettingsForm`
+    Email tab, `SettingsHelp`) compiled under Mono only. Needs Windows: open Settings, change each
+    of the three settings, save, reopen, and sling an email to see the filename and properties.
+
 ## Correctness
 
 Done on `fix/folder-names-thread-ids` (2026-11-16); see `CHANGELOG.md`:

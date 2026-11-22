@@ -342,7 +342,7 @@ namespace SlingMD.Outlook.Services
                             // temporary -eid{hash} suffix. Both ids can be empty (unsaved item with no
                             // InternetMessageID); that still produces a usable, if less unique, "-eid" suffix.
                             string emailId = !string.IsNullOrEmpty(realInternetMessageId) ? realInternetMessageId : realEntryId;
-                            string baseName = _engine.BuildBaseFileName(email.ReceivedTime, subjectClean, senderClean, fileDateTime, true);
+                            string baseName = _engine.BuildBaseFileName(email.ReceivedTime, subjectClean, senderClean, fileDateTime, true, email.SenderName);
                             string tempFileName = _threadService.GetTemporaryThreadNoteName(threadFolderPath, baseName, emailId) + ".md";
                             string tempFilePath = Path.Combine(threadFolderPath, tempFileName);
                             _fileService.EnsureDirectoryExists(threadFolderPath);
@@ -772,7 +772,7 @@ namespace SlingMD.Outlook.Services
                 threadNotePath = Path.Combine(threadFolderPath, $"0-{threadNoteName}.md");
             }
 
-            string fileNameNoExtResult = _engine.BuildBaseFileName(email.ReceivedTime, subjectClean, senderClean, fileDateTime, shouldGroupThread);
+            string fileNameNoExtResult = _engine.BuildBaseFileName(email.ReceivedTime, subjectClean, senderClean, fileDateTime, shouldGroupThread, email.SenderName);
             if (!shouldGroupThread && _settings.GroupEmailThreads)
             {
                 // Give a standalone note the name it would have inside a thread, derived from the
