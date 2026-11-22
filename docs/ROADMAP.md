@@ -291,9 +291,10 @@ date and time-zone handling. Each fix has a test that fails on the old code.
   before the culture fallback (kept for notes from older versions), and `FindExistingThread` falls
   back to the new `ExtractDateLineValue`. `ThreadServiceEmailDataTests.ResuffixThreadNotes_CustomDateFormat_*`
   and `FindExistingThread_CustomDateFormat_*` fail on the old code.
-  Time zones: received times are local `DateTime`s written without an offset, so a vault shared
-  across time zones orders by each sender's local clock. Not changed; it would need an owner
-  decision on the date format (an offset makes the value text in Obsidian's date property).
+  Time zones: received times are the slinging PC's local time, written without an offset, so a
+  vault slung from PCs in different time zones (or across a DST change) orders by each PC's clock.
+  Not changed; it needs an owner decision on the date format (an offset makes Obsidian show the
+  date property as text).
 
 ## Correctness
 
