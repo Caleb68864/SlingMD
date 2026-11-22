@@ -32,6 +32,10 @@ All notable changes to SlingMD are documented in this file.
   outside the Basic Multilingual Plane), the file or folder name kept half of it, and the note's
   own title and links showed `�` instead, so they no longer matched the file. The cut now moves
   before the whole character.
+- **Odd characters in a subject or name no longer break a note's properties.** Characters YAML
+  can't hold (the C1 control characters a mis-decoded subject often contains, such as `\u0093` for a
+  curly quote, plus U+FFFE/U+FFFF and half an emoji) made Obsidian reject the note's whole
+  properties block. They are now written as escapes (`\x93`), which Obsidian reads.
 
 ### Internal
 - **The "could not launch Obsidian" warning has tests** (`FileServiceLaunchTests`): `FileService`

@@ -256,6 +256,15 @@ date and time-zone handling. Each fix has a test that fails on the old code.
   `ContactServiceTests.GetFilenameSafeShortName_EmojiAtTheCuts_*` (Mono) fail on the old code.
   Not changed: other `Substring` calls cut at found indexes (separators, `@`, front-matter
   markers), which cannot split a pair.
+- ~~**Front-matter escaping let non-printable characters through.**~~ Fixed:
+  `TemplateService.EscapeYamlDoubleQuotedScalar` escaped C0 controls and DEL but not the C1
+  controls U+0080-U+009F, U+FFFE/U+FFFF or unpaired surrogates, all outside YAML's printable set;
+  js-yaml (Obsidian) then rejects the whole front matter. They are now `\xNN`/`\uNNNN` escapes.
+  `TemplateServiceTests.EscapeYamlDoubleQuotedScalar_EscapesCharactersYamlCannotHold` fails on the
+  old code; `..._KeepsPrintableUnicode` pins that accents, CJK, emoji, NBSP and U+FEFF pass through.
+  Left: `ClipboardEmailService.EscapeYaml` (copied text for AI sessions, not parsed by Obsidian)
+  and `ContactAliasWriter.FormatYamlValue` (aliases from contact names) have their own simpler
+  escaping; worth sharing the one escaper if either is ever parsed as YAML.
 
 ## Correctness
 
