@@ -192,7 +192,7 @@ namespace SlingMD.Tests.Services
             System.Globalization.CultureInfo original = System.Globalization.CultureInfo.CurrentCulture;
             try
             {
-                System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("th-TH");
+                System.Globalization.CultureInfo.CurrentCulture = CultureInvariantDatesTests.ThaiBuddhist();
                 Assert.Equal("2569", new DateTime(2026, 10, 5).ToString("yyyy"));
                 AppointmentProcessor processor = new AppointmentProcessor(_settings);
 

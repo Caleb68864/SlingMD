@@ -148,7 +148,9 @@ namespace SlingMD.Tests.Services
             System.Globalization.CultureInfo original = System.Globalization.CultureInfo.CurrentCulture;
             try
             {
-                System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("en-GB");
+                System.Globalization.CultureInfo british = (System.Globalization.CultureInfo)new System.Globalization.CultureInfo("en-GB").Clone();
+                british.DateTimeFormat.ShortDatePattern = "dd/MM/yyyy";
+                System.Globalization.CultureInfo.CurrentCulture = british;
                 _settings.EmailDateFormat = "MM/dd/yyyy h:mm tt";
                 string folder = Path.Combine(_testDir, "Vault", "Inbox", "Budget-SaraA-CalebB");
                 Directory.CreateDirectory(folder);

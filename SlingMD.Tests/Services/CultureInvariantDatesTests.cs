@@ -41,9 +41,19 @@ namespace SlingMD.Tests.Services
 
         private static void UseThai()
         {
-            CultureInfo.CurrentCulture = new CultureInfo("th-TH");
-            // The tests mean nothing if the runtime has no Thai calendar data (invariant globalization).
+            CultureInfo.CurrentCulture = ThaiBuddhist();
             Assert.Equal("2569", Received.ToString("yyyy"));
+        }
+
+        /// <summary>
+        /// th-TH with its Buddhist calendar set explicitly, so the test does not depend on the
+        /// platform's culture data (ICU on Linux, NLS on Windows).
+        /// </summary>
+        internal static CultureInfo ThaiBuddhist()
+        {
+            CultureInfo culture = (CultureInfo)new CultureInfo("th-TH").Clone();
+            culture.DateTimeFormat.Calendar = new ThaiBuddhistCalendar();
+            return culture;
         }
 
         private ObsidianSettings NewSettings()
@@ -102,7 +112,10 @@ namespace SlingMD.Tests.Services
         [Fact]
         public void ClipboardFrontMatter_FinnishCulture_ColonTimeSeparator()
         {
-            CultureInfo.CurrentCulture = new CultureInfo("fi-FI");
+            // fi-FI writes times as 18.18; set the separator explicitly rather than rely on culture data.
+            CultureInfo finnish = (CultureInfo)new CultureInfo("fi-FI").Clone();
+            finnish.DateTimeFormat.TimeSeparator = ".";
+            CultureInfo.CurrentCulture = finnish;
             Assert.Equal("18.18", Received.ToString("HH:mm"));
 
             string text = new ClipboardEmailService().Format(

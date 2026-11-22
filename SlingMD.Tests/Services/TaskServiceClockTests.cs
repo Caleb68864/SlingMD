@@ -62,7 +62,7 @@ namespace SlingMD.Tests.Services
             System.Globalization.CultureInfo original = System.Globalization.CultureInfo.CurrentCulture;
             try
             {
-                System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("th-TH");
+                System.Globalization.CultureInfo.CurrentCulture = CultureInvariantDatesTests.ThaiBuddhist();
                 Assert.Equal("2569", new System.DateTime(2026, 4, 21).ToString("yyyy"));
                 ObsidianSettings settings = new ObsidianSettings();
                 FakeClock clock = new FakeClock(new System.DateTime(2026, 4, 21, 9, 0, 0));
