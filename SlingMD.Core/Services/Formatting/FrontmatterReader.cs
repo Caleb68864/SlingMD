@@ -14,6 +14,7 @@ namespace SlingMD.Outlook.Services.Formatting
     {
         private static readonly Regex ThreadIdRegex = new Regex(@"threadId: ""([^""]+)""", RegexOptions.Compiled);
         private static readonly Regex DateRegex = new Regex(@"date: ""?(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?)""?", RegexOptions.Compiled);
+        private static readonly Regex AnyDateLineRegex = new Regex(@"^date:[ \t]*""?([^""\r\n]*?)""?[ \t]*\r?$", RegexOptions.Compiled | RegexOptions.Multiline);
         private static readonly Regex TitleRegex = new Regex(@"title: ""([^""]+)""", RegexOptions.Compiled);
         private static readonly Regex FromRegex = new Regex(@"from: ""[^""]*\[\[([^""]+)\]\]""", RegexOptions.Compiled);
         private static readonly Regex ToRegex = new Regex(@"to:.*?\n\s*- ""[^""]*\[\[([^""]+)\]\]""", RegexOptions.Compiled | RegexOptions.Singleline);
@@ -57,6 +58,22 @@ namespace SlingMD.Outlook.Services.Formatting
         public string ExtractRawDate(string content)
         {
             return ExtractFirst(content, DateRegex);
+        }
+
+        /// <summary>
+        /// Returns the value of the first line starting with <c>date:</c>, whatever its format (a custom
+        /// <see cref="Models.ObsidianSettings.EmailDateFormat"/> such as "dd.MM.yyyy HH:mm"), without the
+        /// quotes; null if there is none. <see cref="ExtractRawDate"/> only recognises the ISO shapes.
+        /// </summary>
+        public string ExtractDateLineValue(string content)
+        {
+            if (string.IsNullOrEmpty(content))
+            {
+                return null;
+            }
+
+            Match match = AnyDateLineRegex.Match(content);
+            return match.Success && match.Groups[1].Value.Length > 0 ? match.Groups[1].Value : null;
         }
 
         /// <summary>

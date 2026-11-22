@@ -283,6 +283,17 @@ date and time-zone handling. Each fix has a test that fails on the old code.
   Shared `FileNameSanitizer.IsReservedDeviceName`; six new sanitizer test cases fail on the old
   code. Windows 11 relaxed some of these rules; the `_` prefix is harmless there. Not covered:
   `COM0`/`LPT0` and the superscript-digit forms (`COM¹`), which Windows also reserves.
+- ~~**Custom `EmailDateFormat` read back with the PC's culture.**~~ Fixed: notes are written with
+  the invariant culture, but `ThreadService.TryParseNoteDate` fell back to `DateTime.TryParse` with
+  the current culture (en-GB read `04/09/2026` as 4 September), and `FindExistingThread` only
+  recognised the ISO shapes (`FrontmatterReader.ExtractRawDate`), so it never learnt a custom-format
+  thread's earliest date. `TryParseNoteDate` now tries the configured format exactly (invariant)
+  before the culture fallback (kept for notes from older versions), and `FindExistingThread` falls
+  back to the new `ExtractDateLineValue`. `ThreadServiceEmailDataTests.ResuffixThreadNotes_CustomDateFormat_*`
+  and `FindExistingThread_CustomDateFormat_*` fail on the old code.
+  Time zones: received times are local `DateTime`s written without an offset, so a vault shared
+  across time zones orders by each sender's local clock. Not changed; it would need an owner
+  decision on the date format (an offset makes the value text in Obsidian's date property).
 
 ## Correctness
 

@@ -780,7 +780,7 @@ namespace SlingMD.Outlook.Services
                 // folder later then keeps its name, so the Obsidian task link and links from other
                 // notes don't break when a reply is slung.
                 string frontMatterDate = _engine.FormatFrontMatterDate(email.ReceivedTime);
-                if (ThreadService.TryParseNoteDate(frontMatterDate, out DateTime noteDate))
+                if (ThreadService.TryParseNoteDate(frontMatterDate, _settings.EmailDateFormat, out DateTime noteDate))
                 {
                     fileNameNoExtResult = _threadService.GetThreadedNoteName(fileNameNoExtResult, noteDate, threadFolderPath);
                 }

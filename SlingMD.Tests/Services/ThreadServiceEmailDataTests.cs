@@ -133,6 +133,69 @@ namespace SlingMD.Tests.Services
             Assert.Contains("\n# Budget\n", content);
         }
 
+        private static void WriteNote(string folder, string name, string threadId, string date)
+        {
+            File.WriteAllText(Path.Combine(folder, name),
+                "---\nthreadId: \"" + threadId + "\"\ndate: \"" + date + "\"\n---\n\nBody");
+        }
+
+        [Fact]
+        public void ResuffixThreadNotes_CustomDateFormat_ParsedTheWayItWasWritten()
+        {
+            // EmailDateFormat "MM/dd/yyyy h:mm tt" (an example in the settings help) is written with
+            // the invariant culture. Parsing it back with the PC's culture read "04/09/2026" as
+            // 4 September under en-GB, which put the notes in the wrong order and dated them wrongly.
+            System.Globalization.CultureInfo original = System.Globalization.CultureInfo.CurrentCulture;
+            try
+            {
+                System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("en-GB");
+                _settings.EmailDateFormat = "MM/dd/yyyy h:mm tt";
+                string folder = Path.Combine(_testDir, "Vault", "Inbox", "Budget-SaraA-CalebB");
+                Directory.CreateDirectory(folder);
+                WriteNote(folder, "a.md", "ID1", "04/09/2026 2:05 PM");
+                WriteNote(folder, "b.md", "ID1", "05/01/2026 9:00 AM");
+
+                NewService().ResuffixThreadNotes(folder, "Budget");
+
+                List<string> names = new List<string>(Directory.GetFiles(folder, "*.md"));
+                names = names.ConvertAll(Path.GetFileName);
+                names.Sort(StringComparer.Ordinal);
+                Assert.Equal(2, names.Count);
+                Assert.StartsWith("2026-04-09_140500", names[0]);
+                Assert.StartsWith("2026-05-01_090000", names[1]);
+            }
+            finally
+            {
+                System.Globalization.CultureInfo.CurrentCulture = original;
+            }
+        }
+
+        [Fact]
+        public void FindExistingThread_CustomDateFormat_FindsTheEarliestEmail()
+        {
+            // FindExistingThread only knew the four ISO-style shapes, so with a custom EmailDateFormat
+            // it never learnt the thread's earliest date.
+            _settings.EmailDateFormat = "dd.MM.yyyy HH:mm";
+            string inbox = Path.Combine(_testDir, "Vault", "Inbox");
+            Directory.CreateDirectory(inbox);
+            WriteNote(inbox, "later.md", "ID3", "23.09.2026 18:18");
+            WriteNote(inbox, "earlier.md", "ID3", "02.09.2026 08:00");
+
+            var result = NewService().FindExistingThread("ID3", inbox);
+
+            Assert.Equal(2, result.emailCount);
+            Assert.Equal(new DateTime(2026, 9, 2, 8, 0, 0), result.earliestEmailDate);
+        }
+
+        [Fact]
+        public void TryParseNoteDate_IsoAndLegacyShapes_StillParse()
+        {
+            Assert.True(ThreadService.TryParseNoteDate("2026-09-23T18:18:52", out DateTime iso));
+            Assert.Equal(new DateTime(2026, 9, 23, 18, 18, 52), iso);
+            Assert.True(ThreadService.TryParseNoteDate("2026-09-23 18:18", out DateTime legacy));
+            Assert.Equal(new DateTime(2026, 9, 23, 18, 18, 0), legacy);
+        }
+
         [Fact]
         public void FindExistingThread_ShowThreadDebug_ShowsTheMatchesThroughTheNotifier()
         {

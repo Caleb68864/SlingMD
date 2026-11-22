@@ -47,6 +47,11 @@ All notable changes to SlingMD are documented in this file.
 - **Subjects such as "Con.Ed bill" or "NUL.txt" no longer produce a file Windows can't create.**
   Windows reserves device names (CON, NUL, AUX, COM1...) followed by an extension as well, so such
   a note or folder name is now prefixed with `_` like the bare names already were.
+- **Threads keep the right order with a custom Email Date Format.** With a format such as
+  `MM/dd/yyyy h:mm tt`, notes in a thread folder were dated by reading the date back with the PC's
+  regional settings (under UK settings 04/09 became 4 September), so they were renamed out of order,
+  and finding a thread ignored such dates altogether. The date is now read back in the format it
+  was written in.
 
 ### Internal
 - **The "could not launch Obsidian" warning has tests** (`FileServiceLaunchTests`): `FileService`

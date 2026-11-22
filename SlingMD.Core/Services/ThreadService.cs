@@ -531,8 +531,8 @@ namespace SlingMD.Outlook.Services
 
                             // Parse the date to find the earliest email.
                             DateTime emailDate = default(DateTime);
-                            string rawDate = _frontmatter.ExtractRawDate(emailContent);
-                            bool hasDate = rawDate != null && TryParseThreadDate(rawDate, out emailDate);
+                            string rawDate = _frontmatter.ExtractRawDate(emailContent) ?? _frontmatter.ExtractDateLineValue(emailContent);
+                            bool hasDate = rawDate != null && TryParseNoteDate(rawDate, _settings?.EmailDateFormat, out emailDate);
                             if (hasDate && (!earliestEmailDate.HasValue || emailDate < earliestEmailDate.Value))
                             {
                                 earliestEmailDate = emailDate;
@@ -648,8 +648,30 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         internal static bool TryParseNoteDate(string value, out DateTime date)
         {
-            return TryParseThreadDate(value, out date)
-                || DateTime.TryParse(value, out date);
+            return TryParseNoteDate(value, null, out date);
+        }
+
+        /// <summary>
+        /// As <see cref="TryParseNoteDate(string, out DateTime)"/>, also trying
+        /// <paramref name="configuredFormat"/> (<see cref="ObsidianSettings.EmailDateFormat"/>) exactly,
+        /// with the invariant culture it is written in, before the PC's culture: a custom format such as
+        /// "MM/dd/yyyy h:mm tt" read back under en-GB swapped day and month.
+        /// </summary>
+        internal static bool TryParseNoteDate(string value, string configuredFormat, out DateTime date)
+        {
+            if (TryParseThreadDate(value, out date))
+            {
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(configuredFormat)
+                && DateTime.TryParseExact(value, configuredFormat, System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AllowWhiteSpaces, out date))
+            {
+                return true;
+            }
+
+            return DateTime.TryParse(value, out date);
         }
 
         /// <summary>
@@ -697,7 +719,7 @@ namespace SlingMD.Outlook.Services
                     if (inFrontMatter && line.Trim().StartsWith("date:", StringComparison.OrdinalIgnoreCase))
                     {
                         var value = line.Trim().Substring("date:".Length).Trim().Trim('"');
-                        if (TryParseNoteDate(value, out DateTime parsed))
+                        if (TryParseNoteDate(value, _settings?.EmailDateFormat, out DateTime parsed))
                             date = parsed;
                         break;
                     }
