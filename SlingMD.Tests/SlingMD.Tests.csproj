@@ -111,6 +111,8 @@
     <Compile Include="Services\ThreadServiceEmailDataTests.cs" />
     <Compile Include="Services\EmailNoteEngineFilenameAndPropertiesTests.cs" />
     <Compile Include="Services\FileServiceLaunchTests.cs" />
+    <Compile Include="Services\ContactServiceCoreTests.cs" />
+    <Compile Include="Services\ContactServiceOutlookExtensionsTests.cs" />
     <Compile Include="Services\CultureInvariantDatesTests.cs" />
     <Compile Include="Services\Formatting\SurrogatePairTruncationTests.cs" />
     <Compile Include="Services\BatchSlingReportTests.cs" />

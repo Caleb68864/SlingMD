@@ -298,7 +298,8 @@
     <Compile Include="Services\CalendarFolderService.cs" />
     <Compile Include="Services\ContactProcessor.cs" />
     <Compile Include="Services\AttachmentService.cs" />
-    <Compile Include="Services\ContactService.cs" />
+    <Compile Include="Services\ContactServiceOutlookExtensions.cs" />
+    <Compile Include="Services\DialogContactMatchPrompt.cs" />
     <Compile Include="Services\EmailProcessor.cs" />
     <Compile Include="Services\SmtpAddressResolver.cs" />
     <Compile Include="Ribbon\SlingRibbon.cs" />

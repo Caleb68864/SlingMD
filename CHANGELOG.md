@@ -58,6 +58,11 @@ All notable changes to SlingMD are documented in this file.
   was written in.
 
 ### Internal
+- **Contact notes are handled in `SlingMD.Core`.** `ContactService` (contact notes, links, the
+  contact index and fuzzy matching) moved there; reading senders, recipients and Outlook contacts
+  stays in the add-in (`ContactServiceOutlookExtensions`), and the "is this an existing contact?"
+  prompt goes through `IContactMatchPrompt`. Same notes, links and dialogs; its tests run on Linux
+  (783 tests).
 - **The "could not launch Obsidian" warning has tests** (`FileServiceLaunchTests`): `FileService`
   opens the `obsidian://` URI through a replaceable opener, by default the shell as before.
 - **The appointment note is built in `SlingMD.Core`.** `AppointmentNoteEngine` takes an

@@ -97,7 +97,8 @@ SlingMD.Core/
 │                     RuleEngine, SlingDecisionEngine, ReminderDueDateCalculator, BatchSlingReport,
 │                     EmailNoteEngine (title, file name, front matter and note text from EmailData),
 │                     ProcessedEmailCache (duplicate check), FileAvailabilityWaiter (backoff wait),
-│                     StatusService (progress, over IProgressView),
+│                     StatusService (progress, over IProgressView), AppointmentNoteEngine,
+│                     ThreadService (thread folders on disk), ContactService (contact notes, links, matching),
 │                     NotificationService (auto-sling toasts/log, over IToastNotifier),
 │                     IUserNotifier, IToastNotifier, IProgressView, IEmailPrompts (what the engine asks the front end to show)
 └── Services/Formatting/ - Pure helpers (sanitisers, parsers, cleaners, path budget, thread ids, ...)
@@ -107,7 +108,8 @@ SlingMD.Outlook/
 ├── Helpers/        - Utility classes (deprecated - use Services instead)
 ├── Properties/     - Assembly info, resources
 ├── Ribbon/         - Outlook ribbon UI (SlingRibbon.cs/xml)
-├── Services/       - COM readers, processors not yet split (EmailProcessor, ThreadService, ...),
+├── Services/       - COM readers (OutlookEmailReader, OutlookAppointmentReader, ConversationIdReader,
+│                     ContactServiceOutlookExtensions), processors not yet split (EmailProcessor, ...),
 │                     monitors, OutlookEmailReader (MailItem -> EmailData), MessageBoxUserNotifier,
 │                     ToastFormNotifier, ProgressFormView, DialogEmailPrompts (Core interfaces over the forms)
 ├── Templates/      - Default markdown templates

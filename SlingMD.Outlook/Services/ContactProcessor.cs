@@ -40,7 +40,7 @@ namespace SlingMD.Outlook.Services
             _settings = settings;
             _fileService = new FileService(settings, new MessageBoxUserNotifier());
             _templateService = new TemplateService(_fileService);
-            _contactService = new ContactService(_fileService, _templateService);
+            _contactService = new ContactService(_fileService, _templateService, null, new DialogContactMatchPrompt());
         }
 
         /// <summary>

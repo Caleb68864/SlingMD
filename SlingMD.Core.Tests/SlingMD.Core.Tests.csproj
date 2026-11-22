@@ -73,6 +73,10 @@
     <Compile Include="..\SlingMD.Tests\Services\ThreadServiceEmailDataTests.cs" Link="Linked\Services\ThreadServiceEmailDataTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\EmailNoteEngineFilenameAndPropertiesTests.cs" Link="Linked\Services\EmailNoteEngineFilenameAndPropertiesTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\FileServiceLaunchTests.cs" Link="Linked\Services\FileServiceLaunchTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\ContactServiceTests.cs" Link="Linked\Services\ContactServiceTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\ContactServiceMeetingTests.cs" Link="Linked\Services\ContactServiceMeetingTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\ContactMatcherToggleOffRegressionTests.cs" Link="Linked\Services\ContactMatcherToggleOffRegressionTests.cs" />
+    <Compile Include="..\SlingMD.Tests\Services\ContactServiceCoreTests.cs" Link="Linked\Services\ContactServiceCoreTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\CultureInvariantDatesTests.cs" Link="Linked\Services\CultureInvariantDatesTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\Formatting\SurrogatePairTruncationTests.cs" Link="Linked\SurrogatePairTruncationTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\ProcessedEmailCacheTests.cs" Link="Linked\Services\ProcessedEmailCacheTests.cs" />
@@ -80,5 +84,9 @@
     <Compile Include="..\SlingMD.Tests\Services\StatusServiceTests.cs" Link="Linked\Services\StatusServiceTests.cs" />
     <Compile Include="..\SlingMD.Tests\Services\NotificationServiceTests.cs" Link="Linked\Services\NotificationServiceTests.cs" />
     <Compile Include="..\SlingMD.Tests\Helpers\BoundedHashSetTests.cs" Link="Linked\Helpers\BoundedHashSetTests.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- ContactMatcherToggleOffRegressionTests reads its baseline from Fixtures/ next to the test dll. -->
+    <Content Include="..\SlingMD.Tests\Fixtures\ToggleOffBaseline\*.json" Link="Fixtures\ToggleOffBaseline\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

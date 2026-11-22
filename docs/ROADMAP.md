@@ -40,7 +40,7 @@ Core, COM/UI part stays; stays = front end):
 | `Services/EmailProcessor.cs` | split (first of the big four, see below) |
 | `Services/AppointmentProcessor.cs` | split (second) |
 | `Services/ThreadService.cs` | done: moved to Core on `EmailData`; `GetConversationId` stays in Outlook as `ConversationIdReader` |
-| `Services/ContactService.cs` | split (fourth): contact notes, links and the contact index are file work; `GetSenderEmail`/`BuildEmailList` (COM recipients) stay as a reader |
+| `Services/ContactService.cs` | done: moved to Core; the COM reads are `ContactServiceOutlookExtensions` (Outlook), the match prompt is `IContactMatchPrompt` |
 | `Services/ContactProcessor.cs` | split: `ContactItem` reader stays, note writing moves |
 | `Services/TaskService.cs` | split: Obsidian task text moves; Outlook `TaskItem` creation stays |
 | `Services/AttachmentService.cs` | split: naming, folders, inline/real decision (`ShouldSave` on `AttachmentSignals`) move; `Attachment.SaveAsFile` and the MAPI reads stay behind an attachment-saver interface |
@@ -200,8 +200,25 @@ Outlook class is cut down:
    CRLF front matter (`AppendLine`) with an LF body (the HTML converter emits `\n`).
    Needs Windows: the VS build (`ThreadService.cs` removed from and `ConversationIdReader.cs`
    added to `SlingMD.Outlook.csproj`), and a sling into an existing thread.
-4. **ContactService**: last, because both processors call it; the COM recipient reads move into the
-   readers and the rest goes to Core.
+4. ~~**ContactService**: last, because both processors call it; the COM recipient reads move into the
+   readers and the rest goes to Core.~~ Done on `refactor/contacts-core-and-escaping`:
+   `ContactService` is in SlingMD.Core (same name and namespace, `git mv`). Its COM members
+   (`GetSenderEmail`, both `BuildLinkedNames`/`BuildEmailList` overloads, `GetSMTPEmailAddress`,
+   `GetMeetingResourceData`, `ExtractContactData(ContactItem)`) moved unchanged to
+   `ContactServiceOutlookExtensions` (Outlook) as extension methods, so no call site changed.
+   `ExtractContactData` keeps the COM reads and hands the values to the new Core
+   `BuildContactTemplateContext` (the context-building half, unchanged). The ambiguous-match
+   `ContactMatchPromptForm` is behind the internal `IContactMatchPrompt`, implemented by
+   `DialogContactMatchPrompt`; the three add-in constructions pass it (new internal constructor
+   overload). With no prompt, an interactive ambiguous match is logged and skipped, the path the
+   form's automated-mode guard already took.
+   Tests: `ContactServiceTests`, `ContactServiceMeetingTests` and
+   `ContactMatcherToggleOffRegressionTests` (with its JSON fixtures) are linked into
+   SlingMD.Core.Tests; new `ContactServiceCoreTests` (7, Linux: prompt answers, refusal, no prompt,
+   automated never prompts, the context fields) and `ContactServiceOutlookExtensionsTests` (3, Mono:
+   Moq `ContactItem`, every member read set up), which passed on the old single-class code too.
+   Needs Windows: the VS build (`ContactService.cs` out of, two files into `SlingMD.Outlook.csproj`),
+   an ambiguous contact while slinging one email (the prompt should still appear), and Save Contact.
 
 ## Fork features
 
