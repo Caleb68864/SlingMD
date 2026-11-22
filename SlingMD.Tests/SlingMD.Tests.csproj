@@ -110,6 +110,7 @@
     <Compile Include="Services\ThreadServiceConversationIdTests.cs" />
     <Compile Include="Services\ThreadServiceEmailDataTests.cs" />
     <Compile Include="Services\EmailNoteEngineFilenameAndPropertiesTests.cs" />
+    <Compile Include="Services\FileServiceLaunchTests.cs" />
     <Compile Include="Services\BatchSlingReportTests.cs" />
     <Compile Include="Services\DottedFolderLinkRepairServiceTests.cs" />
     <Compile Include="Services\FolderMonitorServiceTests.cs" />

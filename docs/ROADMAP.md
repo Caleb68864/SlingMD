@@ -55,8 +55,12 @@ split (done since, see below).
 Needs Windows: `TemplateService` looks for templates beside `Assembly.GetExecutingAssembly()`,
 which is now `SlingMD.Core.dll` instead of `SlingMD.Outlook.dll`; both are built into the same
 folder, and `AppDomain.BaseDirectory` is tried first anyway, but check a published install still
-finds the `Templates/` copies. The `IUserNotifier` warning when Obsidian cannot be launched is not
-covered by a test.
+finds the `Templates/` copies. ~~The `IUserNotifier` warning when Obsidian cannot be
+launched is not covered by a test.~~ Done on `refactor/thread-core-and-fixes`: `FileService` takes an
+internal URI-opener seam (default: `Process.Start` with `UseShellExecute = true`, which is what .NET
+Framework's `Process.Start(string)` did; on .NET Core it would have tried to run the URI as a file),
+and `FileServiceLaunchTests` (7, Linux) pin the URI, the exact warning for each absorbed failure
+type, and that other exceptions propagate.
 
 **EmailProcessor, first cut** (same branch). `EmailData` (Core, `Models/`) holds what the note is
 built from: subject, sender name and SMTP address, received time, HTML and plain bodies, EntryID,

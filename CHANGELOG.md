@@ -20,6 +20,8 @@ All notable changes to SlingMD are documented in this file.
   handling than the fork's converter), so they were not brought again.
 
 ### Internal
+- **The "could not launch Obsidian" warning has tests** (`FileServiceLaunchTests`): `FileService`
+  opens the `obsidian://` URI through a replaceable opener, by default the shell as before.
 - **The appointment note is built in `SlingMD.Core`.** `AppointmentNoteEngine` takes an
   `AppointmentData` (plain values read from the `AppointmentItem` by the add-in's new
   `OutlookAppointmentReader`) and produces the title, front matter and note text; the code moved
