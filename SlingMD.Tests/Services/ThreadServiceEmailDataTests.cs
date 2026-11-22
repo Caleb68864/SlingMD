@@ -110,7 +110,9 @@ namespace SlingMD.Tests.Services
 
             NewService().UpdateThreadNote(folder, summary, "ID1", "T1", Email(null, "RE: Budget")).Wait();
 
-            string content = File.ReadAllText(summary);
+            // The built-in thread template is a verbatim string, so its line endings are whatever the
+            // source file was checked out with (CRLF on Windows with text=auto); compare with \n only.
+            string content = File.ReadAllText(summary).Replace("\r\n", "\n");
             Assert.StartsWith("---\ntitle: \"Budget\"\ntype: email-thread\nthreadId: \"ID1\"\ntags: [email-thread]\n---\n\n# Budget\n\n", content);
             Assert.Contains("dv.pages('\"Inbox/T1\"')", content);
         }

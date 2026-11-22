@@ -188,6 +188,13 @@ Outlook class is cut down:
    Found while doing it (fixed in a later commit): an email whose conversation topic is empty
    (not null) gets an empty summary title, because `UpdateThreadNote` uses `??` while the folder
    name uses `IsNullOrEmpty`.
+   Windows CI (run 44972012621) failed
+   `UpdateThreadNote_NoTopic_TitleFromSubjectAndVaultRelativeFolder`: the built-in thread template
+   is a C# verbatim string, so the summary note's line endings are those of the checked-out source
+   (CRLF on Windows under `* text=auto`). The test now compares with `\n` only, as the other
+   note-text tests do. Left as is in the product: Obsidian reads either, but the line endings of
+   SlingMD's notes depend on how the build machine checked out the source, and email notes mix
+   CRLF front matter (`AppendLine`) with an LF body (the HTML converter emits `\n`).
    Needs Windows: the VS build (`ThreadService.cs` removed from and `ConversationIdReader.cs`
    added to `SlingMD.Outlook.csproj`), and a sling into an existing thread.
 4. **ContactService**: last, because both processors call it; the COM recipient reads move into the
