@@ -122,6 +122,35 @@ Left for EmailProcessor:
     harness compiles the same sources minus `ThisAddIn` and the ribbon), and a real sling should be
     checked in Outlook, since `ProcessEmailWithResult` itself has no automated test.
 
+**AppointmentProcessor, first cut** (`refactor/appointment-note-engine`, done). `AppointmentData`
+(Core, `Models/`) holds what the note is built from: subject, body, location, start/end, organizer
+name and address, GlobalAppointmentID, recurrence (new Core enum `AppointmentRecurrence`, mapped
+from `OlRecurrenceState`), calendar name, and required/optional/resource attendee names.
+`OutlookAppointmentReader` (Outlook) fills it, with the COM reads and releases moved there unchanged
+(the per-property reads, `GetCalendarName`, the organizer `AddressEntry` and the recipient loop).
+`AppointmentNoteEngine` (Core) holds the note-building code moved out of `AppointmentProcessor`
+unchanged: person links, title, `ShouldGroupAsRecurring`, `DescribeRecurrence`, front matter
+(the meeting-URL property folded in, still the last key), custom-template check and note rendering.
+`AppointmentProcessor` reads once and calls the engine; its `internal DescribeRecurrence` delegates,
+so `AppointmentProcessorTests` are unchanged. Pinned by `AppointmentNoteEngineTests` (19, Linux):
+title, recurrence mapping and grouping, front-matter keys and order, contact link formats, the exact
+built-in note text, and every custom-template token. `AppointmentProcessorExportTests` (3, Mono;
+VSTest) drive `ProcessAppointment` end to end in bulk mode with a Moq `AppointmentItem` and pin the
+exact note and meeting-note files; they passed on the old code and pass on the new. The double has
+no organizer or recipients, because the reader releases those with `Marshal.ReleaseComObject`,
+which throws on a non-COM object.
+Left for AppointmentProcessor:
+  - The companion meeting note and recurring-folder summary are still built in the processor
+    (`CreateCompanionMeetingNote`, `WriteRecurringThreadSummary`), as are the contact list and the
+    Outlook task.
+  - `GetRecurringThreadFolderName` still calls `GetRecurrencePattern()` and ignores the result.
+  - The master-note Yes/No and warning `MessageBox`es, the contacts error box and `CountdownForm`
+    (see the prompts item above), and the early `MeetingStatus`/`RecurrenceState` reads before the
+    series-master guard.
+  - Needs Windows: the VS build (`OutlookAppointmentReader.cs` added to `SlingMD.Outlook.csproj`,
+    two new test files in `SlingMD.Tests.csproj`) and saving a real appointment, a recurring
+    occurrence and one with attendees in Outlook.
+
 **Order for the big four**, each pinned by Linux characterization tests of the engine before the
 Outlook class is cut down:
 
@@ -129,8 +158,9 @@ Outlook class is cut down:
    `OutlookEmailReader` in Outlook, and the note-building pipeline as a Core engine. This is the
    pattern for the others. Its ThreadService/ContactService/TaskService calls are passed in as
    interfaces until those are split.
-2. **AppointmentProcessor**: same shape with `AppointmentData`; it shares the template, file and
-   contact pieces, so it goes once EmailProcessor shows the pattern works.
+2. ~~**AppointmentProcessor**: same shape with `AppointmentData`; it shares the template, file and
+   contact pieces, so it goes once EmailProcessor shows the pattern works.~~ First cut done (see
+   above); the leftovers listed there remain.
 3. **ThreadService**: its file-system half (folders, summary note, resuffixing, `FindExistingThread`)
    is already COM-free apart from the `MailItem` parameters; switch those to `EmailData`.
 4. **ContactService**: last, because both processors call it; the COM recipient reads move into the

@@ -351,6 +351,7 @@
     <Compile Include="Services\FolderMonitorService.cs" />
     <Compile Include="Services\MessageBoxUserNotifier.cs" />
     <Compile Include="Services\OutlookEmailReader.cs" />
+    <Compile Include="Services\OutlookAppointmentReader.cs" />
     <Compile Include="Services\ProgressFormView.cs" />
     <Compile Include="Services\ToastFormNotifier.cs" />
     <Compile Include="Services\DialogEmailPrompts.cs" />

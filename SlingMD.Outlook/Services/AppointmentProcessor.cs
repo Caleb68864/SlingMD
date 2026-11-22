@@ -47,11 +47,8 @@ namespace SlingMD.Outlook.Services
         private readonly TaskService _taskService;
         private readonly ContactService _contactService;
         private readonly AttachmentService _attachmentService;
-        private readonly DateFormatter _dateFormatter;
-        private readonly ContactNameParser _contactNameParser;
-        private readonly ContactLinkFormatter _contactLinkFormatter;
+        private readonly AppointmentNoteEngine _noteEngine;
         private readonly SubjectFilenameCleaner _subjectFilenameCleaner;
-        private readonly NoteTitleBuilder _noteTitleBuilder;
         private readonly UniqueFilenameResolver _uniqueFilenameResolver = new UniqueFilenameResolver();
         private readonly IClock _clock;
         private readonly ReminderDueDateCalculator _reminderCalculator;
@@ -88,23 +85,9 @@ namespace SlingMD.Outlook.Services
             _taskService = new TaskService(settings, _templateService, _clock);
             _contactService = new ContactService(_fileService, _templateService);
             _attachmentService = new AttachmentService(settings, _fileService);
-            _dateFormatter = new DateFormatter();
-            _contactNameParser = new ContactNameParser();
-            _contactLinkFormatter = new ContactLinkFormatter();
+            _noteEngine = new AppointmentNoteEngine(settings, _templateService, _contactService.NoteFileExists);
             _subjectFilenameCleaner = new SubjectFilenameCleaner(settings, _fileService);
-            _noteTitleBuilder = new NoteTitleBuilder();
             _reminderCalculator = new ReminderDueDateCalculator();
-        }
-
-        private string FormatPersonLink(string name)
-        {
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                return string.Empty;
-            }
-            ContactName parsed = _contactNameParser.Parse(name, null);
-            string formatted = _contactLinkFormatter.Resolve(parsed, _settings.ContactLinkFormats, _contactService.NoteFileExists);
-            return string.IsNullOrEmpty(formatted) ? $"[[{name}]]" : formatted;
         }
 
         /// <summary>
@@ -194,126 +177,14 @@ namespace SlingMD.Outlook.Services
             }
 
             // --- Extract all metadata from the COM object up-front ---
-            string subject = string.Empty;
-            string body = string.Empty;
-            string location = string.Empty;
-            DateTime startTime = _clock.Now;
-            DateTime endTime = _clock.Now;
-            string organizerName = string.Empty;
-            string organizerEmail = string.Empty;
-            string globalAppointmentId = string.Empty;
-            OlRecurrenceState recurrenceState = OlRecurrenceState.olApptNotRecurring;
-            List<string> requiredAttendees = new List<string>();
-            List<string> optionalAttendees = new List<string>();
-            List<string> resourceAttendees = new List<string>();
-
-            try { subject = appointment.Subject ?? string.Empty; }
-            catch (System.Exception ex) { Logger.Instance.Debug($"Could not read Subject: {ex.Message}"); }
-
-            try { body = appointment.Body ?? string.Empty; }
-            catch (System.Exception ex) { Logger.Instance.Debug($"Could not read Body: {ex.Message}"); }
-
-            try { location = appointment.Location ?? string.Empty; }
-            catch (System.Exception ex) { Logger.Instance.Debug($"Could not read Location: {ex.Message}"); }
-
-            try { startTime = appointment.Start; }
-            catch (System.Exception ex) { Logger.Instance.Debug($"Could not read Start: {ex.Message}"); }
-
-            try { endTime = appointment.End; }
-            catch (System.Exception ex) { Logger.Instance.Debug($"Could not read End: {ex.Message}"); }
-
-            try { recurrenceState = appointment.RecurrenceState; }
-            catch (System.Exception ex) { Logger.Instance.Debug($"Could not read RecurrenceState: {ex.Message}"); }
-
-            try { globalAppointmentId = appointment.GlobalAppointmentID ?? string.Empty; }
-            catch (System.Exception ex) { Logger.Instance.Debug($"Could not read GlobalAppointmentID: {ex.Message}"); }
-
-            string calendarName = GetCalendarName(appointment);
-
-            // Extract organizer via AddressEntry COM object
-            AddressEntry organizerEntry = null;
-            try
-            {
-                organizerEntry = appointment.GetOrganizer();
-                if (organizerEntry != null)
-                {
-                    try { organizerName = organizerEntry.Name ?? string.Empty; }
-                    catch (System.Exception ex) { Logger.Instance.Debug($"Could not read organizer Name: {ex.Message}"); }
-
-                    try { organizerEmail = organizerEntry.Address ?? string.Empty; }
-                    catch (System.Exception ex) { Logger.Instance.Debug($"Could not read organizer Address: {ex.Message}"); }
-                }
-            }
-            catch (System.Exception ex)
-            {
-                Logger.Instance.Debug($"Could not get organizer: {ex.Message}");
-            }
-            finally
-            {
-                if (organizerEntry != null)
-                {
-                    Marshal.ReleaseComObject(organizerEntry);
-                }
-            }
-
-            // Extract recipients by type
-            Recipients recipients = null;
-            try
-            {
-                recipients = appointment.Recipients;
-                foreach (Recipient recipient in recipients)
-                {
-                    try
-                    {
-                        string recipientName = string.Empty;
-                        OlMeetingRecipientType recipientType = OlMeetingRecipientType.olRequired;
-
-                        try { recipientName = recipient.Name ?? string.Empty; }
-                        catch (System.Exception ex) { Logger.Instance.Debug($"Could not read recipient Name: {ex.Message}"); }
-
-                        try { recipientType = (OlMeetingRecipientType)recipient.Type; }
-                        catch (System.Exception ex) { Logger.Instance.Debug($"Could not read recipient Type: {ex.Message}"); }
-
-                        if (!string.IsNullOrWhiteSpace(recipientName))
-                        {
-                            if (recipientType == OlMeetingRecipientType.olOptional)
-                            {
-                                optionalAttendees.Add(recipientName);
-                            }
-                            else if (recipientType == OlMeetingRecipientType.olResource)
-                            {
-                                resourceAttendees.Add(recipientName);
-                            }
-                            else
-                            {
-                                requiredAttendees.Add(recipientName);
-                            }
-                        }
-                    }
-                    catch (System.Exception ex)
-                    {
-                        Logger.Instance.Debug($"Could not process recipient: {ex.Message}");
-                    }
-                    finally
-                    {
-                        if (recipient != null)
-                        {
-                            Marshal.ReleaseComObject(recipient);
-                        }
-                    }
-                }
-            }
-            catch (System.Exception ex)
-            {
-                Logger.Instance.Debug($"Could not read Recipients: {ex.Message}");
-            }
-            finally
-            {
-                if (recipients != null)
-                {
-                    Marshal.ReleaseComObject(recipients);
-                }
-            }
+            AppointmentData data = OutlookAppointmentReader.Read(appointment, _clock.Now);
+            string subject = data.Subject;
+            string location = data.Location;
+            DateTime startTime = data.Start;
+            string organizerName = data.OrganizerName;
+            string globalAppointmentId = data.GlobalAppointmentId;
+            List<string> requiredAttendees = data.RequiredAttendees;
+            List<string> optionalAttendees = data.OptionalAttendees;
 
             // --- Duplicate detection ---
             if (!string.IsNullOrWhiteSpace(globalAppointmentId))
@@ -372,16 +243,7 @@ namespace SlingMD.Outlook.Services
             string organizerShortName = _contactService.GetFilenameSafeShortName(
                 string.IsNullOrWhiteSpace(organizerName) ? "Unknown Organizer" : organizerName);
 
-            string titleFormat = _settings.AppointmentNoteTitleFormat ?? "{Date} - {Subject}";
-            int maxLength = _settings.AppointmentNoteTitleMaxLength > 0 ? _settings.AppointmentNoteTitleMaxLength : 50;
-
-            Dictionary<string, string> titleTokens = new Dictionary<string, string>
-            {
-                { "Date", dateStr },
-                { "Subject", subjectClean },
-                { "Sender", organizerShortName }
-            };
-            string noteTitle = _noteTitleBuilder.BuildTrimmed(titleFormat, titleTokens, maxLength);
+            string noteTitle = _noteEngine.BuildNoteTitle(subjectClean, organizerShortName, startTime);
 
             string fileNameNoExt = _fileService.CleanFileName(noteTitle);
             if (string.IsNullOrWhiteSpace(fileNameNoExt))
@@ -394,7 +256,7 @@ namespace SlingMD.Outlook.Services
             string filePath = Path.Combine(appointmentsPath, fileName);
 
             // --- Determine whether this instance goes into a recurring-series thread folder ---
-            bool isRecurring = ShouldGroupAsRecurring(recurrenceState);
+            bool isRecurring = _noteEngine.ShouldGroupAsRecurring(data.Recurrence);
             string recurringThreadFolderPath = null;
             string recurringThreadFolderName = null;
             string recurringInstanceFilePath = null;
@@ -425,28 +287,7 @@ namespace SlingMD.Outlook.Services
             }
 
             // --- Build frontmatter ---
-            Dictionary<string, object> metadata = BuildAppointmentMetadata(
-                noteTitle,
-                calendarName,
-                organizerName,
-                organizerEmail,
-                requiredAttendees,
-                optionalAttendees,
-                resourceAttendees,
-                location,
-                startTime,
-                endTime,
-                recurrenceState,
-                globalAppointmentId,
-                fileNameNoExt);
-
-            // A Teams/Zoom/Meet/Webex join link becomes a property, so it can be clicked from the note
-            // or queried, instead of staying buried in the invitation text.
-            string meetingUrl = MeetingLinkFinder.Find(body);
-            if (meetingUrl != null)
-            {
-                metadata["meetingUrl"] = meetingUrl;
-            }
+            Dictionary<string, object> metadata = _noteEngine.BuildMetadata(noteTitle, data, fileNameNoExt);
 
             // --- Generate Obsidian task block ---
             string taskBlock = string.Empty;
@@ -457,18 +298,12 @@ namespace SlingMD.Outlook.Services
             }
 
             // --- Render note content ---
-            string renderedContent = BuildAppointmentNoteContent(
+            string renderedContent = _noteEngine.BuildNoteContent(
                 metadata,
                 noteTitle,
                 subjectClean,
-                organizerName,
-                organizerShortName,
-                organizerEmail,
+                data,
                 dateStr,
-                startTime,
-                endTime,
-                location,
-                body,
                 fileNameNoExt,
                 taskBlock);
 
@@ -814,17 +649,6 @@ namespace SlingMD.Outlook.Services
 
         // --- Recurring meeting helpers ---
 
-        private bool ShouldGroupAsRecurring(OlRecurrenceState recurrenceState)
-        {
-            if (!_settings.GroupRecurringMeetings)
-            {
-                return false;
-            }
-
-            return recurrenceState == OlRecurrenceState.olApptOccurrence
-                || recurrenceState == OlRecurrenceState.olApptException;
-        }
-
         private string GetRecurringThreadFolderName(AppointmentItem appointment, string cleanedSubject)
         {
             RecurrencePattern pattern = null;
@@ -945,288 +769,12 @@ namespace SlingMD.Outlook.Services
         private string CleanSubject(string subject) => _subjectFilenameCleaner.Clean(subject);
 
         /// <summary>
-        /// Name of the calendar holding the appointment, qualified by its store (for example
-        /// "Calendar (jane@firm.com)") so the default calendars of different accounts stay distinct.
-        /// Empty when Outlook does not expose the folder.
-        /// </summary>
-        private static string GetCalendarName(AppointmentItem appointment)
-        {
-            object parent = null;
-            object seriesParent = null;
-            Store store = null;
-            try
-            {
-                parent = appointment.Parent;
-
-                // An occurrence of a recurring series can report its series master as the parent;
-                // the calendar folder is then one level further up.
-                AppointmentItem master = parent as AppointmentItem;
-                if (master != null)
-                {
-                    seriesParent = master.Parent;
-                }
-
-                MAPIFolder folder = (seriesParent ?? parent) as MAPIFolder;
-                if (folder == null)
-                {
-                    return string.Empty;
-                }
-
-                string storeName = string.Empty;
-                try
-                {
-                    store = folder.Store;
-                    storeName = store.DisplayName ?? string.Empty;
-                }
-                catch (System.Exception ex)
-                {
-                    Logger.Instance.Debug($"Could not read calendar store name: {ex.Message}");
-                }
-
-                return CalendarFolderService.FormatCalendarLabel(folder.Name, storeName);
-            }
-            catch (System.Exception ex)
-            {
-                Logger.Instance.Debug($"Could not read calendar name: {ex.Message}");
-                return string.Empty;
-            }
-            finally
-            {
-                if (store != null && Marshal.IsComObject(store)) Marshal.ReleaseComObject(store);
-                if (seriesParent != null && Marshal.IsComObject(seriesParent)) Marshal.ReleaseComObject(seriesParent);
-                if (parent != null && Marshal.IsComObject(parent)) Marshal.ReleaseComObject(parent);
-            }
-        }
-
-        private Dictionary<string, object> BuildAppointmentMetadata(
-            string noteTitle,
-            string calendarName,
-            string organizerName,
-            string organizerEmail,
-            List<string> requiredAttendees,
-            List<string> optionalAttendees,
-            List<string> resourceAttendees,
-            string location,
-            DateTime startTime,
-            DateTime endTime,
-            OlRecurrenceState recurrenceState,
-            string globalAppointmentId,
-            string fileNameNoExt = null)
-        {
-            Dictionary<string, object> metadata = new Dictionary<string, object>
-            {
-                { "title", noteTitle },
-                { "type", "Appointment" },
-                { "calendar", calendarName ?? string.Empty },
-                { "organizer", FormatPersonLink(organizerName) },
-                { "organizerEmail", organizerEmail ?? string.Empty },
-                { "location", location ?? string.Empty },
-                { "startDateTime", _dateFormatter.FormatOrDefault(startTime, _settings.AppointmentDateFormat, _dateFormatter.Format(startTime, ObsidianSettings.DefaultAppointmentDateFormat)) },
-                { "endDateTime", _dateFormatter.FormatOrDefault(endTime, _settings.AppointmentDateFormat, _dateFormatter.Format(endTime, ObsidianSettings.DefaultAppointmentDateFormat)) },
-                { "recurrence", DescribeRecurrence(recurrenceState) },
-                { "globalAppointmentId", globalAppointmentId ?? string.Empty }
-            };
-
-            if (_settings.CreateMeetingNotes && !string.IsNullOrWhiteSpace(fileNameNoExt))
-            {
-                string meetingNotesTitle = fileNameNoExt + " - Meeting Notes";
-                metadata.Add("meetingNotes", $"[[{meetingNotesTitle}]]");
-            }
-
-            if (requiredAttendees != null && requiredAttendees.Count > 0)
-            {
-                List<string> linkedRequired = requiredAttendees
-                    .Select(name => FormatPersonLink(name))
-                    .ToList();
-                metadata.Add("attendees", linkedRequired);
-            }
-
-            if (optionalAttendees != null && optionalAttendees.Count > 0)
-            {
-                List<string> linkedOptional = optionalAttendees
-                    .Select(name => FormatPersonLink(name))
-                    .ToList();
-                metadata.Add("optionalAttendees", linkedOptional);
-            }
-
-            if (resourceAttendees != null && resourceAttendees.Count > 0)
-            {
-                List<string> linkedResources = resourceAttendees
-                    .Select(name => FormatPersonLink(name))
-                    .ToList();
-                metadata.Add("resources", linkedResources);
-            }
-
-            if (_settings.IncludeDailyNoteLink)
-            {
-                string dailyLinkFormat = _settings.DailyNoteLinkFormat ?? "[[yyyy-MM-dd]]";
-                string innerFormat = dailyLinkFormat.Replace("[[", string.Empty).Replace("]]", string.Empty);
-                // A malformed user format falls back to the default instead of aborting the export
-                // (matches the email path).
-                string dailyNoteLink = _dateFormatter.FormatOrDefault(startTime, innerFormat, _dateFormatter.Format(startTime, "yyyy-MM-dd"));
-                metadata.Add("dailyNoteLink", "[[" + dailyNoteLink + "]]");
-            }
-
-            List<string> noteTags = TagNormalizer.Normalize(_settings.AppointmentDefaultNoteTags);
-            if (noteTags.Count > 0)
-            {
-                metadata.Add("tags", noteTags);
-            }
-
-            return metadata;
-        }
-
-        /// <summary>
         /// Readable recurrence value for the note ("None", "Series", "Occurrence", "Exception") instead of
-        /// Outlook's enum name (e.g. "olApptNotRecurring").
+        /// Outlook's enum name (e.g. "olApptNotRecurring"). See <see cref="AppointmentNoteEngine.DescribeRecurrence"/>.
         /// </summary>
         internal static string DescribeRecurrence(OlRecurrenceState recurrenceState)
         {
-            switch (recurrenceState)
-            {
-                case OlRecurrenceState.olApptMaster:
-                    return "Series";
-                case OlRecurrenceState.olApptOccurrence:
-                    return "Occurrence";
-                case OlRecurrenceState.olApptException:
-                    return "Exception";
-                default:
-                    return "None";
-            }
-        }
-
-        /// <summary>
-        /// Whether the user has put an appointment template in the templates folder (or set an absolute
-        /// path to one). Without one, notes keep the built-in layout.
-        /// </summary>
-        private bool HasCustomAppointmentTemplate()
-        {
-            string templateFile = _settings.AppointmentTemplateFile;
-            if (string.IsNullOrWhiteSpace(templateFile))
-            {
-                return false;
-            }
-
-            try
-            {
-                string path = Path.IsPathRooted(templateFile)
-                    ? templateFile
-                    : Path.Combine(_settings.GetTemplatesPath(), templateFile);
-                return File.Exists(path);
-            }
-            catch (ArgumentException)
-            {
-                return false;
-            }
-        }
-
-        private static string JoinMetadataList(Dictionary<string, object> metadata, string key)
-        {
-            object value;
-            return metadata.TryGetValue(key, out value) && value is IEnumerable<string> list
-                ? string.Join(", ", list)
-                : string.Empty;
-        }
-
-        private string BuildAppointmentNoteContent(
-            Dictionary<string, object> metadata,
-            string noteTitle,
-            string subjectClean,
-            string organizerName,
-            string organizerShortName,
-            string organizerEmail,
-            string dateStr,
-            DateTime startTime,
-            DateTime endTime,
-            string location,
-            string body,
-            string fileNameNoExt,
-            string taskBlock = "")
-        {
-            // The Appointment Template File setting used to be ignored here. Honor it when the user has
-            // provided a template, so the built-in layout is unchanged for everyone else.
-            if (HasCustomAppointmentTemplate())
-            {
-                return _templateService.RenderAppointmentContent(new AppointmentTemplateContext
-                {
-                    Metadata = metadata,
-                    NoteTitle = noteTitle,
-                    Subject = subjectClean,
-                    Organizer = string.IsNullOrWhiteSpace(organizerName) ? string.Empty : FormatPersonLink(organizerName),
-                    OrganizerEmail = organizerEmail ?? string.Empty,
-                    Attendees = JoinMetadataList(metadata, "attendees"),
-                    OptionalAttendees = JoinMetadataList(metadata, "optionalAttendees"),
-                    Resources = JoinMetadataList(metadata, "resources"),
-                    Location = location ?? string.Empty,
-                    StartDateTime = metadata["startDateTime"] as string,
-                    EndDateTime = metadata["endDateTime"] as string,
-                    Recurrence = metadata["recurrence"] as string,
-                    Date = dateStr,
-                    Body = (body ?? string.Empty).Trim(),
-                    TaskBlock = taskBlock ?? string.Empty,
-                    FileName = fileNameNoExt + ".md",
-                    FileNameWithoutExtension = fileNameNoExt
-                });
-            }
-
-            string frontMatter = _templateService.BuildFrontMatter(metadata);
-
-            StringBuilder content = new StringBuilder();
-            content.Append(frontMatter);
-            content.AppendLine($"# {noteTitle}");
-            content.AppendLine();
-
-            if (!string.IsNullOrWhiteSpace(taskBlock))
-            {
-                content.AppendLine(taskBlock);
-                content.AppendLine();
-            }
-
-            if (!string.IsNullOrWhiteSpace(location))
-            {
-                content.AppendLine($"**Location:** {location}");
-                content.AppendLine();
-            }
-
-            object meetingUrl;
-            if (metadata.TryGetValue("meetingUrl", out meetingUrl) && meetingUrl is string joinUrl)
-            {
-                content.AppendLine($"**Join:** [Join the meeting]({joinUrl})");
-                content.AppendLine();
-            }
-
-            content.AppendLine($"**Start:** {_dateFormatter.FormatOrDefault(startTime, _settings.AppointmentDateFormat, _dateFormatter.Format(startTime, ObsidianSettings.DefaultAppointmentDateFormat))}");
-            content.AppendLine($"**End:** {_dateFormatter.FormatOrDefault(endTime, _settings.AppointmentDateFormat, _dateFormatter.Format(endTime, ObsidianSettings.DefaultAppointmentDateFormat))}");
-            content.AppendLine();
-
-            if (!string.IsNullOrWhiteSpace(organizerName))
-            {
-                content.AppendLine($"**Organizer:** {FormatPersonLink(organizerName)}");
-                content.AppendLine();
-            }
-
-            object calendar;
-            if (metadata.TryGetValue("calendar", out calendar) && calendar is string calendarName && !string.IsNullOrWhiteSpace(calendarName))
-            {
-                content.AppendLine($"**Calendar:** {calendarName}");
-                content.AppendLine();
-            }
-
-            if (!string.IsNullOrWhiteSpace(body))
-            {
-                content.AppendLine("## Description");
-                content.AppendLine();
-                content.AppendLine(body.Trim());
-                content.AppendLine();
-            }
-
-            if (_settings.CreateMeetingNotes)
-            {
-                content.AppendLine("## Meeting Notes");
-                content.AppendLine();
-            }
-
-            return content.ToString();
+            return AppointmentNoteEngine.DescribeRecurrence(OutlookAppointmentReader.ToRecurrence(recurrenceState));
         }
 
         private void ProcessAppointmentAttachments(AppointmentItem appointment, string noteFilePath)

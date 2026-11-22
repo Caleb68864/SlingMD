@@ -99,6 +99,8 @@
     <Compile Include="Services\StatusServiceTests.cs" />
     <Compile Include="Services\NotificationServiceTests.cs" />
     <Compile Include="Services\AppointmentProcessorTests.cs" />
+    <Compile Include="Services\AppointmentProcessorExportTests.cs" />
+    <Compile Include="Services\AppointmentNoteEngineTests.cs" />
     <Compile Include="Services\CalendarFolderServiceTests.cs" />
     <Compile Include="Services\ContactProcessorTests.cs" />
     <Compile Include="Services\TaskServiceTests.cs" />

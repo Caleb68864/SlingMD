@@ -2,6 +2,17 @@
 
 All notable changes to SlingMD are documented in this file.
 
+## [Unreleased]
+
+### Internal
+- **The appointment note is built in `SlingMD.Core`.** `AppointmentNoteEngine` takes an
+  `AppointmentData` (plain values read from the `AppointmentItem` by the add-in's new
+  `OutlookAppointmentReader`) and produces the title, front matter and note text; the code moved
+  from `AppointmentProcessor` unchanged, and `AppointmentProcessor` now reads the appointment once
+  and calls it. `AppointmentNoteEngineTests` pin the exact output on Linux (625 tests, up from 606);
+  `AppointmentProcessorExportTests` pin the files `ProcessAppointment` writes, with a Moq
+  `AppointmentItem`.
+
 ## [1.2.5.1] - 2026-11-17
 
 ### Added
