@@ -281,8 +281,10 @@ date and time-zone handling. Each fix has a test that fails on the old code.
   `FolderNameSanitizer` caught only exact names ("CON"), but Windows also reserves them before an
   extension ("NUL.txt", "Con.Ed bill.md": the part before the first dot, trailing spaces dropped).
   Shared `FileNameSanitizer.IsReservedDeviceName`; six new sanitizer test cases fail on the old
-  code. Windows 11 relaxed some of these rules; the `_` prefix is harmless there. Not covered:
-  `COM0`/`LPT0` and the superscript-digit forms (`COM¹`), which Windows also reserves.
+  code. Windows 11 relaxed some of these rules; the `_` prefix is harmless there. ~~Not covered:
+  `COM0`/`LPT0` and the superscript-digit forms (`COM¹`), which Windows also reserves.~~ Covered on
+  `refactor/contacts-core-and-escaping`: `COM0`-`COM9`, `LPT0`-`LPT9` and `COM¹²³`/`LPT¹²³`;
+  `COM10` and `COM⁴` stay ordinary names. Eight new sanitizer cases fail on the old code.
 - ~~**Custom `EmailDateFormat` read back with the PC's culture.**~~ Fixed: notes are written with
   the invariant culture, but `ThreadService.TryParseNoteDate` fell back to `DateTime.TryParse` with
   the current culture (en-GB read `04/09/2026` as 4 September), and `FindExistingThread` only

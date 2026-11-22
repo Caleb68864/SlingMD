@@ -46,7 +46,8 @@ All notable changes to SlingMD are documented in this file.
   (it fell back to the subject only when the topic was missing, so the title was blank).
 - **Subjects such as "Con.Ed bill" or "NUL.txt" no longer produce a file Windows can't create.**
   Windows reserves device names (CON, NUL, AUX, COM1...) followed by an extension as well, so such
-  a note or folder name is now prefixed with `_` like the bare names already were.
+  a note or folder name is now prefixed with `_` like the bare names already were. The rarer
+  reserved names `COM0`, `LPT0` and `COM¹`-`COM³`/`LPT¹`-`LPT³` are handled too.
 - **Threads keep the right order with a custom Email Date Format.** With a format such as
   `MM/dd/yyyy h:mm tt`, notes in a thread folder were dated by reading the date back with the PC's
   regional settings (under UK settings 04/09 became 4 September), so they were renamed out of order,

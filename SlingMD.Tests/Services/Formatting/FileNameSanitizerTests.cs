@@ -129,6 +129,29 @@ namespace SlingMD.Tests.Services.Formatting
             Assert.Equal("_" + name, _sanitizer.Sanitize(name));
         }
 
+        [Theory]
+        [InlineData("COM0")]
+        [InlineData("lpt0")]
+        [InlineData("COM\u00B9")]
+        [InlineData("COM\u00B2")]
+        [InlineData("LPT\u00B3")]
+        [InlineData("com\u00B9.txt")]
+        public void Sanitize_RarerReservedDeviceNames_ArePrefixed(string reserved)
+        {
+            // Windows also reserves COM0/LPT0 and the superscript-digit forms (COM¹, COM², COM³).
+            Assert.Equal("_" + reserved, _sanitizer.Sanitize(reserved));
+        }
+
+        [Theory]
+        [InlineData("COM10")]
+        [InlineData("COM\u2074")]
+        [InlineData("LPT")]
+        public void Sanitize_DeviceNameLookalikes_AreUnchanged(string name)
+        {
+            // Only digits 0-9 and superscripts 1-3 make a device name; COM10 and COM⁴ are ordinary.
+            Assert.Equal(name, _sanitizer.Sanitize(name));
+        }
+
         [Fact]
         public void Sanitize_NonReservedLookalike_IsUnchanged()
         {
