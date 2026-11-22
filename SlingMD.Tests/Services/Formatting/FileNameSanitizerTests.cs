@@ -117,12 +117,26 @@ namespace SlingMD.Tests.Services.Formatting
             Assert.Equal("_" + reserved, _sanitizer.Sanitize(reserved));
         }
 
+        [Theory]
+        [InlineData("NUL.txt")]
+        [InlineData("Con.Ed bill")]
+        [InlineData("AUX. Meeting")]
+        [InlineData("com1 .notes")]
+        public void Sanitize_ReservedNameBeforeTheFirstDot_IsPrefixedWithUnderscore(string name)
+        {
+            // Windows reserves a device name followed by an extension too ("NUL.txt"): it looks at
+            // the part before the first dot, trailing spaces dropped, so "Con.Ed bill.md" opens CON.
+            Assert.Equal("_" + name, _sanitizer.Sanitize(name));
+        }
+
         [Fact]
         public void Sanitize_NonReservedLookalike_IsUnchanged()
         {
             // Only exact reserved names are escaped, not names that merely contain them.
             Assert.Equal("CONTOSO", _sanitizer.Sanitize("CONTOSO"));
             Assert.Equal("Confirmation", _sanitizer.Sanitize("Confirmation"));
+            Assert.Equal("Conference.notes", _sanitizer.Sanitize("Conference.notes"));
+            Assert.Equal("Notes.CON", _sanitizer.Sanitize("Notes.CON"));
         }
 
         [Fact]

@@ -40,6 +40,17 @@ namespace SlingMD.Tests.Services.Formatting
             Assert.Equal("2026-04-21T09:30:00", _reader.ExtractRawDate("date: \"2026-04-21T09:30:00\"\n"));
         }
 
+        [Theory]
+        [InlineData("---\ndate: \"23.09.2026 18:18\"\n---\n", "23.09.2026 18:18")]
+        [InlineData("---\r\ndate: \"04/09/2026 2:05 PM\"\r\n---\r\n", "04/09/2026 2:05 PM")]
+        [InlineData("---\ndate: 2026-09-23\n---\n", "2026-09-23")]
+        [InlineData("---\nstartDate: \"x\"\n---\n", null)]
+        [InlineData("---\ndate: \"\"\n---\n", null)]
+        public void ExtractDateLineValue_AnyFormat(string content, string expected)
+        {
+            Assert.Equal(expected, _reader.ExtractDateLineValue(content));
+        }
+
         [Fact]
         public void ExtractRawDate_AcceptsLegacyMinutePrecision()
         {

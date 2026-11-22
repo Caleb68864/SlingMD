@@ -71,9 +71,9 @@ namespace SlingMD.Outlook.Services
             }
 
             TaskDueDates dates = ComputeDueDates();
-            string currentDate = _clock.Now.ToString("yyyy-MM-dd");
-            string dueDate = dates.DueDate.ToString("yyyy-MM-dd");
-            string reminderDate = dates.ReminderDate.ToString("yyyy-MM-dd");
+            string currentDate = _clock.Now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+            string dueDate = dates.DueDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+            string reminderDate = dates.ReminderDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
             List<string> effectiveTags = TagNormalizer.Normalize(GetEffectiveTaskTags(taskTags));
             string tagsPart = string.Join(" ", effectiveTags.Select(tag => "#" + tag));
 

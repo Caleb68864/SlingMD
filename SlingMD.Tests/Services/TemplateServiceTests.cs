@@ -240,6 +240,27 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
+        public void EscapeYamlDoubleQuotedScalar_EscapesCharactersYamlCannotHold()
+        {
+            // YAML's printable set excludes the C1 controls, U+FFFE/U+FFFF and unpaired surrogates;
+            // Obsidian's parser (js-yaml) rejects the whole front matter when one appears, which a
+            // mis-decoded Windows-1252 subject ("\u0093quoted\u0094") easily produces.
+            Assert.Equal("\\x93quoted\\x94", TemplateService.EscapeYamlDoubleQuotedScalar("\u0093quoted\u0094"));
+            Assert.Equal("a\\x80b\\x85c\\x9F", TemplateService.EscapeYamlDoubleQuotedScalar("a\u0080b\u0085c\u009F"));
+            Assert.Equal("x\\uFFFEy\\uFFFF", TemplateService.EscapeYamlDoubleQuotedScalar("x\uFFFEy\uFFFF"));
+            Assert.Equal("half\\uD83D", TemplateService.EscapeYamlDoubleQuotedScalar("half\uD83D"));
+            Assert.Equal("\\uDE80half", TemplateService.EscapeYamlDoubleQuotedScalar("\uDE80half"));
+        }
+
+        [Fact]
+        public void EscapeYamlDoubleQuotedScalar_KeepsPrintableUnicode()
+        {
+            // Accents, CJK, an emoji (a valid surrogate pair), NBSP and the BOM character are printable.
+            string value = "Caf\u00E9 \u65E5\u672C \uD83D\uDE80 \u00A0\uFEFF";
+            Assert.Equal(value, TemplateService.EscapeYamlDoubleQuotedScalar(value));
+        }
+
+        [Fact]
         public void BuildFrontMatter_NumericValue_UsesInvariantCulture()
         {
             System.Globalization.CultureInfo original = System.Threading.Thread.CurrentThread.CurrentCulture;

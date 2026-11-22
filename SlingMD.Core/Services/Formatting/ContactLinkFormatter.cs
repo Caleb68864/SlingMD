@@ -275,10 +275,18 @@ namespace SlingMD.Outlook.Services.Formatting
             string firstName = name.FirstName ?? string.Empty;
             string lastName = name.LastName ?? string.Empty;
 
-            values["FirstInitial"] = firstName.Length > 0 ? firstName.Substring(0, 1).ToUpperInvariant() : string.Empty;
-            values["LastInitial"] = lastName.Length > 0 ? lastName.Substring(0, 1).ToUpperInvariant() : string.Empty;
+            values["FirstInitial"] = firstName.Length > 0 ? FirstCharacter(firstName).ToUpperInvariant() : string.Empty;
+            values["LastInitial"] = lastName.Length > 0 ? FirstCharacter(lastName).ToUpperInvariant() : string.Empty;
 
             return values;
+        }
+
+        /// <summary>The first character of <paramref name="value"/>, both halves when it is a surrogate pair.</summary>
+        private static string FirstCharacter(string value)
+        {
+            return value.Length > 1 && char.IsHighSurrogate(value[0]) && char.IsLowSurrogate(value[1])
+                ? value.Substring(0, 2)
+                : value.Substring(0, 1);
         }
     }
 }

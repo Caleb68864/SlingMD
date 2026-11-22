@@ -515,7 +515,7 @@ namespace SlingMD.Outlook.Services
                     // Use centralized attachments folder with year-month subfolders
                     string vaultPath = _settings.GetFullVaultPath();
                     string attachmentsFolder = _settings.AttachmentsFolder ?? "Attachments";
-                    string yearMonth = _clock.Now.ToString("yyyy-MM");
+                    string yearMonth = _clock.Now.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture);
                     return Path.Combine(vaultPath, attachmentsFolder, yearMonth);
 
                 case AttachmentStorageMode.SameAsNote:

@@ -50,7 +50,7 @@ namespace SlingMD.Outlook.Services.Formatting
                 return name;
             }
 
-            string cut = name.Substring(0, limit);
+            string cut = SurrogateSafe.Truncate(name, limit);
             int boundary = cut.LastIndexOfAny(WordBreaks);
             if (boundary >= limit * 2 / 3)
             {
@@ -58,7 +58,7 @@ namespace SlingMD.Outlook.Services.Formatting
             }
 
             cut = cut.TrimEnd(TrailingJunk);
-            return cut.Length > 0 ? cut : name.Substring(0, limit);
+            return cut.Length > 0 ? cut : SurrogateSafe.Truncate(name, limit);
         }
 
         /// <summary>

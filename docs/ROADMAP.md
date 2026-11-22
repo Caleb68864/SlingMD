@@ -55,8 +55,12 @@ split (done since, see below).
 Needs Windows: `TemplateService` looks for templates beside `Assembly.GetExecutingAssembly()`,
 which is now `SlingMD.Core.dll` instead of `SlingMD.Outlook.dll`; both are built into the same
 folder, and `AppDomain.BaseDirectory` is tried first anyway, but check a published install still
-finds the `Templates/` copies. The `IUserNotifier` warning when Obsidian cannot be launched is not
-covered by a test.
+finds the `Templates/` copies. ~~The `IUserNotifier` warning when Obsidian cannot be
+launched is not covered by a test.~~ Done on `refactor/thread-core-and-fixes`: `FileService` takes an
+internal URI-opener seam (default: `Process.Start` with `UseShellExecute = true`, which is what .NET
+Framework's `Process.Start(string)` did; on .NET Core it would have tried to run the URI as a file),
+and `FileServiceLaunchTests` (7, Linux) pin the URI, the exact warning for each absorbed failure
+type, and that other exceptions propagate.
 
 **EmailProcessor, first cut** (same branch). `EmailData` (Core, `Models/`) holds what the note is
 built from: subject, sender name and SMTP address, received time, HTML and plain bodies, EntryID,
@@ -185,9 +189,8 @@ Outlook class is cut down:
    `ThreadServiceTests` (whole file) is linked into SlingMD.Core.Tests, and
    `ThreadServiceEmailDataTests` (12) pin the names and summary note: their expected values were
    taken from the old `MailItem` methods under Mono with Moq doubles of the same input.
-   Found while doing it (fixed in a later commit): an email whose conversation topic is empty
-   (not null) gets an empty summary title, because `UpdateThreadNote` uses `??` while the folder
-   name uses `IsNullOrEmpty`.
+   Found while doing it (fixed later, see the bug hunt below): an email whose conversation topic
+   is empty (not null) got an empty summary title.
    Windows CI (run 44972012621) failed
    `UpdateThreadNote_NoTopic_TitleFromSubjectAndVaultRelativeFolder`: the built-in thread template
    is a C# verbatim string, so the summary note's line endings are those of the checked-out source
@@ -199,6 +202,99 @@ Outlook class is cut down:
    added to `SlingMD.Outlook.csproj`), and a sling into an existing thread.
 4. **ContactService**: last, because both processors call it; the COM recipient reads move into the
    readers and the rest goes to Core.
+
+## Fork features
+
+- ~~**steveosullivan/main `4b4026e` ("SteveO custom build")**~~ Brought in on
+  `refactor/thread-core-and-fixes` (owner-approved), re-implemented in SlingMD.Core rather than
+  cherry-picked (the fork is based on `702110a`, before the Core split):
+  - Custom note filename (`{Subject} - {SenderFull} - MM-dd-yyyy`, hard-coded in the fork): now the
+    existing **Email Filename Format** with a new `{SenderFull}` token and a new
+    `EmailFilenameDateFormat` setting ("Filename {Date} Format", default `yyyy-MM-dd`) for `{Date}`.
+    `EmailNoteEngine.BuildBaseFileName` takes the display name (`EmailData.SenderName`). The fork
+    cleaned each part separately because it thought cleanup would strip " - "; it does not
+    (`BuildBaseFileName_SenderFullToken_UsesTheDisplayName`).
+  - Trimmed front matter (fork removed `threadId`, `internetMessageId`, `entryId` outright):
+    `IncludeEmailIdProperties` and `IncludeThreadIdProperty`, both default on. `threadId` is kept
+    while `GroupEmailThreads` is on, since `FindExistingThread` matches on it (the fork's build broke
+    thread grouping). Without the ids, `ProcessedEmailCache`'s scan of the inbox can't recognise an
+    email slung before a restart, and `MoveToThreadFolder` adds no id suffix; both are in the help
+    text. Keys are added conditionally rather than removed, because a `Dictionary` reuses a removed
+    slot and would move later keys up (pinned by `BuildMetadata_AllTrimmed_LaterKeysStayInOrder`).
+  - HTML email bodies as Markdown: already on `main` since `58fc88d` (1.2.5.0) in
+    `HtmlToMarkdownConverter`, which also unwraps Safe Links, handles quoted replies and skips the
+    same tracking pixels as the fork; nothing taken.
+  - Not taken: the fork's build tweaks (its own ClickOnce certificate thumbprint, and taking
+    SlingMD.Tests out of the solution build). Machine-specific, and would stop CI running the tests.
+  - Tests: `EmailNoteEngineFilenameAndPropertiesTests` (17, Linux). Settings UI (`SettingsForm`
+    Email tab, `SettingsHelp`) compiled under Mono only. Needs Windows: open Settings, change each
+    of the three settings, save, reopen, and sling an email to see the filename and properties.
+
+## Bug hunt, 2026-11-21 (`refactor/thread-core-and-fixes`)
+
+Looked at in SlingMD.Core: file-name sanitising, front-matter escaping, unicode and long subjects,
+date and time-zone handling. Each fix has a test that fails on the old code.
+
+- ~~**Culture-dependent dates.**~~ Fixed: bare `DateTime.ToString("yyyy-MM-dd")` (and `"HH:mm:ss"`,
+  `"_HHmm"`, `"yyyy-MM"`) used the current culture, so under th-TH (Thai Buddhist calendar) titles,
+  `{Date}`, appointment file names, task dates (Tasks plugin), attachment month folders and contact
+  birthdays got 2569, and fi-FI turned `:` into `.` in the copied-email timestamp. All now pass
+  `InvariantCulture`, as the front-matter dates and `GetThreadNoteName` already did.
+  `CultureInvariantDatesTests` (5, Linux), `TaskServiceClockTests.GenerateObsidianTask_ThaiCulture_*`
+  and `AppointmentProcessorExportTests.ProcessAppointment_ThaiCulture_*` (Mono) fail on the old code.
+  `EmailProcessor`'s file timestamp, `ContactService`'s birthday and `AttachmentService`'s month
+  folder got the same change without a test of their own (they need a `MailItem` or `ContactItem`).
+  Left alone: UI text (`ThreadCompletionDialog`, the batch summary, the Outlook task body), log file
+  names, and the diagnostics export file name.
+- ~~**Truncation through a surrogate pair.**~~ Fixed: `PathLengthBudget.Fit`,
+  `NoteTitleBuilder.Build`, `ThreadService`'s 47-character subject cut, `ContactLinkFormatter`'s
+  `{FirstInitial}`/`{LastInitial}` and `ContactService.GetFilenameSafeShortName` cut by UTF-16
+  unit, so an emoji at the limit left a lone surrogate in the name, which the UTF-8 note text then
+  wrote as U+FFFD. New `SurrogateSafe.Truncate` (Core) steps back one unit instead.
+  `SurrogatePairTruncationTests` (5, Linux; the 4 at a cut fail on the old code) and
+  `ContactServiceTests.GetFilenameSafeShortName_EmojiAtTheCuts_*` (Mono, fails on the old code).
+  Not changed: other `Substring` calls cut at found indexes (separators, `@`, front-matter
+  markers), which cannot split a pair.
+- ~~**Front-matter escaping let non-printable characters through.**~~ Fixed:
+  `TemplateService.EscapeYamlDoubleQuotedScalar` escaped C0 controls and DEL but not the C1
+  controls U+0080-U+009F, U+FFFE/U+FFFF or unpaired surrogates, all outside YAML's printable set;
+  js-yaml (Obsidian) then rejects the whole front matter. They are now `\xNN`/`\uNNNN` escapes.
+  `TemplateServiceTests.EscapeYamlDoubleQuotedScalar_EscapesCharactersYamlCannotHold` fails on the
+  old code; `..._KeepsPrintableUnicode` pins that accents, CJK, emoji, NBSP and U+FEFF pass through.
+  Left: `ClipboardEmailService.EscapeYaml` (copied text for AI sessions, not parsed by Obsidian)
+  and `ContactAliasWriter.FormatYamlValue` (aliases from contact names) have their own simpler
+  escaping; worth sharing the one escaper if either is ever parsed as YAML.
+- ~~**Recurring-series summary never listed anything.**~~ Fixed: `WriteRecurringThreadSummary`
+  passed the absolute folder path to the thread template's `dv.pages('"{{folderPath}}"')`
+  (Dataview wants it vault-relative; the email path already converts), the instance notes had no
+  `threadId` for the query's filter, and the summary was rewritten on every instance, wiping user
+  edits. Now: `AppointmentNoteEngine.BuildRecurringSummaryContent` makes the folder vault-relative,
+  grouped instances get `threadId` (folder name, last key), and an existing summary is kept.
+  `AppointmentProcessorExportTests` (summary path, second occurrence keeps edits, exact recurring
+  note) fail on the old code. Left: the summary still uses the email thread template ("Email
+  Timeline", `type: email-thread`, sorted by `date`, which appointment notes don't have); an
+  appointment-specific summary template would read better. Old summaries are not migrated.
+- ~~**Empty conversation topic gave a blank thread summary title.**~~ Fixed: `UpdateThreadNote`
+  used `??`, so `""` won over the subject (the folder name used `IsNullOrEmpty`).
+  `ThreadServiceEmailDataTests.UpdateThreadNote_EmptyTopic_TitleFromSubject` fails on the old code.
+- ~~**Reserved device names with an extension.**~~ Fixed: `FileNameSanitizer` and
+  `FolderNameSanitizer` caught only exact names ("CON"), but Windows also reserves them before an
+  extension ("NUL.txt", "Con.Ed bill.md": the part before the first dot, trailing spaces dropped).
+  Shared `FileNameSanitizer.IsReservedDeviceName`; six new sanitizer test cases fail on the old
+  code. Windows 11 relaxed some of these rules; the `_` prefix is harmless there. Not covered:
+  `COM0`/`LPT0` and the superscript-digit forms (`COM¹`), which Windows also reserves.
+- ~~**Custom `EmailDateFormat` read back with the PC's culture.**~~ Fixed: notes are written with
+  the invariant culture, but `ThreadService.TryParseNoteDate` fell back to `DateTime.TryParse` with
+  the current culture (en-GB read `04/09/2026` as 4 September), and `FindExistingThread` only
+  recognised the ISO shapes (`FrontmatterReader.ExtractRawDate`), so it never learnt a custom-format
+  thread's earliest date. `TryParseNoteDate` now tries the configured format exactly (invariant)
+  before the culture fallback (kept for notes from older versions), and `FindExistingThread` falls
+  back to the new `ExtractDateLineValue`. `ThreadServiceEmailDataTests.ResuffixThreadNotes_CustomDateFormat_*`
+  and `FindExistingThread_CustomDateFormat_*` fail on the old code.
+  Time zones: received times are the slinging PC's local time, written without an offset, so a
+  vault slung from PCs in different time zones (or across a DST change) orders by each PC's clock.
+  Not changed; it needs an owner decision on the date format (an offset makes Obsidian show the
+  date property as text).
 
 ## Correctness
 

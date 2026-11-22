@@ -55,7 +55,7 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         public string BuildNoteTitle(string subjectClean, string organizerShortName, DateTime startTime)
         {
-            string dateStr = startTime.ToString("yyyy-MM-dd");
+            string dateStr = startTime.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
             string titleFormat = _settings.AppointmentNoteTitleFormat ?? "{Date} - {Subject}";
             int maxLength = _settings.AppointmentNoteTitleMaxLength > 0 ? _settings.AppointmentNoteTitleMaxLength : 50;
 
@@ -105,9 +105,14 @@ namespace SlingMD.Outlook.Services
         /// <summary>
         /// The front matter, in this key order: title, type, calendar, organizer, organizerEmail,
         /// location, startDateTime, endDateTime, recurrence, globalAppointmentId, then meetingNotes,
-        /// attendees, optionalAttendees, resources, dailyNoteLink, tags and meetingUrl when they apply.
+        /// attendees, optionalAttendees, resources, dailyNoteLink, tags, meetingUrl and threadId when they
+        /// apply.
         /// </summary>
-        public Dictionary<string, object> BuildMetadata(string noteTitle, AppointmentData appointment, string fileNameNoExt = null)
+        /// <param name="recurringThreadId">
+        /// For an instance written into a recurring-series folder, the folder name: recorded as
+        /// <c>threadId</c>, which the series summary's Dataview query matches on.
+        /// </param>
+        public Dictionary<string, object> BuildMetadata(string noteTitle, AppointmentData appointment, string fileNameNoExt = null, string recurringThreadId = null)
         {
             DateTime startTime = appointment.Start;
             DateTime endTime = appointment.End;
@@ -158,6 +163,11 @@ namespace SlingMD.Outlook.Services
             if (meetingUrl != null)
             {
                 metadata["meetingUrl"] = meetingUrl;
+            }
+
+            if (!string.IsNullOrWhiteSpace(recurringThreadId))
+            {
+                metadata["threadId"] = recurringThreadId;
             }
 
             return metadata;
@@ -366,7 +376,8 @@ namespace SlingMD.Outlook.Services
 
         /// <summary>
         /// The <c>0-{folder}.md</c> summary note of a recurring series folder, rendered through the
-        /// thread template.
+        /// thread template. Its Dataview query lists the notes whose <c>threadId</c> is
+        /// <paramref name="threadFolderName"/> in the folder, given vault-relative as Dataview needs.
         /// </summary>
         public string BuildRecurringSummaryContent(string threadFolderPath, string threadFolderName, string title)
         {
@@ -374,10 +385,37 @@ namespace SlingMD.Outlook.Services
             {
                 Title = title,
                 ThreadId = threadFolderName,
-                FolderPath = threadFolderPath
+                FolderPath = ToVaultRelativeFolder(threadFolderPath)
             };
 
             return _templateService.RenderThreadContent(threadContext);
+        }
+
+        /// <summary>
+        /// <paramref name="folderPath"/> relative to the vault root with forward slashes; a path outside
+        /// the vault (or already relative) is returned with forward slashes only.
+        /// </summary>
+        private string ToVaultRelativeFolder(string folderPath)
+        {
+            string path = folderPath ?? string.Empty;
+            string vaultRoot = null;
+            try
+            {
+                vaultRoot = _settings.GetFullVaultPath().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            catch (ArgumentException)
+            {
+            }
+
+            if (!string.IsNullOrEmpty(vaultRoot)
+                && path.Length > vaultRoot.Length
+                && path.StartsWith(vaultRoot, StringComparison.OrdinalIgnoreCase)
+                && (path[vaultRoot.Length] == Path.DirectorySeparatorChar || path[vaultRoot.Length] == Path.AltDirectorySeparatorChar))
+            {
+                path = path.Substring(vaultRoot.Length + 1);
+            }
+
+            return path.Replace('\\', '/');
         }
     }
 }

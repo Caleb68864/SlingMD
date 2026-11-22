@@ -20,6 +20,7 @@ namespace SlingMD.Outlook.Services
         private readonly FileNameSanitizer _fileNameSanitizer;
         private readonly PathLengthBudget _pathBudget;
         private readonly IUserNotifier _notifier;
+        private readonly Action<string> _openUri;
 
         public FileService(ObsidianSettings settings)
             : this(settings, null)
@@ -31,9 +32,19 @@ namespace SlingMD.Outlook.Services
         /// <c>MessageBoxUserNotifier</c>; with <c>null</c> the failure is only logged.
         /// </param>
         public FileService(ObsidianSettings settings, IUserNotifier notifier)
+            : this(settings, notifier, null)
+        {
+        }
+
+        /// <param name="openUri">
+        /// Opens the <c>obsidian://</c> URI; tests pass a double. Default: the shell (Process.Start
+        /// with UseShellExecute, which is what .NET Framework's Process.Start(string) did).
+        /// </param>
+        internal FileService(ObsidianSettings settings, IUserNotifier notifier, Action<string> openUri)
         {
             _settings = settings;
             _notifier = notifier;
+            _openUri = openUri ?? OpenWithShell;
             _fileNameSanitizer = new FileNameSanitizer();
             _pathBudget = new PathLengthBudget();
         }
@@ -258,12 +269,21 @@ namespace SlingMD.Outlook.Services
             string obsidianUrl = BuildObsidianOpenUri(vaultName, filePath, vaultRoot);
             try
             {
-                System.Diagnostics.Process.Start(obsidianUrl);
+                _openUri(obsidianUrl);
             }
             catch (System.Exception ex) when (ex is System.ComponentModel.Win32Exception || ex is InvalidOperationException || ex is FileNotFoundException)
             {
                 Logger.Instance.Error($"FileService.LaunchObsidian: could not open '{obsidianUrl}'", ex);
                 _notifier?.ShowWarning($"Failed to launch Obsidian: {ex.Message}\n\nIs Obsidian installed and registered for obsidian:// links?", "SlingMD");
+            }
+        }
+
+        private static void OpenWithShell(string uri)
+        {
+            // Explicit UseShellExecute: on .NET Framework Process.Start(string) already shell-executes,
+            // but on .NET Core and later it defaults to false and would try to run the URI as a file.
+            using (System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri) { UseShellExecute = true }))
+            {
             }
         }
 

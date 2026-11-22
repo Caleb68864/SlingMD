@@ -4,7 +4,58 @@ All notable changes to SlingMD are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Filename and property options from Steve O'Sullivan's fork** (steveosullivan/SlingMD,
+  "SteveO custom build"). All off or unchanged by default, so existing notes keep their names and
+  properties:
+  - `{SenderFull}` in **Email Filename Format**: the sender's display name ("Sara Adams") rather
+    than the short name.
+  - **Filename {Date} Format**: how `{Date}` is written in the filename (default `yyyy-MM-dd`). The
+    fork's naming is `{Subject} - {SenderFull} - {Date}` with `MM-dd-yyyy`.
+  - **Record Outlook ids** and **Record threadId** (Email tab): untick to leave `internetMessageId`/
+    `entryId` or `threadId` out of the note properties. `threadId` is kept while threads are grouped,
+    because grouping finds a conversation's notes by it; without the ids, SlingMD only recognises an
+    email it already slung within the same Outlook session.
+  The fork's HTML-to-Markdown email bodies were already in SlingMD (since 1.2.5.0, with more
+  handling than the fork's converter), so they were not brought again.
+
+### Fixed
+- **Dates in note titles, file names and tasks no longer follow Windows' regional calendar.** On a
+  PC set to Thai (Buddhist calendar) an email from 23 Sep 2026 was titled `... - 2569-09-23`, and its
+  Obsidian task dates were 2569, which the Tasks plugin can't read, while the date property said
+  2026. Email and appointment titles, `{Date}` in file names and templates, appointment and
+  recurring-instance file names, attachment month folders, contact birthdays, task dates and the
+  timestamp in copied emails now always use the Gregorian calendar and `:` between hours and minutes.
+  Nothing changes for other regional settings.
+- **Shortened names no longer cut an emoji in half.** When a long subject, a note title or a
+  contact's short name was cut at the length limit right inside an emoji (or another character
+  outside the Basic Multilingual Plane), the file or folder name kept half of it, and the note's
+  own title and links showed `�` instead, so they no longer matched the file. The cut now moves
+  before the whole character.
+- **Odd characters in a subject or name no longer break a note's properties.** Characters YAML
+  can't hold (the C1 control characters a mis-decoded subject often contains, such as `\u0093` for a
+  curly quote, plus U+FFFE/U+FFFF and half an emoji) made Obsidian reject the note's whole
+  properties block. They are now written as escapes (`\x93`), which Obsidian reads.
+- **The summary note of a recurring meeting's folder now lists its meetings.** Its Dataview query
+  pointed at the folder's full Windows path instead of the vault-relative one, and the meeting
+  notes had no `threadId` for it to match, so it always came up empty. Meeting notes saved into a
+  series folder now carry `threadId` (the folder name), and the summary is no longer rewritten for
+  every meeting saved, which wiped anything you had added to it. Existing summaries are left as
+  they are; delete one to have it rebuilt on the next save.
+- **An email thread's summary note gets a title when Outlook reports an empty conversation topic**
+  (it fell back to the subject only when the topic was missing, so the title was blank).
+- **Subjects such as "Con.Ed bill" or "NUL.txt" no longer produce a file Windows can't create.**
+  Windows reserves device names (CON, NUL, AUX, COM1...) followed by an extension as well, so such
+  a note or folder name is now prefixed with `_` like the bare names already were.
+- **Threads keep the right order with a custom Email Date Format.** With a format such as
+  `MM/dd/yyyy h:mm tt`, notes in a thread folder were dated by reading the date back with the PC's
+  regional settings (under UK settings 04/09 became 4 September), so they were renamed out of order,
+  and finding a thread ignored such dates altogether. The date is now read back in the format it
+  was written in.
+
 ### Internal
+- **The "could not launch Obsidian" warning has tests** (`FileServiceLaunchTests`): `FileService`
+  opens the `obsidian://` URI through a replaceable opener, by default the shell as before.
 - **The appointment note is built in `SlingMD.Core`.** `AppointmentNoteEngine` takes an
   `AppointmentData` (plain values read from the `AppointmentItem` by the add-in's new
   `OutlookAppointmentReader`) and produces the title, front matter and note text; the code moved

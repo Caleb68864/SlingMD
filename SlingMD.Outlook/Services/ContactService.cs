@@ -188,11 +188,12 @@ namespace SlingMD.Outlook.Services
 
             if (parts.Length == 1)
             {
-                return parts[0].Length > 10 ? parts[0].Substring(0, 10) : parts[0];
+                return SurrogateSafe.Truncate(parts[0], 10);
             }
 
-            string firstName = parts[0].Length > 10 ? parts[0].Substring(0, 10) : parts[0];
-            string lastInitial = parts[parts.Length - 1].Substring(0, 1).ToUpper();
+            string firstName = SurrogateSafe.Truncate(parts[0], 10);
+            string lastName = parts[parts.Length - 1];
+            string lastInitial = SurrogateSafe.Truncate(lastName, char.IsHighSurrogate(lastName[0]) ? 2 : 1).ToUpper();
             return $"{firstName}{lastInitial}";
         }
 
@@ -847,7 +848,7 @@ namespace SlingMD.Outlook.Services
                 DateTime birthdayDate = contact.Birthday;
                 if (birthdayDate.Year != 4501)
                 {
-                    birthday = birthdayDate.ToString("yyyy-MM-dd");
+                    birthday = birthdayDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
                 }
             }
             catch (System.Exception ex)

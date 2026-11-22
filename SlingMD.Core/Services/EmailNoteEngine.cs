@@ -43,7 +43,7 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         public string BuildNoteTitle(string subjectClean, string senderClean, DateTime receivedTime)
         {
-            string dateStr = receivedTime.ToString("yyyy-MM-dd");
+            string dateStr = receivedTime.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
             string titleFormat = _settings.NoteTitleFormat ?? "{Subject} - {Date}";
             bool includeDate = _settings.NoteTitleIncludeDate;
             int maxLength = _settings.NoteTitleMaxLength > 0 ? _settings.NoteTitleMaxLength : 50;
@@ -64,7 +64,13 @@ namespace SlingMD.Outlook.Services
             return _dateFormatter.FormatOrDefault(receivedTime, _settings.EmailDateFormat, _dateFormatter.Format(receivedTime, ObsidianSettings.DefaultEmailDateFormat));
         }
 
-        public string BuildBaseFileName(DateTime receivedTime, string subjectClean, string senderClean, string fileDateTime, bool isThreaded)
+        /// <summary>
+        /// The note's base file name: <see cref="ObsidianSettings.EmailFilenameFormat"/> with {Subject},
+        /// {Sender} (short name), {SenderFull} (<paramref name="senderFullName"/>, else the short name),
+        /// {Date} (<see cref="ObsidianSettings.EmailFilenameDateFormat"/>), {Timestamp} and {Threaded};
+        /// the legacy Subject-Sender-timestamp name when the format is blank.
+        /// </summary>
+        public string BuildBaseFileName(DateTime receivedTime, string subjectClean, string senderClean, string fileDateTime, bool isThreaded, string senderFullName = null)
         {
             bool includeDate = _settings.NoteTitleIncludeDate;
             string legacyBaseName;
@@ -92,12 +98,19 @@ namespace SlingMD.Outlook.Services
             {
                 { "Subject", subjectClean },
                 { "Sender", senderClean },
-                { "Date", receivedTime.ToString("yyyy-MM-dd") },
+                { "SenderFull", string.IsNullOrWhiteSpace(senderFullName) ? senderClean : senderFullName.Trim() },
+                { "Date", FormatFilenameDate(receivedTime) },
                 { "Timestamp", fileDateTime },
                 { "Threaded", isThreaded ? "true" : "false" }
             };
 
             return _templateService.RenderFilename(_settings.EmailFilenameFormat, replacements, legacyBaseName);
+        }
+
+        private string FormatFilenameDate(DateTime receivedTime)
+        {
+            string fallback = _dateFormatter.Format(receivedTime, ObsidianSettings.DefaultEmailFilenameDateFormat);
+            return _dateFormatter.FormatOrDefault(receivedTime, _settings.EmailFilenameDateFormat, fallback);
         }
 
         public Dictionary<string, object> BuildMetadata(
@@ -122,12 +135,24 @@ namespace SlingMD.Outlook.Services
                 { "from", _formatContactLink(senderName, senderEmail) },
                 { "fromEmail", senderEmail },
                 { "to", toLinked },
-                { "toEmail", toEmails },
-                { "threadId", conversationId },
-                { "date", FormatFrontMatterDate(receivedTime) },
-                { "internetMessageId", realInternetMessageId },
-                { "entryId", realEntryId }
+                { "toEmail", toEmails }
             };
+
+            // Added one by one, never removed afterwards: a Dictionary reuses a removed slot for the
+            // next Add, which would move later keys up in the front matter.
+            // Thread grouping finds a conversation's notes by threadId, so it stays while grouping is on.
+            if (_settings.IncludeThreadIdProperty || _settings.GroupEmailThreads)
+            {
+                metadata.Add("threadId", conversationId);
+            }
+
+            metadata.Add("date", FormatFrontMatterDate(receivedTime));
+
+            if (_settings.IncludeEmailIdProperties)
+            {
+                metadata.Add("internetMessageId", realInternetMessageId);
+                metadata.Add("entryId", realEntryId);
+            }
 
             if (_settings.IncludeDailyNoteLink)
             {
@@ -224,7 +249,7 @@ namespace SlingMD.Outlook.Services
                 SenderName = email.SenderName ?? "Unknown Sender",
                 SenderShortName = senderClean,
                 SenderEmail = email.SenderEmail,
-                Date = email.ReceivedTime.ToString("yyyy-MM-dd"),
+                Date = email.ReceivedTime.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
                 Timestamp = FormatFrontMatterDate(email.ReceivedTime),
                 Body = noteBody,
                 TaskBlock = taskBlock ?? string.Empty,

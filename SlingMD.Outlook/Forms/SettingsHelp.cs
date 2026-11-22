@@ -352,14 +352,48 @@ namespace SlingMD.Outlook.Forms
                     {
                         { "{Subject}", "Cleaned subject" },
                         { "{Sender}", "Sender short name" },
-                        { "{Date}", "yyyy-MM-dd" },
+                        { "{SenderFull}", "Sender display name, e.g. Sara Adams" },
+                        { "{Date}", "Received date (Filename {Date} Format, default yyyy-MM-dd)" },
                         { "{Timestamp}", "yyyy-MM-dd_HHmm" },
                     },
                     Examples = new List<HelpExample>
                     {
                         new HelpExample { Input = "", Output = "(legacy default: Subject-Sender-timestamp)" },
                         new HelpExample { Input = "{Date}_{Subject}", Output = "2026-04-22_Status-update.md" },
+                        new HelpExample { Input = "{Subject} - {SenderFull} - {Date}", Output = "Status update - Sara Adams - 2026-04-22.md" },
                     }
+                },
+                new HelpEntry
+                {
+                    Id = "Email.EmailFilenameDateFormat",
+                    Tab = "Email",
+                    Title = "Filename {Date} Format",
+                    Summary = ".NET date format for the {Date} token in Email Filename Format.",
+                    Description = "Only the filename uses it; the date property keeps Email Date Format. Characters a filename can't hold (such as / or :) are replaced with _.",
+                    Default = "yyyy-MM-dd",
+                    Examples = new List<HelpExample>
+                    {
+                        new HelpExample { Input = "yyyy-MM-dd", Output = "2026-04-22" },
+                        new HelpExample { Input = "MM-dd-yyyy", Output = "04-22-2026" },
+                    }
+                },
+                new HelpEntry
+                {
+                    Id = "Email.IncludeEmailIdProperties",
+                    Tab = "Email",
+                    Title = "Record Outlook ids",
+                    Summary = "Writes internetMessageId and entryId to each email note's properties.",
+                    Description = "Turn off for shorter properties. SlingMD then recognises an email it already slung only within the same Outlook session (after a restart it looks for these properties), and a note moved into a thread folder gets no id suffix. Existing notes are not changed.",
+                    Default = "On"
+                },
+                new HelpEntry
+                {
+                    Id = "Email.IncludeThreadIdProperty",
+                    Tab = "Email",
+                    Title = "Record threadId",
+                    Summary = "Writes threadId to each email note's properties.",
+                    Description = "Thread grouping finds a conversation's earlier notes by threadId, so it is always written while Group Email Threads is on; this only drops it when grouping is off. Existing notes are not changed.",
+                    Default = "On"
                 },
                 new HelpEntry
                 {

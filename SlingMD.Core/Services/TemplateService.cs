@@ -926,12 +926,18 @@ for (const email of emails) {
                 .Replace("\n", "\\n")
                 .Replace("\r", "\\n");
 
+            // Characters outside YAML's printable set make Obsidian's parser reject the whole front
+            // matter: C0 controls (bar tab), DEL, the C1 controls U+0080-U+009F (left behind by a
+            // mis-decoded Windows-1252 subject), U+FFFE/U+FFFF and unpaired surrogates. Each is
+            // written as a \x or \u escape instead.
             StringBuilder result = null;
             for (int i = 0; i < escaped.Length; i++)
             {
                 char c = escaped[i];
-                bool isControl = (c < 0x20 && c != '\t') || c == 0x7F;
-                if (isControl && result == null)
+                bool pairedSurrogate = char.IsHighSurrogate(c) && i + 1 < escaped.Length && char.IsLowSurrogate(escaped[i + 1]);
+                bool isByteEscape = (c < 0x20 && c != '\t') || (c >= 0x7F && c <= 0x9F);
+                bool isUnicodeEscape = c == '\uFFFE' || c == '\uFFFF' || (char.IsSurrogate(c) && !pairedSurrogate);
+                if ((isByteEscape || isUnicodeEscape) && result == null)
                 {
                     result = new StringBuilder(escaped.Length + 8);
                     result.Append(escaped, 0, i);
@@ -939,16 +945,28 @@ for (const email of emails) {
 
                 if (result == null)
                 {
+                    if (pairedSurrogate)
+                    {
+                        i++;
+                    }
                     continue;
                 }
 
-                if (isControl)
+                if (isByteEscape)
                 {
                     result.Append("\\x").Append(((int)c).ToString("X2", CultureInfo.InvariantCulture));
+                }
+                else if (isUnicodeEscape)
+                {
+                    result.Append("\\u").Append(((int)c).ToString("X4", CultureInfo.InvariantCulture));
                 }
                 else
                 {
                     result.Append(c);
+                    if (pairedSurrogate)
+                    {
+                        result.Append(escaped[++i]);
+                    }
                 }
             }
 

@@ -228,7 +228,7 @@ namespace SlingMD.Outlook.Services
 
                     // Build note title using settings (with null safety)
                     string senderClean = _contactService.GetFilenameSafeShortName(email.SenderName ?? "Unknown Sender");
-                    string fileDateTime = email.ReceivedTime.ToString("yyyy-MM-dd-HHmm");
+                    string fileDateTime = email.ReceivedTime.ToString("yyyy-MM-dd-HHmm", System.Globalization.CultureInfo.InvariantCulture);
                     string subjectClean = CleanSubject(email.Subject ?? "No Subject");
                     string noteTitle = _engine.BuildNoteTitle(subjectClean, senderClean, email.ReceivedTime);
 
@@ -342,7 +342,7 @@ namespace SlingMD.Outlook.Services
                             // temporary -eid{hash} suffix. Both ids can be empty (unsaved item with no
                             // InternetMessageID); that still produces a usable, if less unique, "-eid" suffix.
                             string emailId = !string.IsNullOrEmpty(realInternetMessageId) ? realInternetMessageId : realEntryId;
-                            string baseName = _engine.BuildBaseFileName(email.ReceivedTime, subjectClean, senderClean, fileDateTime, true);
+                            string baseName = _engine.BuildBaseFileName(email.ReceivedTime, subjectClean, senderClean, fileDateTime, true, email.SenderName);
                             string tempFileName = _threadService.GetTemporaryThreadNoteName(threadFolderPath, baseName, emailId) + ".md";
                             string tempFilePath = Path.Combine(threadFolderPath, tempFileName);
                             _fileService.EnsureDirectoryExists(threadFolderPath);
@@ -772,7 +772,7 @@ namespace SlingMD.Outlook.Services
                 threadNotePath = Path.Combine(threadFolderPath, $"0-{threadNoteName}.md");
             }
 
-            string fileNameNoExtResult = _engine.BuildBaseFileName(email.ReceivedTime, subjectClean, senderClean, fileDateTime, shouldGroupThread);
+            string fileNameNoExtResult = _engine.BuildBaseFileName(email.ReceivedTime, subjectClean, senderClean, fileDateTime, shouldGroupThread, email.SenderName);
             if (!shouldGroupThread && _settings.GroupEmailThreads)
             {
                 // Give a standalone note the name it would have inside a thread, derived from the
@@ -780,7 +780,7 @@ namespace SlingMD.Outlook.Services
                 // folder later then keeps its name, so the Obsidian task link and links from other
                 // notes don't break when a reply is slung.
                 string frontMatterDate = _engine.FormatFrontMatterDate(email.ReceivedTime);
-                if (ThreadService.TryParseNoteDate(frontMatterDate, out DateTime noteDate))
+                if (ThreadService.TryParseNoteDate(frontMatterDate, _settings.EmailDateFormat, out DateTime noteDate))
                 {
                     fileNameNoExtResult = _threadService.GetThreadedNoteName(fileNameNoExtResult, noteDate, threadFolderPath);
                 }

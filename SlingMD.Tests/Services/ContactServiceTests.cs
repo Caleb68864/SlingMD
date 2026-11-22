@@ -158,6 +158,18 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
+        public void GetFilenameSafeShortName_EmojiAtTheCuts_KeepsWholeCharacters()
+        {
+            // 9 letters then an emoji: the 10-unit cut of the first name falls inside the emoji, and
+            // the last name starts with one. Half a pair would reach the file name.
+            string rocket = "\uD83D\uDE80";
+
+            // The test double's CleanFileName drops spaces, so the parts are split on "-".
+            Assert.Equal("Alexandra" + rocket, _contactService.GetFilenameSafeShortName("Alexandra" + rocket + "xyz-" + rocket + "Bee"));
+            Assert.Equal("Alexandra", _contactService.GetFilenameSafeShortName("Alexandra" + rocket + "xyz"));
+        }
+
+        [Fact]
         public void GetFilenameSafeShortName_FullName_ReturnsFirstNameAndLastInitial()
         {
             string shortName = _contactService.GetFilenameSafeShortName("John Smith");

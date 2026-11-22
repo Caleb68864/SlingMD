@@ -118,9 +118,34 @@ namespace SlingMD.Outlook.Models
 
         /// <summary>
         /// Optional filename format for email notes. Leave blank to preserve the legacy naming behavior.
-        /// Supported tokens include {Subject}, {Sender}, {Date}, and {Timestamp}.
+        /// Supported tokens include {Subject}, {Sender}, {SenderFull}, {Date}, and {Timestamp}.
         /// </summary>
         public string EmailFilenameFormat { get; set; } = string.Empty;
+
+        /// <summary>Default <see cref="EmailFilenameDateFormat"/>.</summary>
+        public const string DefaultEmailFilenameDateFormat = "yyyy-MM-dd";
+
+        /// <summary>
+        /// .NET date format for the {Date} token of <see cref="EmailFilenameFormat"/> (for example
+        /// MM-dd-yyyy). Only the filename uses it; the note's date property keeps
+        /// <see cref="EmailDateFormat"/>. Default: <see cref="DefaultEmailFilenameDateFormat"/>.
+        /// </summary>
+        public string EmailFilenameDateFormat { get; set; } = DefaultEmailFilenameDateFormat;
+
+        /// <summary>
+        /// Whether email notes record the Outlook ids <c>internetMessageId</c> and <c>entryId</c> in
+        /// their properties. On by default. Turned off, the properties are shorter, but SlingMD can then
+        /// only tell that an email was already slung within the same Outlook session (the check after a
+        /// restart reads these properties), and a note moved into a thread folder loses its id suffix.
+        /// </summary>
+        public bool IncludeEmailIdProperties { get; set; } = true;
+
+        /// <summary>
+        /// Whether email notes record <c>threadId</c> in their properties. On by default. Thread
+        /// grouping finds a conversation's earlier notes by this property, so it is always written
+        /// while <see cref="GroupEmailThreads"/> is on; this setting only drops it when grouping is off.
+        /// </summary>
+        public bool IncludeThreadIdProperty { get; set; } = true;
 
         /// <summary>
         /// Filename format for contact notes.
@@ -606,6 +631,7 @@ namespace SlingMD.Outlook.Models
             // throws FormatException on an invalid custom format. Left unvalidated, one bad format
             // would make every subsequent sling fail with an error dialog. Probe each here.
             ValidateDateFormat(EmailDateFormat, "Email date format");
+            ValidateDateFormat(EmailFilenameDateFormat, "Email filename date format");
             ValidateDateFormat(ContactDateFormat, "Contact date format");
             ValidateDateFormat(AppointmentDateFormat, "Appointment date format");
             ValidateDateFormat(DailyNoteLinkFormat?.Replace("[[", string.Empty).Replace("]]", string.Empty), "Daily note link format");
@@ -802,6 +828,7 @@ namespace SlingMD.Outlook.Models
             DailyNoteLinkFormat = string.IsNullOrWhiteSpace(DailyNoteLinkFormat) ? "[[yyyy-MM-dd]]" : DailyNoteLinkFormat;
             AttachmentsFolder = string.IsNullOrWhiteSpace(AttachmentsFolder) ? "Attachments" : AttachmentsFolder;
             EmailFilenameFormat = EmailFilenameFormat ?? string.Empty;
+            EmailFilenameDateFormat = string.IsNullOrWhiteSpace(EmailFilenameDateFormat) ? DefaultEmailFilenameDateFormat : EmailFilenameDateFormat;
 
             if (!Enum.IsDefined(typeof(AttachmentStorageMode), AttachmentStorageMode))
             {

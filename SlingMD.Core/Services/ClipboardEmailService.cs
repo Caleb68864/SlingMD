@@ -92,7 +92,7 @@ namespace SlingMD.Outlook.Services
 
         private static string FormatDate(DateTime value)
         {
-            return value == DateTime.MinValue ? string.Empty : value.ToString("yyyy-MM-dd HH:mm:ss");
+            return value == DateTime.MinValue ? string.Empty : value.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
         }
 
         private static void AppendScalar(StringBuilder result, string key, string value)

@@ -127,6 +127,38 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
+        public async Task ProcessAppointment_RecurringOccurrence_SummaryQueriesTheVaultRelativeFolder()
+        {
+            // Dataview's dv.pages takes a vault-relative folder; the summary used to get the absolute
+            // path, so it listed nothing.
+            AppointmentProcessor processor = new AppointmentProcessor(_settings);
+
+            await processor.ProcessAppointment(Appointment("Weekly standup", OlRecurrenceState.olApptOccurrence, "GID-export-summary-path").Object, bulkMode: true);
+
+            string summary = ReadNote(AppointmentsPath("Weekly standup", "0-Weekly standup.md"));
+            Assert.Contains("dv.pages('\"Appointments/Weekly standup\"')", summary);
+            Assert.DoesNotContain(_testDir, summary);
+        }
+
+        [Fact]
+        public async Task ProcessAppointment_SecondOccurrence_KeepsTheUsersSummaryEdits()
+        {
+            // Like the email thread summary: rendered live by Dataview, so an existing one is left alone.
+            AppointmentProcessor processor = new AppointmentProcessor(_settings);
+            await processor.ProcessAppointment(Appointment("Weekly standup", OlRecurrenceState.olApptOccurrence, "GID-export-keep-1").Object, bulkMode: true);
+            string summaryPath = AppointmentsPath("Weekly standup", "0-Weekly standup.md");
+            File.WriteAllText(summaryPath, "My notes about this series");
+
+            Mock<AppointmentItem> next = Appointment("Weekly standup", OlRecurrenceState.olApptOccurrence, "GID-export-keep-2");
+            next.Setup(a => a.Start).Returns(new DateTime(2026, 10, 12, 9, 30, 0));
+            next.Setup(a => a.End).Returns(new DateTime(2026, 10, 12, 10, 15, 0));
+            await processor.ProcessAppointment(next.Object, bulkMode: true);
+
+            Assert.True(File.Exists(AppointmentsPath("Weekly standup", "2026-10-12 - Weekly standup.md")));
+            Assert.Equal("My notes about this series", File.ReadAllText(summaryPath));
+        }
+
+        [Fact]
         public async Task ProcessAppointment_RecurringOccurrence_DoesNotReadTheRecurrencePattern()
         {
             // The series folder is named from the subject alone; the pattern used to be fetched and
@@ -152,6 +184,27 @@ namespace SlingMD.Tests.Services
             Assert.Single(folders);
             Assert.False(Path.GetFileName(folders[0]).EndsWith("."), folders[0]);
             Assert.True(File.Exists(Path.Combine(folders[0], "0-" + Path.GetFileName(folders[0]) + ".md")));
+        }
+
+        [Fact]
+        public async Task ProcessAppointment_ThaiCulture_GregorianFileNames()
+        {
+            System.Globalization.CultureInfo original = System.Globalization.CultureInfo.CurrentCulture;
+            try
+            {
+                System.Globalization.CultureInfo.CurrentCulture = CultureInvariantDatesTests.ThaiBuddhist();
+                Assert.Equal("2569", new DateTime(2026, 10, 5).ToString("yyyy"));
+                AppointmentProcessor processor = new AppointmentProcessor(_settings);
+
+                await processor.ProcessAppointment(Appointment("Retro", OlRecurrenceState.olApptOccurrence, "GID-export-thai").Object, bulkMode: true);
+
+                Assert.True(File.Exists(AppointmentsPath("Retro", "2026-10-05 - Retro.md")),
+                    string.Join(", ", Directory.GetFiles(AppointmentsPath(), "*", SearchOption.AllDirectories)));
+            }
+            finally
+            {
+                System.Globalization.CultureInfo.CurrentCulture = original;
+            }
         }
 
         [Fact]
@@ -251,6 +304,7 @@ namespace SlingMD.Tests.Services
             + "tags: \n"
             + "  - \"Meeting\"\n"
             + "meetingUrl: \"https://teams.microsoft.com/l/meetup-join/abc123\"\n"
+            + "threadId: \"Weekly standup\"\n"
             + "---\n"
             + "\n"
             + "# 2026-10-05 - Weekly standup\n"

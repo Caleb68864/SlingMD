@@ -179,7 +179,8 @@ Before using SlingMD, you'll need to configure your Obsidian vault settings:
    - **Move Date To Front In Thread**: When grouping emails, place the date at the beginning of the filename
    - **Default Note Tags / Task Tags**: Tags automatically assigned to new notes or tasks (new installs: `email` on notes, `FollowUp` on the task line). Tags are cleaned up for Obsidian — a leading `#` is removed and spaces become `-`
    - **Templates Folder / Template Files**: Point SlingMD at Dataview-friendly templates for email notes, contact notes, inline task lines, and thread summaries (task templates customize the inline task line only)
-   - **Email / Contact Filename Format**: Optional filename formats using tokens like `{Subject}`, `{Sender}`, `{Timestamp}`, `{ContactName}`, and `{ContactShortName}`
+   - **Email / Contact Filename Format**: Optional filename formats using tokens like `{Subject}`, `{Sender}`, `{SenderFull}`, `{Date}`, `{Timestamp}`, `{ContactName}`, and `{ContactShortName}`. **Filename {Date} Format** sets how `{Date}` is written (default `yyyy-MM-dd`; e.g. `{Subject} - {SenderFull} - {Date}` with `MM-dd-yyyy` gives `Budget review - Sara Adams - 09-23-2026.md`)
+   - **Record Outlook ids / Record threadId**: Untick to leave `internetMessageId`/`entryId` or `threadId` out of email note properties. `threadId` is always kept while threads are grouped; without the ids, an email already slung is only recognised within the same Outlook session
    - **Show Development Settings**: Reveals additional debug options in the settings dialog
    - **Show Thread Debug**: Pops up a diagnostic window listing every file that matches a conversationId
 
