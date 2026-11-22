@@ -19,6 +19,15 @@ All notable changes to SlingMD are documented in this file.
   The fork's HTML-to-Markdown email bodies were already in SlingMD (since 1.2.5.0, with more
   handling than the fork's converter), so they were not brought again.
 
+### Fixed
+- **Dates in note titles, file names and tasks no longer follow Windows' regional calendar.** On a
+  PC set to Thai (Buddhist calendar) an email from 23 Sep 2026 was titled `... - 2569-09-23`, and its
+  Obsidian task dates were 2569, which the Tasks plugin can't read, while the date property said
+  2026. Email and appointment titles, `{Date}` in file names and templates, appointment and
+  recurring-instance file names, attachment month folders, contact birthdays, task dates and the
+  timestamp in copied emails now always use the Gregorian calendar and `:` between hours and minutes.
+  Nothing changes for other regional settings.
+
 ### Internal
 - **The "could not launch Obsidian" warning has tests** (`FileServiceLaunchTests`): `FileService`
   opens the `obsidian://` URI through a replaceable opener, by default the shell as before.

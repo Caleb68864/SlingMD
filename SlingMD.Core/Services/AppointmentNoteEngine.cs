@@ -55,7 +55,7 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         public string BuildNoteTitle(string subjectClean, string organizerShortName, DateTime startTime)
         {
-            string dateStr = startTime.ToString("yyyy-MM-dd");
+            string dateStr = startTime.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
             string titleFormat = _settings.AppointmentNoteTitleFormat ?? "{Date} - {Subject}";
             int maxLength = _settings.AppointmentNoteTitleMaxLength > 0 ? _settings.AppointmentNoteTitleMaxLength : 50;
 

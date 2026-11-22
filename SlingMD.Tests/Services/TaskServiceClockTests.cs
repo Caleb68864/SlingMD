@@ -56,6 +56,32 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
+        public void GenerateObsidianTask_ThaiCulture_GregorianPluginDates()
+        {
+            // The Tasks plugin reads ISO Gregorian dates; th-TH's default calendar is Buddhist (2569).
+            System.Globalization.CultureInfo original = System.Globalization.CultureInfo.CurrentCulture;
+            try
+            {
+                System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("th-TH");
+                Assert.Equal("2569", new System.DateTime(2026, 4, 21).ToString("yyyy"));
+                ObsidianSettings settings = new ObsidianSettings();
+                FakeClock clock = new FakeClock(new System.DateTime(2026, 4, 21, 9, 0, 0));
+                TaskService svc = new TaskService(settings, null, clock);
+                svc.InitializeTaskSettings(dueDays: 3, reminderDays: 1, reminderHour: 9, useRelativeReminder: false);
+
+                string line = svc.GenerateObsidianTask("Note", new List<string> { "FollowUp" });
+
+                Assert.Contains("➕ 2026-04-21", line);
+                Assert.Contains("📅 2026-04-24", line);
+                Assert.Contains("🛫 2026-04-22", line);
+            }
+            finally
+            {
+                System.Globalization.CultureInfo.CurrentCulture = original;
+            }
+        }
+
+        [Fact]
         public void GenerateObsidianTask_CreatedDate_IsFakeNow()
         {
             ObsidianSettings settings = new ObsidianSettings();

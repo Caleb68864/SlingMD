@@ -239,7 +239,7 @@ namespace SlingMD.Outlook.Services
 
             // --- Build the note title and file name ---
             string subjectClean = CleanSubject(subject);
-            string dateStr = startTime.ToString("yyyy-MM-dd");
+            string dateStr = startTime.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
             string organizerShortName = _contactService.GetFilenameSafeShortName(
                 string.IsNullOrWhiteSpace(organizerName) ? "Unknown Organizer" : organizerName);
 
@@ -267,14 +267,14 @@ namespace SlingMD.Outlook.Services
                 recurringThreadFolderName = GetRecurringThreadFolderName(subjectClean);
                 recurringThreadFolderPath = Path.Combine(appointmentsPath, recurringThreadFolderName);
 
-                string dateStamp = startTime.ToString("yyyy-MM-dd");
+                string dateStamp = startTime.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
                 string instanceFileName = $"{dateStamp} - {subjectClean}.md";
                 recurringInstanceFilePath = Path.Combine(recurringThreadFolderPath, instanceFileName);
 
                 // Handle same-day collision by appending time suffix
                 if (File.Exists(recurringInstanceFilePath))
                 {
-                    string timeSuffix = startTime.ToString("_HHmm");
+                    string timeSuffix = startTime.ToString("_HHmm", System.Globalization.CultureInfo.InvariantCulture);
                     instanceFileName = $"{dateStamp}{timeSuffix} - {subjectClean}.md";
                     recurringInstanceFilePath = Path.Combine(recurringThreadFolderPath, instanceFileName);
                 }

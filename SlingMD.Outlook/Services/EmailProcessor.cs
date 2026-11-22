@@ -228,7 +228,7 @@ namespace SlingMD.Outlook.Services
 
                     // Build note title using settings (with null safety)
                     string senderClean = _contactService.GetFilenameSafeShortName(email.SenderName ?? "Unknown Sender");
-                    string fileDateTime = email.ReceivedTime.ToString("yyyy-MM-dd-HHmm");
+                    string fileDateTime = email.ReceivedTime.ToString("yyyy-MM-dd-HHmm", System.Globalization.CultureInfo.InvariantCulture);
                     string subjectClean = CleanSubject(email.Subject ?? "No Subject");
                     string noteTitle = _engine.BuildNoteTitle(subjectClean, senderClean, email.ReceivedTime);
 

@@ -847,7 +847,7 @@ namespace SlingMD.Outlook.Services
                 DateTime birthdayDate = contact.Birthday;
                 if (birthdayDate.Year != 4501)
                 {
-                    birthday = birthdayDate.ToString("yyyy-MM-dd");
+                    birthday = birthdayDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
                 }
             }
             catch (System.Exception ex)

@@ -43,7 +43,7 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         public string BuildNoteTitle(string subjectClean, string senderClean, DateTime receivedTime)
         {
-            string dateStr = receivedTime.ToString("yyyy-MM-dd");
+            string dateStr = receivedTime.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
             string titleFormat = _settings.NoteTitleFormat ?? "{Subject} - {Date}";
             bool includeDate = _settings.NoteTitleIncludeDate;
             int maxLength = _settings.NoteTitleMaxLength > 0 ? _settings.NoteTitleMaxLength : 50;
@@ -109,14 +109,8 @@ namespace SlingMD.Outlook.Services
 
         private string FormatFilenameDate(DateTime receivedTime)
         {
-            string format = _settings.EmailFilenameDateFormat;
-            if (string.IsNullOrWhiteSpace(format) || format == ObsidianSettings.DefaultEmailFilenameDateFormat)
-            {
-                // The default keeps the exact call the {Date} token always used.
-                return receivedTime.ToString("yyyy-MM-dd");
-            }
-
-            return _dateFormatter.FormatOrDefault(receivedTime, format, receivedTime.ToString("yyyy-MM-dd"));
+            string fallback = _dateFormatter.Format(receivedTime, ObsidianSettings.DefaultEmailFilenameDateFormat);
+            return _dateFormatter.FormatOrDefault(receivedTime, _settings.EmailFilenameDateFormat, fallback);
         }
 
         public Dictionary<string, object> BuildMetadata(
@@ -255,7 +249,7 @@ namespace SlingMD.Outlook.Services
                 SenderName = email.SenderName ?? "Unknown Sender",
                 SenderShortName = senderClean,
                 SenderEmail = email.SenderEmail,
-                Date = email.ReceivedTime.ToString("yyyy-MM-dd"),
+                Date = email.ReceivedTime.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
                 Timestamp = FormatFrontMatterDate(email.ReceivedTime),
                 Body = noteBody,
                 TaskBlock = taskBlock ?? string.Empty,

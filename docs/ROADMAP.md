@@ -231,6 +231,23 @@ Outlook class is cut down:
     Email tab, `SettingsHelp`) compiled under Mono only. Needs Windows: open Settings, change each
     of the three settings, save, reopen, and sling an email to see the filename and properties.
 
+## Bug hunt, 2026-11-21 (`refactor/thread-core-and-fixes`)
+
+Looked at in SlingMD.Core: file-name sanitising, front-matter escaping, unicode and long subjects,
+date and time-zone handling. Each fix has a test that fails on the old code.
+
+- ~~**Culture-dependent dates.**~~ Fixed: bare `DateTime.ToString("yyyy-MM-dd")` (and `"HH:mm:ss"`,
+  `"_HHmm"`, `"yyyy-MM"`) used the current culture, so under th-TH (Thai Buddhist calendar) titles,
+  `{Date}`, appointment file names, task dates (Tasks plugin), attachment month folders and contact
+  birthdays got 2569, and fi-FI turned `:` into `.` in the copied-email timestamp. All now pass
+  `InvariantCulture`, as the front-matter dates and `GetThreadNoteName` already did.
+  `CultureInvariantDatesTests` (5, Linux), `TaskServiceClockTests.GenerateObsidianTask_ThaiCulture_*`
+  and `AppointmentProcessorExportTests.ProcessAppointment_ThaiCulture_*` (Mono) fail on the old code.
+  `EmailProcessor`'s file timestamp, `ContactService`'s birthday and `AttachmentService`'s month
+  folder got the same change without a test of their own (they need a `MailItem` or `ContactItem`).
+  Left alone: UI text (`ThreadCompletionDialog`, the batch summary, the Outlook task body), log file
+  names, and the diagnostics export file name.
+
 ## Correctness
 
 Done on `fix/folder-names-thread-ids` (2026-11-16); see `CHANGELOG.md`:

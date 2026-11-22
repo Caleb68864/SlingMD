@@ -155,6 +155,27 @@ namespace SlingMD.Tests.Services
         }
 
         [Fact]
+        public async Task ProcessAppointment_ThaiCulture_GregorianFileNames()
+        {
+            System.Globalization.CultureInfo original = System.Globalization.CultureInfo.CurrentCulture;
+            try
+            {
+                System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("th-TH");
+                Assert.Equal("2569", new DateTime(2026, 10, 5).ToString("yyyy"));
+                AppointmentProcessor processor = new AppointmentProcessor(_settings);
+
+                await processor.ProcessAppointment(Appointment("Retro", OlRecurrenceState.olApptOccurrence, "GID-export-thai").Object, bulkMode: true);
+
+                Assert.True(File.Exists(AppointmentsPath("Retro", "2026-10-05 - Retro.md")),
+                    string.Join(", ", Directory.GetFiles(AppointmentsPath(), "*", SearchOption.AllDirectories)));
+            }
+            finally
+            {
+                System.Globalization.CultureInfo.CurrentCulture = original;
+            }
+        }
+
+        [Fact]
         public async Task ProcessAppointment_SameGlobalIdTwice_SkipsTheSecond()
         {
             AppointmentProcessor processor = new AppointmentProcessor(_settings);
