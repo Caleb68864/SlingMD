@@ -16,6 +16,13 @@ namespace SlingMD.Tests.Services
     /// writes. The double has no organizer and no recipients: the processor releases those with
     /// <c>Marshal.ReleaseComObject</c>, which throws on a non-COM object. Organizer and attendee
     /// output is pinned by <c>AppointmentNoteEngineTests</c> instead.
+    /// <para>
+    /// Every member the processor reads must be set up (or otherwise referenced) here. SlingMD.Tests
+    /// embeds the Outlook interop types, and the embedded <c>_AppointmentItem</c> only carries the
+    /// members this assembly uses, so on .NET Framework a call to any other member of the Moq proxy
+    /// throws <see cref="MissingMethodException"/> (Mono does not). That is how
+    /// <c>GetRecurrencePattern()</c> failed the Windows CI run before the processor stopped calling it.
+    /// </para>
     /// </summary>
     public class AppointmentProcessorExportTests : IDisposable
     {
@@ -69,6 +76,9 @@ namespace SlingMD.Tests.Services
             appointment.Setup(a => a.GlobalAppointmentID).Returns(globalId);
             appointment.Setup(a => a.GetOrganizer()).Returns((AddressEntry)null);
             appointment.Setup(a => a.Recipients).Returns((Recipients)null);
+            // No parent folder: the calendar name is empty, without relying on GetCalendarName's
+            // catch of the MissingMethodException described above.
+            appointment.Setup(a => a.Parent).Returns((object)null);
             return appointment;
         }
 

@@ -139,6 +139,12 @@ VSTest) drive `ProcessAppointment` end to end in bulk mode with a Moq `Appointme
 exact note and meeting-note files; they passed on the old code and pass on the new. The double has
 no organizer or recipients, because the reader releases those with `Marshal.ReleaseComObject`,
 which throws on a non-COM object.
+Windows CI on PR #26 (`979fc52`) failed
+`ProcessAppointment_RecurringOccurrence_WritesIntoSeriesFolder` with `MissingMethodException` for
+`_AppointmentItem.GetRecurrencePattern()`: the test assembly's embedded interop type lacked that
+member, so the Moq proxy did not implement it (Mono tolerated it). `b5f1d9c` removed the call; the
+test double now also sets up `Parent`, so every member the processor reads is referenced. Not yet
+re-run on Windows.
 Left for AppointmentProcessor:
   - ~~The companion meeting note and recurring-folder summary are still built in the processor.~~
     Done on `refactor/thread-core-and-fixes`: `AppointmentNoteEngine.BuildMeetingNoteContent`,
@@ -177,7 +183,7 @@ Outlook class is cut down:
    `GetConversationId` and its PropertyAccessor reads moved unchanged to `ConversationIdReader`
    (Outlook); `ThreadServiceConversationIdTests` now construct that (call sites only).
    `ThreadServiceTests` (whole file) is linked into SlingMD.Core.Tests, and
-   `ThreadServiceEmailDataTests` (11) pin the names and summary note: their expected values were
+   `ThreadServiceEmailDataTests` (12) pin the names and summary note: their expected values were
    taken from the old `MailItem` methods under Mono with Moq doubles of the same input.
    Found while doing it (fixed in a later commit): an email whose conversation topic is empty
    (not null) gets an empty summary title, because `UpdateThreadNote` uses `??` while the folder
